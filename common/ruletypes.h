@@ -166,6 +166,7 @@ RULE_BOOL(Character, ProcessFearedProximity, false, "Processes proximity checks 
 RULE_INT(Character, PVPRespawnManaPercent, 100, "How much mana to respawn with")
 RULE_BOOL(Character, PVPIsAutoAttackAlwaysLoS, false, "When set to true, auto attack in pvp always has line of sight")
 RULE_BOOL(Character, PVPFacingInMeleeRequired, true, "When set to false, pvp melee can attack 360 degrees instead of just front")
+RULE_BOOL(Character, PVPCanLootCoin, false, "Can players loot coin from player corpses?")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Mercs)
