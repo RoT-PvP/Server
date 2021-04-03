@@ -387,6 +387,12 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 		counter_dodge = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 4);
 	}
 
+
+	if (defender->CastToClient()->IsSitting()) {
+		return false;
+	}
+
+
 	// riposte -- it may seem crazy, but if the attacker has SPA 173 on them, they are immune to Ripo
 	bool ImmuneRipo = attacker->aabonuses.RiposteChance || attacker->spellbonuses.RiposteChance || attacker->itembonuses.RiposteChance || attacker->IsEnraged();
 	// Need to check if we have something in MainHand to actually attack with (or fists)
@@ -483,6 +489,7 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 	if (CanThisClassDodge() && (InFront || GetClass() == MONK)) {
 		if (IsClient())
 			CastToClient()->CheckIncreaseSkill(EQ::skills::SkillDodge, other, -10);
+		
 		// check auto discs ... I guess aa/items too :P
 		if (spellbonuses.DodgeChance == 10000 || aabonuses.DodgeChance == 10000 || itembonuses.DodgeChance == 10000) {
 			hit.damage_done = DMG_DODGED;
