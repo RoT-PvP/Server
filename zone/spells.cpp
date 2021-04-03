@@ -4980,6 +4980,13 @@ void Mob::Stun(int duration)
 			InterruptSpell();
 	}
 
+	//Checks if a bard song is active then kills.
+	if (bardsong != 0) {
+		int persistent_casting = spellbonuses.PersistantCasting + itembonuses.PersistantCasting + aabonuses.PersistantCasting;
+		if(zone->random.Int(0,99) > persistent_casting)
+			InterruptSpell(SONG_ENDS_ABRUPTLY, 0x121, bardsong);
+	}
+
 	if(duration > 0)
 	{
 		stunned = true;
@@ -5035,12 +5042,10 @@ void Mob::Mesmerize()
 
 	if (casting_spell_id)
 		InterruptSpell();
-	if (HasActiveSong()) {
-		_StopSong();
-		if (IsClient()) {
-			MessageString(Chat::Red, SONG_ENDS_ABRUPTLY);
-			SendSpellBarEnable(casting_spell_id);
-		}
+
+	if (bardsong != 0 && (IsStunned() || IsMezzed())) {
+	//Checks if a bard song is active then kills it if stunned.
+		InterruptSpell(SONG_ENDS_ABRUPTLY, 0x121, bardsong);
 	}
 
 	
