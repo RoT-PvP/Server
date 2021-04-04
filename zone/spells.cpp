@@ -206,6 +206,14 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		}
 	}
 
+	//you cannot kill yourself with a manastone any longer
+	if(spell_id == 940) {
+		if(GetHP() < 61) {
+			InterruptSpell(spell_id);
+			return(false);
+		}
+	}
+
 	if(IsDetrimentalSpell(spell_id) && !zone->CanDoCombat()){
 		MessageString(Chat::Red, SPELL_WOULDNT_HOLD);
 		if(IsClient())
@@ -2653,6 +2661,12 @@ bool Mob::ApplyNextBardPulse(uint16 spell_id, Mob *spell_target, CastingSlot slo
 }
 
 void Mob::BardPulse(uint16 spell_id, Mob *caster) {
+	// so for Solon's Song of the Sirens (725) if we're repulsing, we need to skip
+	// other charms have mana and don't repulse
+	// This is probably not the ideal place for this, but it will work
+	if (IsCharmed() && GetOwner() == caster && IsEffectInSpell(spell_id, SE_Charm)) {
+		return;
+	}
 	int buffs_i;
 	int buff_count = GetMaxTotalSlots();
 	for (buffs_i = 0; buffs_i < buff_count; buffs_i++) {
