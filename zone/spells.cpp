@@ -4649,28 +4649,6 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		}
 	}
 
-	if (IsNPC() && GetLevel() >= caster->GetLevel())
-	{
-		int leveldifference;
-		leveldifference = GetLevel() - caster->GetLevel();
-		int diff_cap;
-		diff_cap = 67;
-		if (leveldifference >= 0)
-		{
-			int resistrate = 10 * (leveldifference + 1);
-			int resistroll = zone->random.Real(1,100);
-			if (resistrate > diff_cap)
-			{
-				resistrate = diff_cap;
-			}
-			if	(resistroll <= resistrate)
-			{
-			return 0;
-			}
-		}
-
-	}
-
 	if (CharismaCheck)
 	{
 		/*
@@ -4753,6 +4731,29 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 
 	//Finally our roll
 	int roll = zone->random.Int(0, 200);
+
+	if (IsNPC() && GetLevel() >= caster->GetLevel())
+	{
+		int leveldifference = GetLevel() - caster->GetLevel();
+		int diff_cap = 100;
+		int resistrate;
+		if (leveldifference >= 0)
+		{
+			resistrate = 25 * (leveldifference + 1);
+			if (resistrate > diff_cap )
+			{
+				resistrate = diff_cap;
+			}
+			if (IsDamageSpell(spell_id)) {
+				resistrate * 2;
+			}
+
+			resist_chance = resist_chance + resistrate;
+		}
+
+	}
+
+
 	if(roll > resist_chance)
 	{
 		return 100;
