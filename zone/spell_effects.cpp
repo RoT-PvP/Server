@@ -1059,6 +1059,27 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 #ifdef SPELL_EFFECT_SPAM
 				snprintf(effect_desc, _EDLEN, "Cancel Magic: %d", effect_value);
 #endif
+				if (caster) {
+					if (effect_value > 0) {
+						if (caster) {
+							if (caster->IsClient() && !caster->CastToClient()->GetFeigned()) {
+								AddToHateList(caster, effect_value);
+							}
+							else if (!caster->IsClient())
+								AddToHateList(caster, effect_value);
+						}
+					}
+					else {
+						int32 newhate = GetHateAmount(caster) + effect_value;
+						if (newhate < 1) {
+							SetHateAmountOnEnt(caster, 1);
+						}
+						else {
+							SetHateAmountOnEnt(caster, newhate);
+						}
+					}
+				}
+
 				if(GetSpecialAbility(UNDISPELLABLE)){
 					if (caster)
 						caster->MessageString(Chat::SpellFailure, SPELL_NO_EFFECT, spells[spell_id].name);
@@ -3668,7 +3689,7 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 			ROOT has a 70% chance to do a resist check to break.
 			*/
 
-			if (zone->random.Roll(RuleI(Spells, RootBreakCheckChance))) {
+			if (zone->random.Roll(RuleI(Spells, RootBreakCheckChance)) && (IsNPC() || (IsClient() && caster && caster->CastToMob()->IsNPC()))) {
 				float resist_check =
 				    ResistSpell(spells[buff.spellid].resisttype, buff.spellid, caster, 0, 0, 0, 0, true);
 
@@ -6285,33 +6306,33 @@ bool Mob::TryDispel(uint8 caster_level, uint8 buff_level, int level_modifier){
 
 	/*This should provide a somewhat accurate conversion between pre 5/14 base values and post.
 	until more information is avialble - Kayen*/
-	if (level_modifier >= 100)
-		level_modifier = level_modifier/100;
+	//if (level_modifier >= 100)
+		//level_modifier = level_modifier/100;
 
 	//Dispels - Check level of caster agianst buffs level (level of the caster who cast the buff)
 	//Effect value of dispels are treated as a level modifier.
 	//Values for scaling were obtain from live parses, best estimates.
 
-	caster_level += level_modifier - 1;
-	int dispel_chance = 32; //Baseline chance if no level difference and no modifier
-	int level_diff = caster_level - buff_level;
+	//caster_level += level_modifier - 1;
+	//int dispel_chance = 32; //Baseline chance if no level difference and no modifier
+	//int level_diff = caster_level - buff_level;
 
-	if (level_diff > 0)
-		dispel_chance += level_diff * 7;
+	//if (level_diff > 0)
+		//dispel_chance += level_diff * 7;
 
-	else if (level_diff < 0)
-		dispel_chance += level_diff * 2;
+	//else if (level_diff < 0)
+		//dispel_chance += level_diff * 2;
 
-	if (dispel_chance >= 100)
+	//if (dispel_chance >= 100)
+		//return true;
+
+	//else if (dispel_chance < 10)
+		//dispel_chance = 10;
+
+	//if (zone->random.Roll(dispel_chance))
 		return true;
-
-	else if (dispel_chance < 10)
-		dispel_chance = 10;
-
-	if (zone->random.Roll(dispel_chance))
-		return true;
-	else
-		return false;
+	//else
+		//return false;
 }
 
 
