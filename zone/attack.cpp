@@ -1580,12 +1580,12 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	//Don't do PvP mitigation if the caster is damaging himself
 	//should this be applied to all damage? comments sound like some is for spell DMG
 	//patch notes on PVP reductions only mention archery/throwing ... not normal dmg
-	if (other && other->IsClient() && (other != this) && damage > 0) {
+	if (other && other->IsClient() && (other != this) && damage > 0 && !iBuffTic) {
 		int PvPMitigation = RuleI(World, PVPMeleeMitigation);
  		if (attack_skill == EQ::skills::SkillAbjuration ||  //spells
  			attack_skill == EQ::skills::SkillAlteration ||
- 			attack_skill == EQ::skills::SkillConjuration || 
  			attack_skill == EQ::skills::SkillDivination ||
+			attack_skill == EQ::skills::SkillConjuration ||
  			attack_skill == EQ::skills::SkillEvocation) PvPMitigation = RuleI(World, PVPSpellMitigation);
  		if (attack_skill == EQ::skills::SkillArchery ||  //ranged
  			attack_skill == EQ::skills::SkillThrowing) PvPMitigation = RuleI(World, PVPRangedMitigation);
@@ -1595,6 +1595,11 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 
 	if (!ClientFinishedLoading())
 		damage = -5;
+	
+	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted()) { //If the target is moving dots only do partial damage
+		damage = (damage * .66);
+	}
+	
 
 #ifdef LUA_EQEMU
 	bool ignoreDefault = false;
@@ -1616,6 +1621,13 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 
 		if (spell_id == SPELL_UNKNOWN)
 			CheckIncreaseSkill(EQ::skills::SkillDefense, other, -15);
+	}
+	if (other && other->IsClient() && (other != this) && damage > 0 && spell_id == SPELL_UNKNOWN) {
+		int breakchance = damage * .2;
+		int breakroll = zone->random.Real(0, 100);
+		if (breakchance >= breakroll) {
+			BuffFadeByEffect(SE_Root);
+		}
 	}
 }
 
@@ -2242,6 +2254,10 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 void NPC::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable, int8 buffslot, bool iBuffTic, eSpecialAttacks special) {
 	if (spell_id == 0)
 		spell_id = SPELL_UNKNOWN;
+
+	if (other != nullptr && iBuffTic && IsMoving() && !IsRooted()) { //If the target is moving dots only do partial damage
+		damage = (damage * .66);
+	}
 
 	//handle EVENT_ATTACK. Resets after we have not been attacked for 12 seconds
 	if (attacked_timer.Check())
@@ -3700,16 +3716,11 @@ void Mob::CommonDamage(Mob* attacker, int &damage, const uint16 spell_id, const 
 		//fade mez if we are mezzed
 		if (IsMezzed() && attacker) {
 			LogCombat("Breaking mez due to attack");
-			entity_list.MessageCloseString(
 				this, /* Sender */
 				true,  /* Skip Sender */
 				RuleI(Range, SpellMessages),
 				Chat::SpellWornOff, /* 284 */
-				HAS_BEEN_AWAKENED, // %1 has been awakened by %2.
-				GetCleanName(), /* Message1 */
-				attacker->GetCleanName() /* Message2 */
-			);
-			BuffFadeByEffect(SE_Mez);
+				BuffFadeByEffect(SE_Mez);
 		}
 
 		// broken up for readability
