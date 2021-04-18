@@ -1057,23 +1057,11 @@ XS(XS_Client_SetBindPoint) {
 		Perl_croak(aTHX_ "Usage: Client::SetBindPoint(THIS, int to_zone = -1, int to_instance = 0, float new_x = 0.0f, float new_y = 0.0f, float new_z = 0.0f)");
 	{
 		Client *THIS;
-		int   to_zone;
-		int   to_instance;
-		float new_x;
-		float new_y;
-		float new_z;
-
-		if (sv_derived_from(ST(0), "Client")) {
-			IV tmp = SvIV((SV *) SvRV(ST(0)));
-			THIS = INT2PTR(Client *, tmp);
-		} else
-			Perl_croak(aTHX_ "THIS is not of type Client");
-		if (THIS == nullptr)
-			Perl_croak(aTHX_ "THIS is nullptr, avoiding crash.");
-
-		if (items < 2)
-			to_zone = -1;
-		else {
+		int   to_zone = -1;
+		int   to_instance = 0;
+		float new_x = 0.0f, new_y = 0.0f, new_z = 0.0f, new_heading = 0.0f;
+		VALIDATE_THIS_IS_CLIENT;
+		if (items > 1)
 			to_zone = (int) SvIV(ST(1));
 		}
 
