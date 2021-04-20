@@ -1087,17 +1087,18 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 				}
 
 				int buff_count = GetMaxTotalSlots();
-				for(int slot = 0; slot < buff_count; slot++) {
-					if(	buffs[slot].spellid != SPELL_UNKNOWN &&
-						spells[buffs[slot].spellid].dispel_flag == 0 &&
-						!IsDiscipline(buffs[slot].spellid))
-					{
-						if (caster && TryDispel(caster->GetLevel(),buffs[slot].casterlevel, effect_value)){
-							BuffFadeBySlot(slot);
-							slot = buff_count;
+					for (int slot = 0; slot < buff_count; slot++) {
+						if (buffs[slot].spellid != SPELL_UNKNOWN &&
+							spells[buffs[slot].spellid].dispel_flag == 0 &&
+							!IsDiscipline(buffs[slot].spellid))
+						{
+							if (caster && TryDispel(caster->GetLevel(), buffs[slot].casterlevel, effect_value)) {
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							}
 						}
 					}
-				}
+
 				break;
 			}
 
