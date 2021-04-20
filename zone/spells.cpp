@@ -2134,14 +2134,14 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 	}
 
 	// check line of sight to target if it's a detrimental spell
-	if(!spells[spell_id].npc_no_los && spell_target && IsDetrimentalSpell(spell_id) && !CheckLosFN(spell_target) && !IsHarmonySpell(spell_id) && spells[spell_id].targettype != ST_TargetOptional)
-	{
-		if (!zone->CanCastOutdoor()) {
-		LogSpells("Spell [{}]: cannot see target [{}]", spell_id, spell_target->GetName());
-			MessageString(Chat::Red, CANT_SEE_TARGET);
-		return false;
-	}
-	}
+	//if(!spells[spell_id].npc_no_los && spell_target && IsDetrimentalSpell(spell_id) && !CheckLosFN(spell_target) && !IsHarmonySpell(spell_id) && spells[spell_id].targettype != ST_TargetOptional)
+	//{
+	//	if (!zone->CanCastOutdoor()) {
+	//	LogSpells("Spell [{}]: cannot see target [{}]", spell_id, spell_target->GetName());
+		//	MessageString(Chat::Red, CANT_SEE_TARGET);
+	//	return false;
+	//}
+	//}
 
 	// check to see if target is a caster mob before performing a mana tap
 	if(spell_target && IsManaTapSpell(spell_id)) {
