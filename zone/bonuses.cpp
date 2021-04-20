@@ -1758,49 +1758,89 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_ACv2:
 			case SE_ArmorClass:
 			{
-				new_bonus->AC += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->AC += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->AC += effect_value;
+				}
 				break;
 			}
 
 			case SE_ATK:
 			{
-				new_bonus->ATK += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->ATK += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->ATK += effect_value;
+				}
 				break;
 			}
 
 			case SE_STR:
 			{
-				new_bonus->STR += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->STR += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->STR += effect_value;
+				}
 				break;
 			}
 
 			case SE_DEX:
 			{
-				new_bonus->DEX += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->DEX += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->DEX += effect_value;
+				}
 				break;
 			}
 
 			case SE_AGI:
 			{
-				new_bonus->AGI += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->AGI += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->AGI += effect_value;
+				}
 				break;
 			}
 
 			case SE_STA:
 			{
-				new_bonus->STA += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->STA += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->STA += effect_value;
+				}
 				break;
 			}
 
 			case SE_INT:
 			{
-				new_bonus->INT += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->INT += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->INT += effect_value;
+				}
 				break;
 			}
 
 			case SE_WIS:
 			{
-				new_bonus->WIS += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->WIS += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->WIS += effect_value;
+				}
 				break;
 			}
 
@@ -1826,31 +1866,55 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_ResistFire:
 			{
-				new_bonus->FR += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->FR += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->FR += effect_value;
+				}
 				break;
 			}
 
 			case SE_ResistCold:
 			{
-				new_bonus->CR += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->CR += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->CR += effect_value;
+				}
 				break;
 			}
 
 			case SE_ResistPoison:
 			{
-				new_bonus->PR += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->PR += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->PR += effect_value;
+				}
 				break;
 			}
 
 			case SE_ResistDisease:
 			{
-				new_bonus->DR += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->DR += (effect_value * 1.5);
+				}
+				else {
+					new_bonus->DR += effect_value;
+				}
 				break;
 			}
 
 			case SE_ResistMagic:
 			{
-				new_bonus->MR += effect_value;
+				if (effect_value < 0 && IsClient()) {
+					new_bonus->MR += (effect_value * 1.5);
+				} else {
+					new_bonus->MR += effect_value;
+				}
 				break;
 			}
 
