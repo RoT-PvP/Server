@@ -1002,8 +1002,12 @@ int Mob::GetWeaponDamage(Mob *against, const EQ::ItemData *weapon_item) {
 				//they don't have a dmg but we should be able to hit magical
 				dmg = dmg <= 0 ? 1 : dmg;
 			}
-			else
+			else if (GetLevel() < 11 || !weapon_item->Damage == 0){
 				return 0;
+			}
+			else {
+				dmg = 1;
+			}
 		}
 		else {
 			if ((GetClass() == MONK || GetClass() == BEASTLORD) && GetLevel() >= 30) {
@@ -1596,7 +1600,7 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	if (!ClientFinishedLoading())
 		damage = -5;
 	
-	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted()) { //If the target is moving dots only do partial damage
+	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted() && !IsFeared() && !IsRunning()) { //If the target is moving dots only do partial damage
 		damage = (damage * .66);
 	}
 	
@@ -2255,7 +2259,7 @@ void NPC::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillTyp
 	if (spell_id == 0)
 		spell_id = SPELL_UNKNOWN;
 
-	if (other != nullptr && iBuffTic && IsMoving() && !IsRooted()) { //If the target is moving dots only do partial damage
+	if (other != nullptr && iBuffTic && IsMoving() && !IsRooted() && !IsFeared() && !IsRunning()) { //If the target is moving dots only do partial damage
 		damage = (damage * .66);
 	}
 
