@@ -1783,10 +1783,17 @@ void QuestManager::ding() {
 
 }
 
-void QuestManager::rebind(int zoneid, const glm::vec3& location) {
+void QuestManager::rebind(int zone_id, const glm::vec3& location) {
 	QuestManagerCurrentQuestVars();
 	if(initiator && initiator->IsClient()) {
-		initiator->SetBindPoint(0, zoneid, 0, location);
+		initiator->SetBindPoint(0, zone_id, 0, location);
+	}
+}
+
+void QuestManager::rebind(int zone_id, const glm::vec4& location) {
+	QuestManagerCurrentQuestVars();
+	if(initiator && initiator->IsClient()) {
+		initiator->SetBindPoint2(0, zone_id, 0, location);
 	}
 }
 
@@ -4326,4 +4333,40 @@ void QuestManager::UpdateZoneHeader(std::string type, std::string value) {
 	memcpy(outapp->pBuffer, &zone->newzone_data, outapp->size);
 	entity_list.QueueClients(0, outapp);
 	safe_delete(outapp);
+}
+
+EQ::ItemInstance *QuestManager::CreateItem(uint32 item_id, int16 charges, uint32 augment_one, uint32 augment_two, uint32 augment_three, uint32 augment_four, uint32 augment_five, uint32 augment_six, bool attuned) const {
+	if (database.GetItem(item_id)) {
+		return database.CreateItem(item_id, charges, augment_one, augment_two, augment_three, augment_four, augment_five, augment_six, attuned);
+	}
+	return nullptr;
+}
+
+std::string QuestManager::secondstotime(int duration) {
+	int timer_length = duration;
+	int hours = int(timer_length / 3600);
+	timer_length %= 3600;
+	int minutes = int(timer_length / 60);
+	timer_length %= 60;
+	int seconds = timer_length;
+	std::string time_string = "Unknown";
+	std::string hour_string = (hours == 1 ? "Hour" : "Hours");
+	std::string minute_string = (minutes == 1 ? "Minute" : "Minutes");
+	std::string second_string = (seconds == 1 ? "Second" : "Seconds");
+	if (hours > 0 && minutes > 0 && seconds > 0) {
+		time_string = fmt::format("{} {}, {} {}, and {} {}", hours, hour_string, minutes, minute_string, seconds, second_string);
+	} else if (hours > 0 && minutes > 0 && seconds == 0) {
+		time_string = fmt::format("{} {} and {} {}", hours, hour_string, minutes, minute_string);
+	} else if (hours > 0 && minutes == 0 && seconds > 0) {
+		time_string = fmt::format("{} {} and {} {}", hours, hour_string, seconds, second_string);
+	} else if (hours > 0 && minutes == 0 && seconds == 0) {
+		time_string = fmt::format("{} {}", hours, hour_string);
+	} else if (hours == 0 && minutes > 0 && seconds > 0) {
+		time_string = fmt::format("{} {} and {} {}", minutes, minute_string, seconds, second_string);
+	} else if (hours == 0 && minutes > 0 && seconds == 0) {
+		time_string = fmt::format("{} {}", minutes, minute_string);
+	} else if (hours == 0 && minutes == 0 && seconds > 0) {
+		time_string = fmt::format("{} {}", seconds, second_string);
+	}
+	return time_string;
 }
