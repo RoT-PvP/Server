@@ -322,7 +322,7 @@ namespace DatabaseSchema {
 			"reports",
 			"respawn_times",
 			"saylink",
-
+			"server_scheduled_events",
 		};
 	}
 

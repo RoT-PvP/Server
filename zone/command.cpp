@@ -57,6 +57,7 @@
 #include "../common/eqemu_logsys.h"
 #include "../common/profanity_manager.h"
 #include "../common/net/eqstream.h"
+#include "../common/repositories/dynamic_zones_repository.h"
 
 #include "data_bucket.h"
 #include "command.h"
@@ -77,7 +78,7 @@
 
 extern QueryServ* QServ;
 extern WorldServer worldserver;
-extern TaskManager *taskmanager;
+extern TaskManager *task_manager;
 extern FastMath g_Math;
 void CatchSignal(int sig_num);
 
@@ -1804,7 +1805,7 @@ void command_list(Client *c, const Seperator *sep)
 	else {
 		c->Message(Chat::White, "Usage of #list");
 		c->Message(Chat::White, "- #list [npcs|players|corpses|doors|objects] [search]");
-		c->Message(Chat::White, "- Example: #list npc (Blank for all)");
+		c->Message(Chat::White, "- Example: #list npcs (Blank for all)");
 	}
 }
 
@@ -2642,9 +2643,7 @@ void command_flymode(Client *c, const Seperator *sep)
 {
 	Mob *t = c;
 
-	if (strlen(sep->arg[1]) == 1 && !(sep->arg[1][0] == '0' || sep->arg[1][0] == '1' || sep->arg[1][0] == '2' || sep->arg[1][0] == '3' || sep->arg[1][0] == '4' || sep->arg[1][0] == '5'))
-		c->Message(Chat::White, "#flymode [0/1/2/3/4/5]");
-	else {
+	if (strlen(sep->arg[1]) == 1 && sep->IsNumber(1) && atoi(sep->arg[1]) >= 0 && atoi(sep->arg[1]) <= 5) {
 		if (c->GetTarget()) {
 			t = c->GetTarget();
 		}
@@ -2671,8 +2670,11 @@ void command_flymode(Client *c, const Seperator *sep)
 		else if (sep->arg[1][0] == '5') {
 			c->Message(Chat::White, "Setting %s to Levitating While Running", t->GetName());
 		}
+	} else {
+		c->Message(Chat::White, "#flymode [0/1/2/3/4/5]");
 	}
 }
+
 
 void command_showskills(Client *c, const Seperator *sep)
 {
@@ -6899,20 +6901,20 @@ void command_dz(Client* c, const Seperator* sep)
 				auto leader_saylink = EQ::SayLinkEngine::GenerateQuestSaylink(fmt::format(
 					"#goto {}", expedition->GetLeaderName()), false, expedition->GetLeaderName());
 				auto zone_saylink = EQ::SayLinkEngine::GenerateQuestSaylink(fmt::format(
-					"#zoneinstance {}", expedition->GetInstanceID()), false, "zone");
+					"#zoneinstance {}", expedition->GetDynamicZone().GetInstanceID()), false, "zone");
 
 				auto seconds = expedition->GetDynamicZone().GetSecondsRemaining();
 
 				c->Message(Chat::White, fmt::format(
 					"expedition id: [{}] dz id: [{}] name: [{}] leader: [{}] {}: [{}]:[{}]:[{}]:[{}] members: [{}] remaining: [{:02}:{:02}:{:02}]",
 					expedition->GetID(),
-					expedition->GetDynamicZoneID(),
+					expedition->GetDynamicZone().GetID(),
 					expedition->GetName(),
 					leader_saylink,
 					zone_saylink,
 					ZoneName(expedition->GetDynamicZone().GetZoneID()),
 					expedition->GetDynamicZone().GetZoneID(),
-					expedition->GetInstanceID(),
+					expedition->GetDynamicZone().GetInstanceID(),
 					expedition->GetDynamicZone().GetZoneVersion(),
 					expedition->GetMemberCount(),
 					seconds / 3600,      // hours
@@ -6960,58 +6962,36 @@ void command_dz(Client* c, const Seperator* sep)
 	}
 	else if (strcasecmp(sep->arg[1], "list") == 0)
 	{
-		std::string query = SQL(
-			SELECT
-				dynamic_zones.id,
-				dynamic_zones.type,
-				instance_list.id,
-				instance_list.zone,
-				instance_list.version,
-				instance_list.start_time,
-				instance_list.duration,
-				COUNT(instance_list_player.id) member_count
-			FROM dynamic_zones
-				INNER JOIN instance_list ON dynamic_zones.instance_id = instance_list.id
-				LEFT JOIN instance_list_player ON instance_list.id = instance_list_player.id
-			GROUP BY instance_list.id
-			ORDER BY dynamic_zones.id;
-		);
+		auto dz_list = DynamicZonesRepository::AllDzInstancePlayerCounts(database);
+		c->Message(Chat::White, fmt::format("Total Dynamic Zones: [{}]", dz_list.size()).c_str());
 
-		auto results = database.QueryDatabase(query);
-		if (results.Success())
+		auto now = std::chrono::system_clock::now();
+
+		for (const auto& dz : dz_list)
 		{
-			c->Message(Chat::White, fmt::format("Total Dynamic Zones: [{}]", results.RowCount()).c_str());
-			for (auto row = results.begin(); row != results.end(); ++row)
+			auto expire_time = std::chrono::system_clock::from_time_t(dz.start_time + dz.duration);
+			auto remaining = std::chrono::duration_cast<std::chrono::seconds>(expire_time - now);
+			auto seconds = std::max(0, static_cast<int>(remaining.count()));
+			bool is_expired = now > expire_time;
+
+			if (!is_expired || strcasecmp(sep->arg[2], "all") == 0)
 			{
-				auto start_time  = strtoul(row[5], nullptr, 10);
-				auto duration    = strtoul(row[6], nullptr, 10);
-				auto expire_time = std::chrono::system_clock::from_time_t(start_time + duration);
+				auto zone_saylink = is_expired ? "zone" : EQ::SayLinkEngine::GenerateQuestSaylink(
+					fmt::format("#zoneinstance {}", dz.instance), false, "zone");
 
-				auto now = std::chrono::system_clock::now();
-				auto remaining = std::chrono::duration_cast<std::chrono::seconds>(expire_time - now);
-				auto seconds = std::max(0, static_cast<int>(remaining.count()));
-
-				bool is_expired = now > expire_time;
-				if (!is_expired || strcasecmp(sep->arg[2], "all") == 0)
-				{
-					uint32_t instance_id = strtoul(row[2], nullptr, 10);
-					auto zone_saylink = is_expired ? "zone" : EQ::SayLinkEngine::GenerateQuestSaylink(
-						fmt::format("#zoneinstance {}", instance_id), false, "zone");
-
-					c->Message(Chat::White, fmt::format(
-						"dz id: [{}] type: [{}] {}: [{}]:[{}]:[{}] members: [{}] remaining: [{:02}:{:02}:{:02}]",
-						strtoul(row[0], nullptr, 10), // dynamic_zone_id
-						strtoul(row[1], nullptr, 10), // dynamic_zone_type
-						zone_saylink,
-						strtoul(row[3], nullptr, 10), // instance_zone_id
-						instance_id,                  // instance_id
-						strtoul(row[4], nullptr, 10), // instance_zone_version
-						strtoul(row[7], nullptr, 10), // instance member_count
-						seconds / 3600,      // hours
-						(seconds / 60) % 60, // minutes
-						seconds % 60         // seconds
-					).c_str());
-				}
+				c->Message(Chat::White, fmt::format(
+					"dz id: [{}] type: [{}] {}: [{}]:[{}]:[{}] members: [{}] remaining: [{:02}:{:02}:{:02}]",
+					dz.id,
+					dz.type,
+					zone_saylink,
+					dz.zone,
+					dz.instance,
+					dz.version,
+					dz.player_count,
+					seconds / 3600,      // hours
+					(seconds / 60) % 60, // minutes
+					seconds % 60         // seconds
+				).c_str());
 			}
 		}
 	}
@@ -8799,6 +8779,8 @@ void command_npcedit(Client *c, const Seperator *sep)
 		c->Message(Chat::White, "#npcedit version - Set an NPC's version");
 		c->Message(Chat::White, "#npcedit slow_mitigation - Set an NPC's slow mitigation");
 		c->Message(Chat::White, "#npcedit flymode - Set an NPC's flymode [0 = ground, 1 = flying, 2 = levitate, 3 = water, 4 = floating]");
+		c->Message(Chat::White, "#npcedit raidtarget - Set an NPCs raid_target field");
+		c->Message(Chat::White, "#npcedit respawntime - Set an NPCs respawn timer in seconds");
 
 	}
 
@@ -9395,6 +9377,24 @@ void command_npcedit(Client *c, const Seperator *sep)
 		std::string query = StringFormat("UPDATE npc_types SET slow_mitigation = %i WHERE id = %i",  atoi(sep->argplus[2]), npcTypeID);
 		content_db.QueryDatabase(query);
 		return;
+	}
+
+	if (strcasecmp(sep->arg[1], "raidtarget") == 0) {
+		if (sep->arg[2][0] && sep->IsNumber(sep->arg[2]) && atoi(sep->arg[2]) >= 0) {
+			c->Message(Chat::Yellow, "NPCID %u is %s as a raid target.", npcTypeID, atoi(sep->arg[2]) == 0 ? "no longer designated" : "now designated");
+			std::string query = StringFormat("UPDATE npc_types SET raid_target = %i WHERE id = %i", atoi(sep->arg[2]), npcTypeID);
+			content_db.QueryDatabase(query);
+			return;
+		}
+	}
+
+	if (strcasecmp(sep->arg[1], "respawntime") == 0) {
+		if (sep->arg[2][0] && sep->IsNumber(sep->arg[2]) && atoi(sep->arg[2]) > 0) {
+			c->Message(Chat::Yellow, "NPCID %u (spawngroup %i) respawn time set to %i.", npcTypeID, c->GetTarget()->CastToNPC()->GetSpawnGroupId(), atoi(sep->arg[2]));
+			std::string query = StringFormat("UPDATE spawn2 SET respawntime = %i WHERE spawngroupID = %i AND version = %i", atoi(sep->arg[2]), c->GetTarget()->CastToNPC()->GetSpawnGroupId(), zone->GetInstanceVersion());
+			content_db.QueryDatabase(query);
+			return;
+		}
 	}
 
 	if((sep->arg[1][0] == 0 || strcasecmp(sep->arg[1],"*")==0) || ((c->GetTarget()==0) || (c->GetTarget()->IsClient())))
@@ -10150,76 +10150,135 @@ void command_rules(Client *c, const Seperator *sep) {
 void command_task(Client *c, const Seperator *sep) {
 	//super-command for managing tasks
 	if(sep->arg[1][0] == '\0' || !strcasecmp(sep->arg[1], "help")) {
-		c->Message(Chat::White, "Syntax: #task [subcommand].");
-		c->Message(Chat::White, "-- Task System Commands --");
-		c->Message(Chat::White, "...show - List active tasks for a client");
-		c->Message(Chat::White, "...update <TaskID> <ActivityID> [Count]");
-		c->Message(Chat::White, "...reloadall - Reload all Task information from the database");
-		c->Message(Chat::White, "...reload task <TaskID> - Reload Task and Activity informnation for a single task");
-		c->Message(Chat::White, "...reload lists - Reload goal/reward list information");
-		c->Message(Chat::White, "...reload prox - Reload proximity information");
-		c->Message(Chat::White, "...reload sets - Reload task set information");
+		c->Message(Chat::White, "Syntax: #task [subcommand]");
+		c->Message(Chat::White, "------------------------------------------------");
+		c->Message(Chat::White, "# Task System Commands");
+		c->Message(Chat::White, "------------------------------------------------");
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"--- [{}] List active tasks for a client",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task show", false, "show")
+			).c_str()
+		);
+		c->Message(Chat::White, "--- update <task_id> <activity_id> [count] | Updates task");
+		c->Message(Chat::White, "--- assign <task_id> | Assigns task to client");
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"--- [{}] Reload all Task information from the database",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task reloadall", false, "reloadall")
+			).c_str()
+		);
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"--- [{}] <task_id> Reload Task and Activity information for a single task",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task reload task", false, "reload task")
+			).c_str()
+		);
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"--- [{}] Reload goal/reward list information",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task reload lists", false, "reload lists")
+			).c_str()
+		);
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"--- [{}] Reload proximity information",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task reload prox", false, "reload prox")
+			).c_str()
+		);
+		c->Message(
+			Chat::White,
+			fmt::format(
+				"--- [{}] Reload task set information",
+				EQ::SayLinkEngine::GenerateQuestSaylink("#task reload sets", false, "reload sets")
+			).c_str()
+		);
 		return;
 	}
 
-	if(!strcasecmp(sep->arg[1], "show")) {
-		if(c->GetTarget() && c->GetTarget()->IsClient())
-			c->GetTarget()->CastToClient()->ShowClientTasks();
-		else
-			c->ShowClientTasks();
+	Client *client_target = c;
+	if (c->GetTarget() && c->GetTarget()->IsClient()) {
+		client_target = c->GetTarget()->CastToClient();
+	}
 
+	if (!strcasecmp(sep->arg[1], "show")) {
+		c->ShowClientTasks(client_target);
 		return;
 	}
 
-	if(!strcasecmp(sep->arg[1], "update")) {
-		if(sep->argnum>=3) {
-			int TaskID = atoi(sep->arg[2]);
-			int ActivityID = atoi(sep->arg[3]);
-			int Count=1;
+	if (!strcasecmp(sep->arg[1], "update")) {
+		if (sep->argnum >= 3) {
+			int task_id     = atoi(sep->arg[2]);
+			int activity_id = atoi(sep->arg[3]);
+			int count       = 1;
 
-			if(sep->argnum>=4) {
-				Count = atoi(sep->arg[4]);
-				if(Count <= 0)
-					Count = 1;
+			if (sep->argnum >= 4) {
+				count = atoi(sep->arg[4]);
+				if (count <= 0) {
+					count = 1;
+				}
 			}
-			c->Message(Chat::Yellow, "Updating Task %i, Activity %i, Count %i",  TaskID, ActivityID, Count);
-			c->UpdateTaskActivity(TaskID, ActivityID, Count);
+			c->Message(
+				Chat::Yellow,
+				"Updating Task [%i] Activity [%i] Count [%i] for client [%s]",
+				task_id,
+				activity_id,
+				count,
+				client_target->GetCleanName()
+			);
+			client_target->UpdateTaskActivity(task_id, activity_id, count);
+			c->ShowClientTasks(client_target);
 		}
 		return;
 	}
-	if(!strcasecmp(sep->arg[1], "reloadall")) {
+
+	if (!strcasecmp(sep->arg[1], "assign")) {
+		int task_id = atoi(sep->arg[2]);
+		if ((task_id > 0) && (task_id < MAXTASKS)) {
+			client_target->AssignTask(task_id, 0, false);
+			c->Message(Chat::Yellow, "Assigned task [%i] to [%s]", task_id, client_target->GetCleanName());
+		}
+		return;
+	}
+
+	if (!strcasecmp(sep->arg[1], "reloadall")) {
 		c->Message(Chat::Yellow, "Sending reloadtasks to world");
 		worldserver.SendReloadTasks(RELOADTASKS);
 		c->Message(Chat::Yellow, "Back again");
 		return;
 	}
 
-	if(!strcasecmp(sep->arg[1], "reload")) {
-		if(sep->arg[2][0] != '\0') {
-			if(!strcasecmp(sep->arg[2], "lists")) {
+	if (!strcasecmp(sep->arg[1], "reload")) {
+		if (sep->arg[2][0] != '\0') {
+			if (!strcasecmp(sep->arg[2], "lists")) {
 				c->Message(Chat::Yellow, "Sending reload lists to world");
 				worldserver.SendReloadTasks(RELOADTASKGOALLISTS);
-				c->Message(Chat::Yellow, "Back again");
+				c->Message(Chat::Yellow, "Reloaded");
 				return;
 			}
-			if(!strcasecmp(sep->arg[2], "prox")) {
+			if (!strcasecmp(sep->arg[2], "prox")) {
 				c->Message(Chat::Yellow, "Sending reload proximities to world");
 				worldserver.SendReloadTasks(RELOADTASKPROXIMITIES);
-				c->Message(Chat::Yellow, "Back again");
+				c->Message(Chat::Yellow, "Reloaded");
 				return;
 			}
-			if(!strcasecmp(sep->arg[2], "sets")) {
+			if (!strcasecmp(sep->arg[2], "sets")) {
 				c->Message(Chat::Yellow, "Sending reload task sets to world");
 				worldserver.SendReloadTasks(RELOADTASKSETS);
-				c->Message(Chat::Yellow, "Back again");
+				c->Message(Chat::Yellow, "Reloaded");
 				return;
 			}
-			if(!strcasecmp(sep->arg[2], "task") && (sep->arg[3][0] != '\0')) {
-				int TaskID = atoi(sep->arg[3]);
-				if((TaskID > 0) && (TaskID < MAXTASKS)) {
-					c->Message(Chat::Yellow, "Sending reload task %i to world", TaskID);
-					worldserver.SendReloadTasks(RELOADTASKS, TaskID);
-					c->Message(Chat::Yellow, "Back again");
+			if (!strcasecmp(sep->arg[2], "task") && (sep->arg[3][0] != '\0')) {
+				int task_id = atoi(sep->arg[3]);
+				if ((task_id > 0) && (task_id < MAXTASKS)) {
+					c->Message(Chat::Yellow, "Sending reload task %i to world", task_id);
+					worldserver.SendReloadTasks(RELOADTASKS, task_id);
+					c->Message(Chat::Yellow, "Reloaded");
 					return;
 				}
 			}
@@ -12474,7 +12533,7 @@ void command_max_all_skills(Client *c, const Seperator *sep)
 			}
 			else
 			{
-				int max_skill_level = database.GetSkillCap(c->GetClass(), (EQ::skills::SkillType)i, c->GetLevel());
+				int max_skill_level = content_db.GetSkillCap(c->GetClass(), (EQ::skills::SkillType)i, c->GetLevel());
 				c->SetSkill((EQ::skills::SkillType)i, max_skill_level);
 			}
 		}

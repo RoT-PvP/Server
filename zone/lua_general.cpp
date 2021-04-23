@@ -768,6 +768,14 @@ void lua_world_emote(int type, const char *str) {
 	quest_manager.we(type, str);
 }
 
+void lua_message(int color, const char *message) {
+	quest_manager.message(color, message);
+}
+
+void lua_whisper(const char *message) {
+	quest_manager.whisper(message);
+}
+
 int lua_get_level(int type) {
 	return quest_manager.getlevel(type);
 }
@@ -1600,6 +1608,10 @@ int lua_get_zone_id() {
 	return zone->GetZoneID();
 }
 
+int lua_get_zone_id_by_name(const char* zone_name) {
+	return ZoneID(zone_name);
+}
+
 const char *lua_get_zone_long_name() {
 	if(!zone)
 		return "";
@@ -1607,11 +1619,25 @@ const char *lua_get_zone_long_name() {
 	return zone->GetLongName();
 }
 
+const char *lua_get_zone_long_name_by_name(const char* zone_name) {
+	return ZoneLongName(
+		ZoneID(zone_name)
+	);
+}
+
+const char *lua_get_zone_long_name_by_id(uint32 zone_id) {
+	return ZoneLongName(zone_id);
+}
+
 const char *lua_get_zone_short_name() {
 	if(!zone)
 		return "";
 
 	return zone->GetShortName();
+}
+
+const char *lua_get_zone_short_name_by_id(uint32 zone_id) {
+	return ZoneName(zone_id);
 }
 
 int lua_get_zone_instance_id() {
@@ -2292,6 +2318,10 @@ void lua_remove_all_expedition_lockouts_by_char_id(uint32 char_id, std::string e
 	Expedition::RemoveLockoutsByCharacterID(char_id, expedition_name);
 }
 
+std::string lua_seconds_to_time(int duration) {
+	return quest_manager.secondstotime(duration);
+}
+
 #define LuaCreateNPCParse(name, c_type, default_value) do { \
 	cur = table[#name]; \
 	if(luabind::type(cur) != LUA_TNIL) { \
@@ -2599,6 +2629,8 @@ luabind::scope lua_register_general() {
 		luabind::def("clear_spawn_timers", &lua_clear_spawn_timers),
 		luabind::def("zone_emote", &lua_zone_emote),
 		luabind::def("world_emote", &lua_world_emote),
+		luabind::def("message", &lua_message),
+		luabind::def("whisper", &lua_whisper),
 		luabind::def("get_level", &lua_get_level),
 		luabind::def("create_ground_object", (void(*)(uint32,float,float,float,float))&lua_create_ground_object),
 		luabind::def("create_ground_object", (void(*)(uint32,float,float,float,float,uint32))&lua_create_ground_object),
@@ -2792,8 +2824,12 @@ luabind::scope lua_register_general() {
 		luabind::def("zone_group", &lua_zone_group),
 		luabind::def("zone_raid", &lua_zone_raid),
 		luabind::def("get_zone_id", &lua_get_zone_id),
+		luabind::def("get_zone_id_by_name", &lua_get_zone_id_by_name),
 		luabind::def("get_zone_long_name", &lua_get_zone_long_name),
+		luabind::def("get_zone_long_name_by_name", &lua_get_zone_long_name_by_name),
+		luabind::def("get_zone_long_name_by_id", &lua_get_zone_long_name_by_id),
 		luabind::def("get_zone_short_name", &lua_get_zone_short_name),
+		luabind::def("get_zone_short_name_by_id", &lua_get_zone_short_name_by_id),
 		luabind::def("get_zone_instance_id", &lua_get_zone_instance_id),
 		luabind::def("get_zone_instance_version", &lua_get_zone_instance_version),
 		luabind::def("get_zone_weather", &lua_get_zone_weather),
@@ -2826,6 +2862,7 @@ luabind::scope lua_register_general() {
 		luabind::def("debug", (void(*)(std::string))&lua_debug),
 		luabind::def("debug", (void(*)(std::string, int))&lua_debug),
 		luabind::def("log_combat", (void(*)(std::string))&lua_log_combat),
+		luabind::def("seconds_to_time", &lua_seconds_to_time),
 
 		/**
 		 * Expansions
@@ -3394,7 +3431,24 @@ luabind::scope lua_register_message_types() {
 	return luabind::class_<MessageTypes>("MT")
 		.enum_("constants")
 		[
+			luabind::value("White", Chat::White),
+			luabind::value("DimGray", Chat::DimGray),
+			luabind::value("Default", Chat::Default),
+			luabind::value("Green", Chat::Green),
+			luabind::value("BrightBlue", Chat::BrightBlue),
+			luabind::value("LightBlue", Chat::LightBlue),
+			luabind::value("Magenta", Chat::Magenta),
+			luabind::value("Gray", Chat::Gray),
+			luabind::value("LightGray", Chat::LightGray),
 			luabind::value("NPCQuestSay", Chat::NPCQuestSay),
+			luabind::value("DarkGray", Chat::DarkGray),
+			luabind::value("Red", Chat::Red),
+			luabind::value("Lime", Chat::Lime),
+			luabind::value("Yellow", Chat::Yellow),
+			luabind::value("Blue", Chat::Blue),
+			luabind::value("LightNavy", Chat::LightNavy),
+			luabind::value("Cyan", Chat::Cyan),
+			luabind::value("Black", Chat::Black),
 			luabind::value("Say", Chat::Say),
 			luabind::value("Tell", Chat::Tell),
 			luabind::value("Group", Chat::Group),

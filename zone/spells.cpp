@@ -1040,8 +1040,10 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 				// So long recast bard songs need special bard logic, although the effects don't repulse like other songs
 				// This is basically a hack to get that effect
 				// You can hold down the long recast spells, but you only get the effects once
+				// Songs with mana cost also do not repulse
+				// AAs that use SE_TemporaryPets or SE_Familiar also do not repulse
 				// TODO fuck bards.
-				if (spells[spell_id].recast_time == 0) {
+				if (spells[spell_id].recast_time == 0 && spells[spell_id].mana == 0 && !IsEffectInSpell(spell_id, SE_TemporaryPets) && !IsEffectInSpell(spell_id, SE_Familiar)) {
 					bardsong = spell_id;
 					bardsong_slot = slot;
 					//NOTE: theres a lot more target types than this to think about...
@@ -2393,8 +2395,6 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 		}
 	}
 
-	DoAnim(spells[spell_id].CastingAnim, 0, true, IsClient() ? FilterPCSpells : FilterNPCSpells);
-
 	// Set and send the nimbus effect if this spell has one
 	int NimbusEffect = GetNimbusEffect(spell_id);
 	if(NimbusEffect) {
@@ -2644,8 +2644,6 @@ bool Mob::ApplyNextBardPulse(uint16 spell_id, Mob *spell_target, CastingSlot slo
 		}
 	}
 
-	//do we need to do this???
-	DoAnim(spells[spell_id].CastingAnim, 0, true, IsClient() ? FilterPCSpells : FilterNPCSpells);
 	if(IsClient())
 		CastToClient()->CheckSongSkillIncrease(spell_id);
 
@@ -2653,6 +2651,12 @@ bool Mob::ApplyNextBardPulse(uint16 spell_id, Mob *spell_target, CastingSlot slo
 }
 
 void Mob::BardPulse(uint16 spell_id, Mob *caster) {
+	// so for Solon's Song of the Sirens (725) if we're repulsing, we need to skip
+	// other charms have mana and don't repulse
+	// This is probably not the ideal place for this, but it will work
+	if (IsCharmed() && GetOwner() == caster && IsEffectInSpell(spell_id, SE_Charm)) {
+		return;
+	}
 	int buffs_i;
 	int buff_count = GetMaxTotalSlots();
 	for (buffs_i = 0; buffs_i < buff_count; buffs_i++) {

@@ -21,70 +21,109 @@
 #include "expedition_state.h"
 #include "expedition.h"
 #include "expedition_database.h"
-#include "zonelist.h"
-#include "zoneserver.h"
+#include "worlddb.h"
 #include "../common/eqemu_logsys.h"
+#include "../common/repositories/expedition_members_repository.h"
 #include <algorithm>
-
-extern ZSList zoneserver_list;
 
 ExpeditionState expedition_state;
 
 Expedition* ExpeditionState::GetExpedition(uint32_t expedition_id)
 {
 	auto it = std::find_if(m_expeditions.begin(), m_expeditions.end(),
-		[&](const Expedition& expedition) { return expedition.GetID() == expedition_id; });
+		[&](const std::unique_ptr<Expedition>& expedition) {
+			return expedition->GetID() == expedition_id;
+		});
 
-	return (it != m_expeditions.end()) ? &(*it) : nullptr;
+	return (it != m_expeditions.end()) ? it->get() : nullptr;
 }
 
-void ExpeditionState::LoadActiveExpeditions()
+Expedition* ExpeditionState::GetExpeditionByDynamicZoneID(uint32_t dz_id)
 {
-	BenchTimer benchmark;
+	auto it = std::find_if(m_expeditions.begin(), m_expeditions.end(),
+		[&](const std::unique_ptr<Expedition>& expedition) {
+			return expedition->GetDynamicZone().GetID() == dz_id;
+		});
 
-	m_expeditions = ExpeditionDatabase::LoadExpeditions();
-
-	auto elapsed = benchmark.elapsed();
-	LogExpeditions("World caching [{}] expeditions took [{}s]", m_expeditions.size(), elapsed);
+	return (it != m_expeditions.end()) ? it->get() : nullptr;
 }
 
-void ExpeditionState::AddExpedition(uint32_t expedition_id)
+void ExpeditionState::CacheFromDatabase(uint32_t expedition_id)
 {
-	if (expedition_id == 0)
+	if (expedition_id == 0 || GetExpedition(expedition_id))
 	{
 		return;
 	}
 
-	auto expedition = ExpeditionDatabase::LoadExpedition(expedition_id);
+	auto expedition = ExpeditionsRepository::GetWithLeaderName(database, expedition_id);
+	CacheExpeditions({ std::move(expedition) });
+}
 
-	if (expedition.IsValid())
+void ExpeditionState::CacheAllFromDatabase()
+{
+	BenchTimer benchmark;
+
+	auto expeditions = ExpeditionsRepository::GetAllWithLeaderName(database);
+	m_expeditions.clear();
+	m_expeditions.reserve(expeditions.size());
+
+	CacheExpeditions(std::move(expeditions));
+
+	LogExpeditions("Caching [{}] expedition(s) took [{}s]", m_expeditions.size(), benchmark.elapsed());
+}
+
+void ExpeditionState::CacheExpeditions(
+	std::vector<ExpeditionsRepository::ExpeditionWithLeader>&& expedition_entries)
+{
+	// bulk load expedition dzs and members before caching
+	std::vector<uint32_t> expedition_ids;
+	std::vector<uint32_t> dynamic_zone_ids;
+	for (const auto& entry : expedition_entries)
 	{
-		auto existing_expedition = GetExpedition(expedition_id);
-		if (!existing_expedition)
+		expedition_ids.emplace_back(entry.id);
+		dynamic_zone_ids.emplace_back(entry.dynamic_zone_id);
+	}
+
+	auto dynamic_zones = DynamicZonesRepository::GetWithInstance(database, dynamic_zone_ids);
+	auto expedition_members = ExpeditionMembersRepository::GetWithNames(database, expedition_ids);
+
+	for (auto& entry : expedition_entries)
+	{
+		auto expedition = std::make_unique<Expedition>();
+		expedition->LoadRepositoryResult(std::move(entry));
+
+		auto dz_entry_iter = std::find_if(dynamic_zones.begin(), dynamic_zones.end(),
+			[&](const DynamicZonesRepository::DynamicZoneInstance& dz_entry) {
+				return dz_entry.id == entry.dynamic_zone_id;
+			});
+
+		if (dz_entry_iter != dynamic_zones.end())
 		{
-			m_expeditions.emplace_back(expedition);
+			expedition->SetDynamicZone(std::move(*dz_entry_iter));
 		}
+
+		for (auto& member : expedition_members)
+		{
+			if (member.expedition_id == expedition->GetID())
+			{
+				expedition->AddMemberFromRepositoryResult(std::move(member));
+			}
+		}
+
+		m_expeditions.emplace_back(std::move(expedition));
 	}
 }
 
-void ExpeditionState::RemoveExpedition(uint32_t expedition_id)
-{
-	m_expeditions.erase(std::remove_if(m_expeditions.begin(), m_expeditions.end(),
-		[&](const Expedition& expedition) {
-			return expedition.GetID() == expedition_id;
-		}
-	), m_expeditions.end());
-}
-
-void ExpeditionState::MemberChange(uint32_t expedition_id, uint32_t character_id, bool remove)
+void ExpeditionState::MemberChange(
+	uint32_t expedition_id, const ExpeditionMember& member, bool remove)
 {
 	auto expedition = GetExpedition(expedition_id);
 	if (expedition)
 	{
 		if (remove) {
-			expedition->RemoveMember(character_id);
+			expedition->RemoveMember(member.char_id);
 		} else {
-			expedition->AddMember(character_id);
+			expedition->AddInternalMember(member);
 		}
 	}
 }
@@ -94,16 +133,7 @@ void ExpeditionState::RemoveAllMembers(uint32_t expedition_id)
 	auto expedition = GetExpedition(expedition_id);
 	if (expedition)
 	{
-		expedition->RemoveAllMembers();
-	}
-}
-
-void ExpeditionState::SetSecondsRemaining(uint32_t expedition_id, uint32_t seconds_remaining)
-{
-	auto expedition = GetExpedition(expedition_id);
-	if (expedition)
-	{
-		expedition->UpdateDzSecondsRemaining(seconds_remaining);
+		expedition->ClearInternalMembers();
 	}
 }
 
@@ -118,35 +148,11 @@ void ExpeditionState::Process()
 
 	for (auto it = m_expeditions.begin(); it != m_expeditions.end();)
 	{
-		bool is_deleted = false;
-
-		if (it->IsEmpty() || it->IsExpired())
+		bool is_deleted = (*it)->Process();
+		if (is_deleted)
 		{
-			// don't delete expedition until its dz instance is empty. this prevents
-			// an exploit where all members leave expedition and complete an event
-			// before being kicked from removal timer. the lockout could never be
-			// applied because the zone expedition cache was already invalidated.
-			auto dz_zoneserver = zoneserver_list.FindByInstanceID(it->GetInstanceID());
-			if (!dz_zoneserver || dz_zoneserver->NumPlayers() == 0)
-			{
-				LogExpeditions("Expedition [{}] expired or empty, notifying zones and deleting", it->GetID());
-				expedition_ids.emplace_back(it->GetID());
-				it->SendZonesExpeditionDeleted();
-				is_deleted = true;
-			}
-
-			if (it->IsEmpty() && !it->IsPendingDelete() && RuleB(Expedition, EmptyDzShutdownEnabled))
-			{
-				it->UpdateDzSecondsRemaining(RuleI(Expedition, EmptyDzShutdownDelaySeconds));
-			}
-
-			it->SetPendingDelete(true);
+			expedition_ids.emplace_back((*it)->GetID());
 		}
-		else
-		{
-			it->CheckExpireWarning();
-		}
-
 		it = is_deleted ? m_expeditions.erase(it) : it + 1;
 	}
 

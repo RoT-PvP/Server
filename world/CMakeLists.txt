@@ -7,6 +7,7 @@ SET(world_sources
 	cliententry.cpp
 	clientlist.cpp
 	console.cpp
+	dynamic_zone.cpp
 	eql_config.cpp
 	eqemu_api_world_data_service.cpp
 	expedition.cpp
@@ -24,6 +25,7 @@ SET(world_sources
 	web_interface.cpp
 	web_interface_eqw.cpp
 	wguild_mgr.cpp
+	world_event_scheduler.cpp
 	world_config.cpp
 	world_console_connection.cpp
 	world_server_command_handler.cpp
@@ -41,6 +43,7 @@ SET(world_headers
 	cliententry.h
 	clientlist.h
 	console.h
+	dynamic_zone.h
 	eql_config.h
 	eqemu_api_world_data_service.h
 	expedition.h
@@ -63,6 +66,7 @@ SET(world_headers
 	world_tcp_connection.h
 	world_server_command_handler.h
 	worlddb.h
+	world_event_scheduler.h
 	world_store.h
 	zonelist.h
 	zoneserver.h

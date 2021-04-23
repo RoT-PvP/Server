@@ -38,16 +38,9 @@ namespace ExpeditionDatabase
 	uint32_t InsertExpedition(
 		const std::string& uuid, uint32_t instance_id, const std::string& expedition_name,
 		uint32_t leader_id, uint32_t min_players, uint32_t max_players);
-	std::string LoadExpeditionsSelectQuery();
-	MySQLRequestResult LoadExpedition(uint32_t expedition_id);
-	MySQLRequestResult LoadAllExpeditions();
-	MySQLRequestResult LoadMembersForCreateRequest(
-		const std::vector<std::string>& character_names, const std::string& expedition_name);
 	std::vector<ExpeditionLockoutTimer> LoadCharacterLockouts(uint32_t character_id);
 	std::vector<ExpeditionLockoutTimer> LoadCharacterLockouts(uint32_t character_id,
 		const std::string& expedition_name);
-	std::unordered_map<uint32_t, std::unordered_map<std::string, ExpeditionLockoutTimer>>
-		LoadMultipleExpeditionLockouts(const std::vector<uint32_t>& expedition_ids);
 	void DeleteAllMembers(uint32_t expedition_id);
 	void DeleteMember(uint32_t expedition_id, uint32_t character_id);
 	void DeleteAllCharacterLockouts(uint32_t character_id);
@@ -73,39 +66,6 @@ namespace ExpeditionDatabase
 	void UpdateReplayLockoutOnJoin(uint32_t expedition_id, bool add_on_join);
 	void AddLockoutDuration(const std::vector<ExpeditionMember>& members,
 		const ExpeditionLockoutTimer& lockout, int seconds);
-};
-
-namespace LoadExpeditionColumns
-{
-	enum eLoadExpeditionColumns
-	{
-		id = 0,
-		uuid,
-		dz_id,
-		expedition_name,
-		leader_id,
-		min_players,
-		max_players,
-		add_replay_on_join,
-		is_locked,
-		leader_name,
-		member_id,
-		member_name
-	};
-};
-
-namespace LoadMembersForCreateRequestColumns
-{
-	enum eLoadMembersForCreateRequestColumns
-	{
-		character_id = 0,
-		character_name,
-		character_expedition_id,
-		lockout_uuid,
-		lockout_expire_time,
-		lockout_duration,
-		lockout_event_name
-	};
 };
 
 #endif

@@ -104,6 +104,23 @@ XS(XS_EntityList_new) {
 	XSRETURN(1);
 }
 
+//Any creation of new inventory gets the curreny inventory
+XS(XS_Inventory_new);
+XS(XS_Inventory_new) {
+	dXSARGS;
+	if (items != 1)
+		Perl_croak(aTHX_ "Usage: quest::Inventory::new()");
+
+	EQ::InventoryProfile* RETVAL;
+
+	RETVAL = quest_manager.GetInventory();
+	ST(0) = sv_newmortal();
+	if (RETVAL)
+		sv_setref_pv(ST(0), "Inventory", (void *) RETVAL);
+
+	XSRETURN(1);
+}
+
 //Any creation of new quest items gets the current quest item
 XS(XS_QuestItem_new);
 XS(XS_QuestItem_new) {
@@ -879,6 +896,27 @@ XS(XS__getspellname) {
 	sv_setpv(TARG, spell_name.c_str());
 	XSprePUSH;
 	PUSHTARG;
+	XSRETURN(1);
+}
+
+XS(XS__get_spell_level);
+XS(XS__get_spell_level) {
+	dXSARGS;
+	if (items != 2)
+		Perl_croak(aTHX_ "Usage: quest::get_spell_level(uint16 spell_id, uint8 class_id)");
+
+	dXSTARG;
+	uint16 spell_id = (int)SvIV(ST(0));
+	uint8 class_id = (int)SvIV(ST(1));
+	uint8 spell_level = IsValidSpell(spell_id) ? GetSpellLevel(spell_id, class_id) : 0;
+	uint8 server_max_level = RuleI(Character, MaxLevel);
+
+	if (spell_level && spell_level > server_max_level)
+		spell_level = 0;
+
+	XSprePUSH;
+	PUSHu((UV)spell_level);
+
 	XSRETURN(1);
 }
 
@@ -2798,6 +2836,29 @@ XS(XS__we) {
 	XSRETURN_EMPTY;
 }
 
+XS(XS__message);
+XS(XS__message) {
+	dXSARGS;
+	if (items != 2)
+		Perl_croak(aTHX_ "Usage: quest::message(int color, string message)");
+
+	int color = (int) SvIV(ST(0));
+	char *message = (char *) SvPV_nolen(ST(1));
+	quest_manager.message(color, message);
+	XSRETURN_EMPTY;
+}
+
+XS(XS__whisper);
+XS(XS__whisper) {
+	dXSARGS;
+	if (items != 1)
+		Perl_croak(aTHX_ "Usage: quest::whisper(string message)");
+
+	char *message = (char *) SvPV_nolen(ST(0));
+	quest_manager.whisper(message);
+	XSRETURN_EMPTY;
+}
+
 XS(XS__getlevel);
 XS(XS__getlevel) {
 	dXSARGS;
@@ -2897,7 +2958,7 @@ XS(XS__ModifyNPCStat);
 XS(XS__ModifyNPCStat) {
 	dXSARGS;
 	if (items != 2)
-		Perl_croak(aTHX_ "Usage: quest::ModifyNPCStat(string key, string value)");
+		Perl_croak(aTHX_ "Usage: quest::modifynpcstat(string key, string value)");
 
 	quest_manager.ModifyNPCStat(SvPV_nolen(ST(0)), SvPV_nolen(ST(1)));
 
@@ -3760,6 +3821,36 @@ XS(XS__GetZoneLongName) {
 	std::string RETVAL = quest_manager.GetZoneLongName(zone);
 
 	sv_setpv(TARG, RETVAL.c_str());
+	XSprePUSH;
+	PUSHTARG;
+	XSRETURN(1);
+}
+
+XS(XS__GetZoneLongNameByID);
+XS(XS__GetZoneLongNameByID) {
+	dXSARGS;
+	if (items != 1)
+		Perl_croak(aTHX_ "Usage: quest::GetZoneLongNameByID(uint32 zone_id)");
+
+	dXSTARG;
+	uint32 zone_id = (uint32) SvUV(ST(0));
+	std::string zone_long_name = quest_manager.GetZoneLongNameByID(zone_id);
+	sv_setpv(TARG, zone_long_name.c_str());
+	XSprePUSH;
+	PUSHTARG;
+	XSRETURN(1);
+}
+
+XS(XS__GetZoneShortName);
+XS(XS__GetZoneShortName) {
+	dXSARGS;
+	if (items != 1)
+		Perl_croak(aTHX_ "Usage: quest::GetZoneShortName(uint32 zone_id)");
+
+	dXSTARG;
+	uint32 zone_id = (uint32) SvUV(ST(0));
+	std::string zone_short_name = quest_manager.GetZoneShortName(zone_id);
+	sv_setpv(TARG, zone_short_name.c_str());
 	XSprePUSH;
 	PUSHTARG;
 	XSRETURN(1);
@@ -6324,6 +6415,68 @@ XS(XS__remove_all_expedition_lockouts_by_char_id) {
 	XSRETURN_EMPTY;
 }
 
+XS(XS__createitem);
+XS(XS__createitem) {
+	dXSARGS;
+	if (items < 1 || items > 9) {
+		Perl_croak(aTHX_ "Usage: quest::createitem(uint32 item_id, [int16 charges = 0, uint32 augment_one = 0, uint32 augment_two = 0, uint32 augment_three = 0, uint32 augment_four = 0, uint32 augment_five = 0, uint32 augment_six = 0, bool attuned = false])");
+	}
+
+	EQ::ItemInstance* RETVAL = nullptr;
+	uint32 item_id = (uint32)SvUV(ST(0));
+	int16 charges = 0;
+	uint32 augment_one = 0;
+	uint32 augment_two = 0;
+	uint32 augment_three = 0;
+	uint32 augment_four = 0;
+	uint32 augment_five = 0;
+	uint32 augment_six = 0;
+	bool attuned = false;
+	if (items > 1)
+		charges = (int16)SvIV(ST(1));
+	if (items > 2)
+		augment_one = (uint32)SvUV(ST(2));
+	if (items > 3)
+		augment_two = (uint32)SvUV(ST(3));
+	if (items > 4)
+		augment_three = (uint32)SvUV(ST(4));
+	if (items > 5)
+		augment_four = (uint32)SvUV(ST(5));
+	if (items > 6)
+		augment_five = (uint32)SvUV(ST(6));
+	if (items > 7)
+		augment_six = (uint32)SvUV(ST(7));
+	if (items > 8)
+		attuned = (bool)SvNV(ST(8));
+
+	if (database.GetItem(item_id)) {
+		RETVAL = database.CreateItem(item_id, charges, augment_one, augment_two, augment_three, augment_four, augment_five, augment_six, attuned);
+	}
+
+	ST(0) = sv_newmortal();
+	if (RETVAL) {
+		sv_setref_pv(ST(0), "QuestItem", (void*)RETVAL);
+	}
+	XSRETURN(1);
+}
+
+XS(XS__secondstotime);
+XS(XS__secondstotime) {
+	dXSARGS;
+	if (items != 1) {
+		Perl_croak(aTHX_ "Usage: quest::secondstotime(int duration)");
+	}
+
+	dXSTARG;
+	std::string time_string;
+	int duration = (int) SvIV(ST(0));
+	time_string = quest_manager.secondstotime(duration);
+	sv_setpv(TARG, time_string.c_str());
+	XSprePUSH;
+	PUSHTARG;
+	XSRETURN(1);
+}
+
 /*
 This is the callback perl will look for to setup the
 quest package's XSUBs
@@ -6372,6 +6525,8 @@ EXTERN_C XS(boot_quest) {
 	newXS(strcpy(buf, "GetTimeSeconds"), XS__GetTimeSeconds, file);
 	newXS(strcpy(buf, "GetZoneID"), XS__GetZoneID, file);
 	newXS(strcpy(buf, "GetZoneLongName"), XS__GetZoneLongName, file);
+	newXS(strcpy(buf, "GetZoneLongNameByID"), XS__GetZoneLongNameByID, file);
+	newXS(strcpy(buf, "GetZoneShortName"), XS__GetZoneShortName, file);
 	newXS(strcpy(buf, "set_rule"), XS__set_rule, file);
 	newXS(strcpy(buf, "get_rule"), XS__get_rule, file);
 	newXS(strcpy(buf, "get_data"), XS__get_data, file);
@@ -6420,6 +6575,7 @@ EXTERN_C XS(boot_quest) {
 	newXS(strcpy(buf, "creategroundobject"), XS__CreateGroundObject, file);
 	newXS(strcpy(buf, "creategroundobjectfrommodel"), XS__CreateGroundObjectFromModel, file);
 	newXS(strcpy(buf, "createguild"), XS__createguild, file);
+	newXS(strcpy(buf, "createitem"), XS__createitem, file);
 	newXS(strcpy(buf, "crosszoneassigntaskbycharid"), XS__crosszoneassigntaskbycharid, file);
 	newXS(strcpy(buf, "crosszoneassigntaskbygroupid"), XS__crosszoneassigntaskbygroupid, file);
 	newXS(strcpy(buf, "crosszoneassigntaskbyraidid"), XS__crosszoneassigntaskbyraidid, file);
@@ -6549,6 +6705,7 @@ EXTERN_C XS(boot_quest) {
 	newXS(strcpy(buf, "getraididbycharid"), XS__getraididbycharid, file);
 	newXS(strcpy(buf, "getracename"), XS__getracename, file);
 	newXS(strcpy(buf, "getspellname"), XS__getspellname, file);
+	newXS(strcpy(buf, "get_spell_level"), XS__get_spell_level, file);
 	newXS(strcpy(buf, "getskillname"), XS__getskillname, file);
 	newXS(strcpy(buf, "getlevel"), XS__getlevel, file);
 	newXS(strcpy(buf, "getplayerburiedcorpsecount"), XS__getplayerburiedcorpsecount, file);
@@ -6574,6 +6731,7 @@ EXTERN_C XS(boot_quest) {
 	newXS(strcpy(buf, "log"), XS__log, file);
 	newXS(strcpy(buf, "log_combat"), XS__log_combat, file);
 	newXS(strcpy(buf, "me"), XS__me, file);
+	newXS(strcpy(buf, "message"), XS__message, file);
 	newXS(strcpy(buf, "modifynpcstat"), XS__ModifyNPCStat, file);
 	newXS(strcpy(buf, "movegrp"), XS__movegrp, file);
 	newXS(strcpy(buf, "movepc"), XS__movepc, file);
@@ -6614,6 +6772,7 @@ EXTERN_C XS(boot_quest) {
 	newXS(strcpy(buf, "say"), XS__say, file);
 	newXS(strcpy(buf, "saylink"), XS__saylink, file);
 	newXS(strcpy(buf, "scribespells"), XS__scribespells, file);
+	newXS(strcpy(buf, "secondstotime"), XS__secondstotime, file);
 	newXS(strcpy(buf, "selfcast"), XS__selfcast, file);
 	newXS(strcpy(buf, "set_proximity"), XS__set_proximity, file);
 	newXS(strcpy(buf, "set_zone_flag"), XS__set_zone_flag, file);
@@ -6670,6 +6829,7 @@ EXTERN_C XS(boot_quest) {
 	newXS(strcpy(buf, "voicetell"), XS__voicetell, file);
 	newXS(strcpy(buf, "we"), XS__we, file);
 	newXS(strcpy(buf, "wearchange"), XS__wearchange, file);
+	newXS(strcpy(buf, "whisper"), XS__whisper, file);
 	newXS(strcpy(buf, "write"), XS__write, file);
 	newXS(strcpy(buf, "ze"), XS__ze, file);
 	newXS(strcpy(buf, "zone"), XS__zone, file);
