@@ -210,7 +210,10 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p) {
 
 		GroupInvite_Struct* gis = (GroupInvite_Struct*)pack->pBuffer;
 
-		client_list.SendPacket(gis->invitee_name, pack);
+		if (!client_list.SendPacket(gis->invitee_name, pack)) {
+			//TODO: cannot find player online
+			//zoneserver_list.SendEmoteMessage(scm->from, 0, 0, 0, "%s is not online at this time.", scm->to);
+		}
 		break;
 	}
 	case ServerOP_GroupFollow: {
