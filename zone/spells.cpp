@@ -206,6 +206,14 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		}
 	}
 
+	//you cannot kill yourself with a manastone any longer
+	if(spell_id == 940) {
+		if(GetHP() < 61) {
+			InterruptSpell(spell_id);
+			return(false);
+		}
+	}
+
 	if(IsDetrimentalSpell(spell_id) && !zone->CanDoCombat()){
 		MessageString(Chat::Red, SPELL_WOULDNT_HOLD);
 		if(IsClient())
@@ -2128,14 +2136,14 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 	}
 
 	// check line of sight to target if it's a detrimental spell
-	if(!spells[spell_id].npc_no_los && spell_target && IsDetrimentalSpell(spell_id) && !CheckLosFN(spell_target) && !IsHarmonySpell(spell_id) && spells[spell_id].targettype != ST_TargetOptional)
-	{
-		if (!zone->CanCastOutdoor()) {
-		LogSpells("Spell [{}]: cannot see target [{}]", spell_id, spell_target->GetName());
-			MessageString(Chat::Red, CANT_SEE_TARGET);
-		return false;
-	}
-	}
+	//if(!spells[spell_id].npc_no_los && spell_target && IsDetrimentalSpell(spell_id) && !CheckLosFN(spell_target) && !IsHarmonySpell(spell_id) && spells[spell_id].targettype != ST_TargetOptional)
+	//{
+	//	if (!zone->CanCastOutdoor()) {
+	//	LogSpells("Spell [{}]: cannot see target [{}]", spell_id, spell_target->GetName());
+		//	MessageString(Chat::Red, CANT_SEE_TARGET);
+	//	return false;
+	//}
+	//}
 
 	// check to see if target is a caster mob before performing a mana tap
 	if(spell_target && IsManaTapSpell(spell_id)) {
@@ -4639,28 +4647,6 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		}
 	}
 
-	if (IsNPC() && GetLevel() >= caster->GetLevel())
-	{
-		int leveldifference;
-		leveldifference = GetLevel() - caster->GetLevel();
-		int diff_cap;
-		diff_cap = 67;
-		if (leveldifference >= 0)
-		{
-			int resistrate = 10 * (leveldifference + 1);
-			int resistroll = zone->random.Real(1,100);
-			if (resistrate > diff_cap)
-			{
-				resistrate = diff_cap;
-			}
-			if	(resistroll <= resistrate)
-			{
-			return 0;
-			}
-		}
-
-	}
-
 	if (CharismaCheck)
 	{
 		/*
@@ -4743,6 +4729,29 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 
 	//Finally our roll
 	int roll = zone->random.Int(0, 200);
+
+	if (IsNPC() && GetLevel() >= caster->GetLevel())
+	{
+		int leveldifference = GetLevel() - caster->GetLevel();
+		int diff_cap = 100;
+		int resistrate;
+		if (leveldifference >= 0)
+		{
+			resistrate = 25 * (leveldifference + 1);
+			if (resistrate > diff_cap )
+			{
+				resistrate = diff_cap;
+			}
+			if (IsDamageSpell(spell_id)) {
+				resistrate * 2;
+			}
+
+			resist_chance = resist_chance + resistrate;
+		}
+
+	}
+
+
 	if(roll > resist_chance)
 	{
 		return 100;
