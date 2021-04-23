@@ -33,9 +33,10 @@
 #include "spawn2.h"
 #include "spawngroup.h"
 #include "aa_ability.h"
-#include "dynamiczone.h"
 #include "pathfinder_interface.h"
 #include "global_loot_manager.h"
+
+class DynamicZone;
 
 struct ZonePoint {
 	float  x;
@@ -178,7 +179,7 @@ public:
 	void DumpMerchantList(uint32 npcid);
 	int SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold = false);
 	int32 MobsAggroCount() { return aggroedmobs; }
-	DynamicZone GetDynamicZone();
+	DynamicZone* GetDynamicZone();
 
 	IPathfinder                                   *pathing;
 	LinkedList<NPC_Emote_Struct *>                NPCEmoteList;
@@ -288,7 +289,6 @@ public:
 	void SpawnConditionChanged(const SpawnCondition &c, int16 old_value);
 	void SpawnStatus(Mob *client);
 	void StartShutdownTimer(uint32 set_time = (RuleI(Zone, AutoShutdownDelay)));
-	void UpdateHotzone();
 	void UpdateQGlobal(uint32 qid, QGlobal newGlobal);
 	void weatherSend(Client *client = nullptr);
 
@@ -355,6 +355,7 @@ public:
 	 */
 	void mod_init();
 	void mod_repop();
+	void SetIsHotzone(bool is_hotzone);
 
 private:
 	bool      allow_mercs;
@@ -400,7 +401,6 @@ private:
 	Timer                               *Weather_Timer;
 	Timer                               autoshutdown_timer;
 	Timer                               clientauth_timer;
-	Timer                               hotzone_timer;
 	Timer                               initgrids_timer;
 	Timer                               qglobal_purge_timer;
 	ZoneSpellsBlocked                   *blocked_spells;

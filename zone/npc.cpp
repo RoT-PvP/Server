@@ -284,6 +284,19 @@ NPC::NPC(const NPCType *npc_type_data, Spawn2 *in_respawn, const glm::vec4 &posi
 	entity_list.MakeNameUnique(name);
 
 	npc_aggro = npc_type_data->npc_aggro;
+	
+	AISpellVar.fail_recast                     = static_cast<uint32>(RuleI(Spells, AI_SpellCastFinishedFailRecast));
+	AISpellVar.engaged_no_sp_recast_min        = static_cast<uint32>(RuleI(Spells, AI_EngagedNoSpellMinRecast));
+	AISpellVar.engaged_no_sp_recast_max        = static_cast<uint32>(RuleI(Spells, AI_EngagedNoSpellMaxRecast));
+	AISpellVar.engaged_beneficial_self_chance  = static_cast<uint8> (RuleI(Spells, AI_EngagedBeneficialSelfChance));
+	AISpellVar.engaged_beneficial_other_chance = static_cast<uint8> (RuleI(Spells, AI_EngagedBeneficialOtherChance));
+	AISpellVar.engaged_detrimental_chance      = static_cast<uint8> (RuleI(Spells, AI_EngagedDetrimentalChance));
+	AISpellVar.pursue_no_sp_recast_min         = static_cast<uint32>(RuleI(Spells, AI_PursueNoSpellMinRecast));
+	AISpellVar.pursue_no_sp_recast_max         = static_cast<uint32>(RuleI(Spells, AI_PursueNoSpellMaxRecast));
+	AISpellVar.pursue_detrimental_chance       = static_cast<uint8> (RuleI(Spells, AI_PursueDetrimentalChance));
+	AISpellVar.idle_no_sp_recast_min           = static_cast<uint32>(RuleI(Spells, AI_IdleNoSpellMinRecast));
+	AISpellVar.idle_no_sp_recast_max           = static_cast<uint32>(RuleI(Spells, AI_IdleNoSpellMaxRecast));
+	AISpellVar.idle_beneficial_chance          = static_cast<uint8> (RuleI(Spells, AI_IdleBeneficialChance));
 
 	AI_Init();
 	AI_Start();
@@ -309,7 +322,7 @@ NPC::NPC(const NPCType *npc_type_data, Spawn2 *in_respawn, const glm::vec4 &posi
 	//give NPCs skill values...
 	int r;
 	for (r = 0; r <= EQ::skills::HIGHEST_SKILL; r++) {
-		skills[r] = database.GetSkillCap(GetClass(), (EQ::skills::SkillType)r, moblevel);
+		skills[r] = content_db.GetSkillCap(GetClass(), (EQ::skills::SkillType)r, moblevel);
 	}
 	// some overrides -- really we need to be able to set skills for mobs in the DB
 	// There are some known low level SHM/BST pets that do not follow this, which supports
@@ -397,18 +410,10 @@ NPC::NPC(const NPCType *npc_type_data, Spawn2 *in_respawn, const glm::vec4 &posi
 
 	SetMana(GetMaxMana());
 
-	AISpellVar.fail_recast                     = static_cast<uint32>(RuleI(Spells, AI_SpellCastFinishedFailRecast));
-	AISpellVar.engaged_no_sp_recast_min        = static_cast<uint32>(RuleI(Spells, AI_EngagedNoSpellMinRecast));
-	AISpellVar.engaged_no_sp_recast_max        = static_cast<uint32>(RuleI(Spells, AI_EngagedNoSpellMaxRecast));
-	AISpellVar.engaged_beneficial_self_chance  = static_cast<uint8> (RuleI(Spells, AI_EngagedBeneficialSelfChance));
-	AISpellVar.engaged_beneficial_other_chance = static_cast<uint8> (RuleI(Spells, AI_EngagedBeneficialOtherChance));
-	AISpellVar.engaged_detrimental_chance      = static_cast<uint8> (RuleI(Spells, AI_EngagedDetrimentalChance));
-	AISpellVar.pursue_no_sp_recast_min         = static_cast<uint32>(RuleI(Spells, AI_PursueNoSpellMinRecast));
-	AISpellVar.pursue_no_sp_recast_max         = static_cast<uint32>(RuleI(Spells, AI_PursueNoSpellMaxRecast));
-	AISpellVar.pursue_detrimental_chance       = static_cast<uint8> (RuleI(Spells, AI_PursueDetrimentalChance));
-	AISpellVar.idle_no_sp_recast_min           = static_cast<uint32>(RuleI(Spells, AI_IdleNoSpellMinRecast));
-	AISpellVar.idle_no_sp_recast_max           = static_cast<uint32>(RuleI(Spells, AI_IdleNoSpellMaxRecast));
-	AISpellVar.idle_beneficial_chance          = static_cast<uint8> (RuleI(Spells, AI_IdleBeneficialChance));
+	if (GetBodyType() == BT_Animal && !RuleB(NPC, AnimalsOpenDoors)) {
+		m_can_open_doors = false;
+	}
+
 }
 
 float NPC::GetRoamboxMaxX() const
@@ -2249,8 +2254,12 @@ void NPC::PetOnSpawn(NewSpawn_Struct* ns)
 		if (RuleB(Pets, UnTargetableSwarmPet))
 		{
 			ns->spawn.bodytype = 11;
-			if(!IsCharmed() && swarmOwner->IsClient())
-				sprintf(ns->spawn.lastName, "%s's Pet", swarmOwner->GetName());
+			if(!IsCharmed() && swarmOwner->IsClient()) {
+				std::string tmp_lastname = swarmOwner->GetName();
+				tmp_lastname += "'s Pet";
+				if (tmp_lastname.size() < sizeof(ns->spawn.lastName))
+					strn0cpy(ns->spawn.lastName, tmp_lastname.c_str(), sizeof(ns->spawn.lastName));
+			}
 		}
 	}
 	else if(GetOwnerID())
@@ -3234,6 +3243,19 @@ void NPC::AIYellForHelp(Mob *sender, Mob *attacker)
 		}
 
 		float assist_range = (mob->GetAssistRange() * mob->GetAssistRange());
+
+		// Implement optional sneak-pull
+		if (RuleB(Combat, EnableSneakPull) && attacker->sneaking) {
+			assist_range = RuleI(Combat, SneakPullAssistRange);
+			if (attacker->IsClient()) {
+				float clientx = attacker->GetX();
+				float clienty = attacker->GetY();
+				if (attacker->CastToClient()->BehindMob(mob, clientx, clienty)) {
+					assist_range = 0;
+				}
+			}
+		}
+
 		if (distance > assist_range) {
 			continue;
 		}
@@ -3304,7 +3326,7 @@ void NPC::RecalculateSkills()
 {
   	int r;
 	for (r = 0; r <= EQ::skills::HIGHEST_SKILL; r++) {
-		skills[r] = database.GetSkillCap(GetClass(), (EQ::skills::SkillType)r, level);
+		skills[r] = content_db.GetSkillCap(GetClass(), (EQ::skills::SkillType)r, level);
 	}
 
 	// some overrides -- really we need to be able to set skills for mobs in the DB
@@ -3323,4 +3345,12 @@ void NPC::RecalculateSkills()
 			skills[EQ::skills::SkillDoubleAttack] = level * 5;
 		}
 	}
+}
+
+void NPC::ScaleNPC(uint8 npc_level) {
+	if (GetLevel() != npc_level) {
+		SetLevel(npc_level);
+	}
+	npc_scale_manager->ResetNPCScaling(this);
+	npc_scale_manager->ScaleNPC(this);
 }

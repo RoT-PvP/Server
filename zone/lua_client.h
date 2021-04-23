@@ -41,7 +41,10 @@ public:
 	bool IsLD();
 	void WorldKick();
 	void SendToGuildHall();
-	bool GetAnon();
+	int GetAnon();
+	void SetAnon(uint8 anon_flag);
+	int GetAFK();
+	void SetAFK(uint8 afk_flag);
 	void Duck();
 	void DyeArmorBySlot(uint8 slot, uint8 red, uint8 green, uint8 blue);
 	void DyeArmorBySlot(uint8 slot, uint8 red, uint8 green, uint8 blue, uint8 use_tint);
@@ -57,7 +60,6 @@ public:
 	int GetRaceBitmask();
 	int GetBaseFace();
 	int GetLanguageSkill(int skill_id);
-	const char *GetLastName();
 	int GetLDoNPointsTheme(int theme);
 	int GetBaseSTR();
 	int GetBaseSTA();
@@ -153,6 +155,15 @@ public:
 	void UnmemSpellAll(bool update_client);
 	uint16 FindMemmedSpellBySlot(int slot);
 	int MemmedCount();
+	luabind::object GetLearnableDisciplines(lua_State* L);
+	luabind::object GetLearnableDisciplines(lua_State* L, uint8 min_level);
+	luabind::object GetLearnableDisciplines(lua_State* L, uint8 min_level, uint8 max_level);
+	luabind::object GetLearnedDisciplines(lua_State* L);
+	luabind::object GetMemmedSpells(lua_State* L);
+	luabind::object GetScribedSpells(lua_State* L);
+	luabind::object GetScribeableSpells(lua_State* L);
+	luabind::object GetScribeableSpells(lua_State* L, uint8 min_level);
+	luabind::object GetScribeableSpells(lua_State* L, uint8 min_level, uint8 max_level);
 	void ScribeSpell(int spell_id, int slot);
 	void ScribeSpell(int spell_id, int slot, bool update_client);
 	void UnscribeSpell(int slot);

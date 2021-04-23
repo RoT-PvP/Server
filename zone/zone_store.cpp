@@ -27,7 +27,7 @@ ZoneStore::~ZoneStore() = default;
 
 void ZoneStore::LoadZones()
 {
-	zones = ZoneRepository::All();
+	zones = ZoneRepository::All(content_db);
 }
 
 /**
@@ -146,20 +146,7 @@ ZoneRepository::Zone ZoneStore::GetZone(const char *in_zone_name)
  */
 void ZoneStore::LoadContentFlags()
 {
-	std::vector<std::string> set_content_flags;
-	auto                     content_flags = ContentFlagsRepository::GetWhere("enabled = 1");
-
-	set_content_flags.reserve(content_flags.size());
-	for (auto &flags: content_flags) {
-		set_content_flags.push_back(flags.flag_name);
-	}
-
-	LogInfo(
-		"Enabled content flags [{}]",
-		implode(", ", set_content_flags)
-	);
-
-	content_service.SetContentFlags(set_content_flags);
+	content_service.ReloadContentFlags(database);
 }
 
 /**
@@ -170,7 +157,7 @@ void ZoneStore::LoadContentFlags()
  */
 void ZoneStore::SetContentFlag(const std::string &content_flag_name, bool enabled)
 {
-	auto content_flags = ContentFlagsRepository::GetWhere(
+	auto content_flags = ContentFlagsRepository::GetWhere(database,
 		fmt::format("flag_name = '{}'", content_flag_name)
 	);
 
@@ -183,10 +170,10 @@ void ZoneStore::SetContentFlag(const std::string &content_flag_name, bool enable
 	content_flag.flag_name = content_flag_name;
 
 	if (!content_flags.empty()) {
-		ContentFlagsRepository::UpdateOne(content_flag);
+		ContentFlagsRepository::UpdateOne(database, content_flag);
 	}
 	else {
-		ContentFlagsRepository::InsertOne(content_flag);
+		ContentFlagsRepository::InsertOne(database, content_flag);
 	}
 
 	LoadContentFlags();

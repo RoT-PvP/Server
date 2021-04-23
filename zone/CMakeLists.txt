@@ -22,7 +22,7 @@ SET(zone_sources
 	corpse.cpp
 	data_bucket.cpp
 	doors.cpp
-	dynamiczone.cpp
+	dynamic_zone.cpp
 	effects.cpp
 	embparser.cpp
 	embparser_api.cpp
@@ -33,7 +33,6 @@ SET(zone_sources
 	exp.cpp
 	expedition.cpp
 	expedition_database.cpp
-	expedition_lockout_timer.cpp
 	expedition_request.cpp
 	fastmath.cpp
 	fearpath.cpp
@@ -109,6 +108,7 @@ SET(zone_sources
 	perl_expedition.cpp
 	perl_groups.cpp
 	perl_hateentry.cpp
+	perl_inventory.cpp
 	perl_mob.cpp
 	perl_npc.cpp
 	perl_object.cpp
@@ -132,6 +132,10 @@ SET(zone_sources
 	special_attacks.cpp
 	spell_effects.cpp
 	spells.cpp
+	task_client_state.cpp
+	task_goal_list_manager.cpp
+	task_manager.cpp
+	task_proximity_manager.cpp
 	tasks.cpp
 	titles.cpp
 	tradeskills.cpp
@@ -148,10 +152,10 @@ SET(zone_sources
 	zone.cpp
 	zone_config.cpp
 	zonedb.cpp
+	zone_event_scheduler.cpp
 	zone_reload.cpp
 	zone_store.cpp
-	zoning.cpp
-)
+	zoning.cpp)
 
 SET(zone_headers
 	aa.h
@@ -172,7 +176,7 @@ SET(zone_headers
 	corpse.h
 	data_bucket.h
 	doors.h
-	dynamiczone.h
+	dynamic_zone.h
 	embparser.h
 	embperl.h
 	embxs.h
@@ -182,7 +186,6 @@ SET(zone_headers
 	event_codes.h
 	expedition.h
 	expedition_database.h
-	expedition_lockout_timer.h
 	expedition_request.h
 	fastmath.h
 	forage.h
@@ -243,7 +246,6 @@ SET(zone_headers
 	quest_interface.h
 	questmgr.h
 	quest_parser_collection.h
-	raid.h
 	raids.h
 	raycast_mesh.h
 	skills.h
@@ -251,6 +253,10 @@ SET(zone_headers
 	spawn2.h
 	spawngroup.h
 	string_ids.h
+	task_client_state.h
+	task_goal_list_manager.h
+	task_manager.h
+	task_proximity_manager.h
 	tasks.h
 	titles.h
 	trap.h
@@ -260,12 +266,12 @@ SET(zone_headers
 	worldserver.h
 	xtargetautohaters.h
 	zone.h
+	zone_event_scheduler.h
 	zone_config.h
 	zonedb.h
 	zonedump.h
 	zone_reload.h
-	zone_store.h
-)
+	zone_store.h)
 
 ADD_EXECUTABLE(zone ${zone_sources} ${zone_headers})
 
@@ -273,6 +279,6 @@ INSTALL(TARGETS zone RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 ADD_DEFINITIONS(-DZONE)
 
-TARGET_LINK_LIBRARIES(zone ${SERVER_LIBS})
+TARGET_LINK_LIBRARIES(zone ${ZONE_LIBS})
 
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)

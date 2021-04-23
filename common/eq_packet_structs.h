@@ -3250,7 +3250,7 @@ struct TraderClick_Struct{
 };
 
 struct FormattedMessage_Struct{
-	uint32	unknown0;
+	uint32	unknown0; // 1 means from world server
 	uint32	string_id;
 	uint32	type;
 	char	message[0];
@@ -3258,7 +3258,7 @@ struct FormattedMessage_Struct{
 struct SimpleMessage_Struct{
 	uint32	string_id;
 	uint32	color;
-	uint32	unknown8;
+	uint32	unknown8; // 1 means from world server
 };
 
 struct GuildMemberUpdate_Struct {
