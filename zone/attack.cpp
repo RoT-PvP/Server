@@ -1002,7 +1002,7 @@ int Mob::GetWeaponDamage(Mob *against, const EQ::ItemData *weapon_item) {
 				//they don't have a dmg but we should be able to hit magical
 				dmg = dmg <= 0 ? 1 : dmg;
 			}
-			else if (GetLevel() < 11 || !weapon_item->Damage == 0){
+			else if (GetLevel() < 11 || weapon_item->Damage == 0){
 				return 0;
 			}
 			else {
