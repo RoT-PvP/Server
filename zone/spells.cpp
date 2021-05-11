@@ -206,6 +206,12 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		}
 	}
 
+	if (IsClient() && HasActiveSong() && (item_slot && IsClient() && (slot == CastingSlot::Item || slot == CastingSlot::PotionBelt))) {
+		StopCasting();
+		Message(Chat::Skills, "You must stop singing to cast this spell.");
+		return(false);
+	}
+
 	//you cannot kill yourself with a manastone any longer
 	if(spell_id == 940) {
 		if(GetHP() < 61) {
@@ -2886,6 +2892,10 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 		}
 	}
 
+	if (spellid2 == 355 && spellid1 == 278 || spellid1 == 743 || spellid2 == 824) {
+		return (0);
+	}
+
 	int modval = mod_spell_stack(spellid1, caster_level1, caster1, spellid2, caster_level2, caster2);
 	if(modval < 2) { return(modval); }
 
@@ -4505,6 +4515,8 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		return(0);
 	}
 
+
+
 #ifdef LUA_EQEMU
 	// for pvp override, caster and resistor must both be clients
 	if (this->IsClient() && caster->IsClient()) {
@@ -4512,9 +4524,501 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		bool ignoreDefault = false;
 		float lua_ret = LuaParser::Instance()->PVPResistSpell(this->CastToClient(), resist_type, spell_id, caster->CastToClient(), use_resist_override, resist_override, CharismaCheck, CharmTick, IsRoot, level_override, ignoreDefault);
 
+		int resistroll = zone->random.Real(0,100);
+
 		if (ignoreDefault) {
 			LogDebug("Default ignored, lua return value is: [{}]", lua_ret);
 			return lua_ret;
+		}
+		//Rogue Poison PvP Checks
+		if (caster->GetClass() == ROGUE) {
+		if (resist_type == RESIST_POISON) {
+			if (GetLevel() <= 20) {
+				if (GetPR() >= 90) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetPR() > 60 && GetPR() < 90) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetPR() < 60) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 20 && GetLevel() <= 40) {
+				if (GetPR() >= 120) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetPR() > 90 && GetPR() < 120) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetPR() < 90) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 40) {
+				if (GetPR() >= 130) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetPR() > 90 && GetPR() < 130) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetPR() < 90) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+		}
+		}
+		if (IsDamageSpell(spell_id)) {
+			//Unresitables
+			if (spell_id == 1769 || spell_id == 1638 || spell_id == 1640 || spell_id == 1642 || spell_id == 264 || spell_id == 99 || spell_id == 665 || spell_id == 259 || spell_id == 665 || spell_id == 1601) {
+				return 100;
+			}
+			//Damage Spell resists based on resist type.
+			if (resist_type == RESIST_FIRE) {
+				if (GetLevel() <= 20) {
+					if (GetFR() >= 90) {
+						if (resistroll <= 98) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetFR() > 60 && GetFR() < 90) {
+						if (resistroll <= 50) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetFR() < 60) {
+						if (resistroll <= 2) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+				}
+				else if (GetLevel() > 20 && GetLevel() <= 40) {
+					if (GetFR() >= 120) {
+						if (resistroll <= 98) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetFR() > 90 && GetFR() < 120) {
+						if (resistroll <= 50) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetFR() < 90) {
+						if (resistroll <= 2) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+				}
+				else if (GetLevel() > 40) {
+					if (GetFR() >= 165) {
+						if (resistroll <= 98) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetFR() > 120 && GetFR() < 165) {
+						if (resistroll <= 50) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetFR() < 120) {
+						if (resistroll <= 2) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+				}
+			}
+			else if (resist_type == RESIST_POISON) {
+				if (GetLevel() <= 20) {
+					if (GetPR() >= 60) {
+						if (resistroll <= 98) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetPR() > 45 && GetPR() < 60) {
+						if (resistroll <= 50) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetPR() < 45) {
+						if (resistroll <= 2) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+				}
+				else if (GetLevel() > 20 && GetLevel() <= 40) {
+					if (GetPR() >= 90) {
+						if (resistroll <= 98) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetPR() > 60 && GetPR() < 90) {
+						if (resistroll <= 50) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetPR() < 60) {
+						if (resistroll <= 2) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+				}
+				else if (GetLevel() > 40) {
+					if (GetPR() >= 130) {
+						if (resistroll <= 98) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetPR() > 90 && GetPR() < 130) {
+						if (resistroll <= 50) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+					else if (GetPR() < 90) {
+						if (resistroll <= 2) {
+							return 0;
+						}
+						else {
+							return 100;
+						}
+					}
+				}
+			}
+			else if (resist_type == RESIST_COLD) {
+			if (GetLevel() <= 20) {
+				if (GetCR() >= 90) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetCR() > 60 && GetCR() < 90) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetCR() < 60) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 20 && GetLevel() <= 40) {
+				if (GetCR() >= 120) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetCR() > 90 && GetCR() < 120) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetCR() < 90) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 40) {
+				if (GetCR() >= 165) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetCR() > 120 && GetCR() < 165) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetCR() < 120) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			}
+			else if (resist_type == RESIST_MAGIC) {
+			if (GetLevel() <= 20) {
+				if (GetMR() >= 60) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() > 45 && GetMR() < 60) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() < 45) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 20 && GetLevel() <= 40) {
+				if (GetMR() >= 90) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() > 75 && GetMR() < 90) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() < 75) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 40) {
+				if (GetMR() >= 145) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() > 125 && GetMR() < 145) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() < 125) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			}
+			else if (resist_type == RESIST_DISEASE) {
+			if (GetLevel() <= 20) {
+				if (GetDR() >= 60) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetDR() > 45 && GetDR() < 60) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetDR() < 45) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 20 && GetLevel() <= 40) {
+				if (GetDR() >= 90) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetDR() > 60 && GetDR() < 90) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetDR() < 60) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 40) {
+				if (GetDR() >= 130) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetDR() > 90 && GetDR() < 130) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetDR() < 90) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			}
 		}
 	}
 #endif
