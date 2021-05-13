@@ -1491,6 +1491,7 @@ public:
 	bool GetWasSpawnedInWater() const;
 
 	void SetSpawnedInWater(bool spawned_in_water);
+	bool turning;
 
 protected:
 
