@@ -920,6 +920,9 @@ void EntityList::AESpell(
 			}
 		}
 
+		current_mob->CalcSpellPowerDistanceMod(spell_id, distance_to_target);
+		caster_mob->SpellOnTarget(spell_id, current_mob, false, true, resist_adjust);
+
 		/**
 		 * Increment hit count if max targets
 		 */
@@ -929,9 +932,6 @@ void EntityList::AESpell(
 				break;
 			}
 		}
-
-		current_mob->CalcSpellPowerDistanceMod(spell_id, distance_to_target);
-		caster_mob->SpellOnTarget(spell_id, current_mob, false, true, resist_adjust);
 	}
 
 	LogAoeCast("Done iterating [{}]", caster_mob->GetCleanName());

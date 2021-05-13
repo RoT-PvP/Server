@@ -901,7 +901,7 @@ bool lua_delete_data(std::string bucket_key) {
 	return DataBucket::DeleteData(bucket_key);
 }
 
-const char *lua_get_char_name_by_id(uint32 char_id) {
+std::string lua_get_char_name_by_id(uint32 char_id) {
 	return database.GetCharNameByID(char_id);
 }
 
@@ -937,7 +937,7 @@ int lua_get_group_id_by_char_id(uint32 char_id) {
 	return database.GetGroupIDByCharID(char_id);
 }
 
-const char *lua_get_npc_name_by_id(uint32 npc_id) {
+std::string lua_get_npc_name_by_id(uint32 npc_id) {
 	return quest_manager.getnpcnamebyid(npc_id);
 }
 
@@ -1732,6 +1732,7 @@ void lua_add_spawn_point(luabind::adl::object table) {
 		uint32 variance;
 		uint32 timeleft = 0;
 		uint32 grid = 0;
+		bool path_when_zone_idle = false;
 		int condition_id = 0;
 		int condition_min_value = 0;
 		bool enabled = true;
@@ -1841,6 +1842,14 @@ void lua_add_spawn_point(luabind::adl::object table) {
 			}
 		}
 
+		cur = table["path_when_zone_idle"];
+		if(luabind::type(cur) != LUA_TNIL) {
+			try {
+				path_when_zone_idle = luabind::object_cast<bool>(cur);
+			} catch(luabind::cast_failed &) {
+			}
+		}
+
 		cur = table["condition_id"];
 		if(luabind::type(cur) != LUA_TNIL) {
 			try {
@@ -1875,8 +1884,10 @@ void lua_add_spawn_point(luabind::adl::object table) {
 
 		lua_remove_spawn_point(spawn2_id);
 
-		auto t = new Spawn2(spawn2_id, spawngroup_id, x, y, z, heading, respawn, variance, timeleft, grid,
-				    condition_id, condition_min_value, enabled, static_cast<EmuAppearance>(animation));
+		auto t = new Spawn2(spawn2_id, spawngroup_id, x, y, z, heading, respawn,
+			variance, timeleft, grid, path_when_zone_idle, condition_id, 
+			condition_min_value, enabled, static_cast<EmuAppearance>(animation));
+
 		zone->spawn2_list.Insert(t);
 	}
 }
@@ -2320,6 +2331,26 @@ void lua_remove_all_expedition_lockouts_by_char_id(uint32 char_id, std::string e
 
 std::string lua_seconds_to_time(int duration) {
 	return quest_manager.secondstotime(duration);
+}
+
+std::string lua_get_hex_color_code(std::string color_name) {
+	return quest_manager.gethexcolorcode(color_name);
+}
+
+double lua_get_aa_exp_modifier_by_char_id(uint32 character_id, uint32 zone_id) {
+	return database.GetAAEXPModifier(character_id, zone_id);
+}
+
+double lua_get_exp_modifier_by_char_id(uint32 character_id, uint32 zone_id) {
+	return database.GetEXPModifier(character_id, zone_id);
+}
+
+void lua_set_aa_exp_modifier_by_char_id(uint32 character_id, uint32 zone_id, double aa_modifier) {
+	database.SetAAEXPModifier(character_id, zone_id, aa_modifier);
+}
+
+void lua_set_exp_modifier_by_char_id(uint32 character_id, uint32 zone_id, double exp_modifier) {
+	database.SetEXPModifier(character_id, zone_id, exp_modifier);
 }
 
 #define LuaCreateNPCParse(name, c_type, default_value) do { \
@@ -2863,7 +2894,12 @@ luabind::scope lua_register_general() {
 		luabind::def("debug", (void(*)(std::string, int))&lua_debug),
 		luabind::def("log_combat", (void(*)(std::string))&lua_log_combat),
 		luabind::def("seconds_to_time", &lua_seconds_to_time),
-
+		luabind::def("get_hex_color_code", &lua_get_hex_color_code),
+		luabind::def("get_aa_exp_modifier_by_char_id", &lua_get_aa_exp_modifier_by_char_id),
+		luabind::def("get_exp_modifier_by_char_id", &lua_get_exp_modifier_by_char_id),
+		luabind::def("set_aa_exp_modifier_by_char_id", &lua_set_aa_exp_modifier_by_char_id),
+		luabind::def("set_exp_modifier_by_char_id", &lua_set_exp_modifier_by_char_id),
+    
 		/**
 		 * Expansions
 		 */

@@ -110,18 +110,24 @@ void ExpeditionState::CacheExpeditions(
 			}
 		}
 
+		// stored on expedition in db but on dz in memory cache
+		expedition->GetDynamicZone().SetMinPlayers(entry.min_players);
+		expedition->GetDynamicZone().SetMaxPlayers(entry.max_players);
+
+		expedition->CacheMemberStatuses();
+
 		m_expeditions.emplace_back(std::move(expedition));
 	}
 }
 
 void ExpeditionState::MemberChange(
-	uint32_t expedition_id, const ExpeditionMember& member, bool remove)
+	uint32_t expedition_id, const DynamicZoneMember& member, bool remove)
 {
 	auto expedition = GetExpedition(expedition_id);
 	if (expedition)
 	{
 		if (remove) {
-			expedition->RemoveMember(member.char_id);
+			expedition->RemoveMember(member.id);
 		} else {
 			expedition->AddInternalMember(member);
 		}

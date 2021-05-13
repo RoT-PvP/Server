@@ -166,6 +166,7 @@ RULE_INT(Character, PVPRespawnManaPercent, 100, "How much mana to respawn with")
 RULE_BOOL(Character, PVPIsAutoAttackAlwaysLoS, false, "When set to true, auto attack in pvp always has line of sight")
 RULE_BOOL(Character, PVPFacingInMeleeRequired, true, "When set to false, pvp melee can attack 360 degrees instead of just front")
 RULE_BOOL(Character, PVPCanLootCoin, false, "Can players loot coin from player corpses?")
+RULE_BOOL(Character, EnableCharacterEXPMods, false, "Enables character zone-based experience modifiers.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Mercs)
@@ -382,6 +383,7 @@ RULE_BOOL(Spells, NPCInnateProcOverride, true, "NPC innate procs override the ta
 RULE_BOOL(Spells, OldRainTargets, false, "Use old incorrectly implemented maximum targets for rains")
 RULE_BOOL(Spells, NPCSpellPush, false, "Enable spell push on NPCs")
 RULE_INT(Spells, PVPRootBreakFromSpells, 75, "Chance for root to break when cast on by a client")
+RULE_BOOL(Spells, July242002PetResists, true, "Enable Pets using PCs resist change from July 24 2002")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)
