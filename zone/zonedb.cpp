@@ -5085,6 +5085,7 @@ void ZoneDatabase::GetLastPVPDeath(Client* victim, PVPStats_Struct* pvps)
 		pvps->LastDeath.Time = atoi(row[5]);
 		pvps->LastDeath.Points = atoi(row[6]);
 	}
+}
 
 double ZoneDatabase::GetAAEXPModifier(uint32 character_id, uint32 zone_id) const {
 	std::string query = fmt::format(
