@@ -359,6 +359,12 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		return(false);
 	}
 
+	if (IsNPC() && spells[spell_id].zonetype == 1 && !zone->CanCastOutdoor()) {
+		InterruptSpell();
+		return(false);
+	}
+
+
 	const SPDat_Spell_Struct &spell = spells[spell_id];
 
 	LogSpells("DoCastSpell called for spell [{}] ([{}]) on entity [{}], slot [{}], time [{}], mana [{}], from item [{}]",
