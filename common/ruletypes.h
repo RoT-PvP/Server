@@ -384,6 +384,7 @@ RULE_BOOL(Spells, OldRainTargets, false, "Use old incorrectly implemented maximu
 RULE_BOOL(Spells, NPCSpellPush, false, "Enable spell push on NPCs")
 RULE_INT(Spells, PVPRootBreakFromSpells, 75, "Chance for root to break when cast on by a client")
 RULE_BOOL(Spells, July242002PetResists, true, "Enable Pets using PCs resist change from July 24 2002")
+RULE_BOOL(Spells, CazicTouchTargetsPetOwner, true, "If True, causes Cazic Touch to swap targets from pet to pet owner if a pet is tanking.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)
