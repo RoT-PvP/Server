@@ -7,6 +7,7 @@ typedef enum {
 	EVENT_DEATH,		//being killed
 	EVENT_SPAWN,		//triggered when we first spawn
 	EVENT_ATTACK,		//being attacked (resets after an interval of not being attacked)
+	EVENT_PVP,		//being attacked (resets after an interval of not being attacked)
 	EVENT_COMBAT,		//being attacked or attacking (resets after an interval of not being attacked)
 	EVENT_AGGRO,		//entering combat mode due to a PC attack
 	EVENT_SLAY,			//killing a PC
