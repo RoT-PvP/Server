@@ -167,6 +167,7 @@ RULE_BOOL(Character, PVPIsAutoAttackAlwaysLoS, false, "When set to true, auto at
 RULE_BOOL(Character, PVPFacingInMeleeRequired, true, "When set to false, pvp melee can attack 360 degrees instead of just front")
 RULE_BOOL(Character, PVPCanLootCoin, false, "Can players loot coin from player corpses?")
 RULE_BOOL(Character, EnableCharacterEXPMods, false, "Enables character zone-based experience modifiers.")
+RULE_BOOL(Character, PVPEnableGuardFactionAssist, true, "Enables faction based assisting against the aggresor in pvp.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Mercs)
