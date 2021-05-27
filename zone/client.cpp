@@ -10008,7 +10008,7 @@ bool Client::CanPvP(Client *c) {
 			level_diff = c->GetLevel() - GetLevel();
 		else 
 			level_diff = GetLevel() - c->GetLevel();
-		if (level_diff > rule_level_diff)
+		if (level_diff > rule_level_diff && !GetZoneID() == 71 && !GetZoneID() == 72 && !GetZoneID() == 76 && !GetZoneID() == 77 && !GetZoneID() == 39 && !GetZoneID() == 89 && !GetZoneID() == 108 && !GetZoneID() == 124 && !GetZoneID() == 128)
 			return false;
 	}
 
@@ -10105,6 +10105,7 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 	float scoring_modifier;	
 	float infamy_difference;
 	int divider_modifier;
+	int currentkillerpoints;
 	int vitality = victim->m_pp.PVPVitality;
 
 	level_difference = victim->GetLevel() - killer->GetLevel();
@@ -10116,6 +10117,8 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 	divider_modifier = database.GetKillCount24Hours(killer, victim);
 		
 	points = (100 + scoring_modifier);
+
+	currentkillerpoints = killer->m_pp.PVPCurrentPoints;
 	
         if (divider_modifier > 1) {	
             for (int i=divider_modifier; i > 0; i--)
@@ -10124,13 +10127,17 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
               		  
                 if (points < 1.0) {
                     pvp_points = (divider_modifier + scoring_modifier) * divider_modifier / 5;
-                } else {
+				} else {
                     pvp_points = points;
-	        }
+				}
             }
         } else {
            pvp_points = points;
         }
+
+		if (pvp_points < 0) {
+			pvp_points = 0;
+		}
 
 	return (int)pvp_points;
 }
