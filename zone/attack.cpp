@@ -1783,7 +1783,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		}
 
 		// check for a pvp kill
-		if (killerMob->IsClient()) {
+		if (killerMob->IsClient() && killerMob != this) {
 			Client* victim = this;
 			std::vector<EQ::Any> args;
 			args.push_back(victim);
