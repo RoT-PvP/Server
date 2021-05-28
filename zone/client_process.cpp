@@ -1006,6 +1006,12 @@ void Client::OPRezzAnswer(uint32 Action, uint32 SpellID, uint16 ZoneID, uint16 I
 		return;
 	}
 
+	if (!pvp_attacked_timer.Check()) {
+		LogSpells("Accepter has been damaged by PvP recently. Ignoring rezz accept");
+		Message(Chat::Red, "You have recently been attacked and cannot take a rezz.\n");
+		return;
+	}
+
 	if (Action == 1)
 	{
 		// Mark the corpse as rezzed in the database, just in case the corpse has buried, or the zone the

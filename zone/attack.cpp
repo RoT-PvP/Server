@@ -1603,12 +1603,12 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 		spell_id = SPELL_UNKNOWN;
 
 	//handle EVENT_PVP. Resets after we have not been attacked for 12 seconds
-	if (attacked_timer.Check())
+	if (pvp_attacked_timer.Check())
 	{
 		LogCombat("Triggering EVENT_PVP due to attack by [{}]", other ? other->GetName() : "nullptr");
 		parse->EventPlayer(EVENT_PVP, this, other->GetName(), 0, 0);
 	}
-	attacked_timer.Start(CombatEventTimer_expire);
+	pvp_attacked_timer.Start(60000);
 
 
 	// cut all PVP spell damage to 2/3

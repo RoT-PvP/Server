@@ -139,7 +139,7 @@ Client::Client(EQStreamInterface* ieqs)
   dead_timer(2000),
   global_channel_timer(1000),
   shield_timer(500),
-  attacked_timer(CombatEventTimer_expire),
+  pvp_attacked_timer(60000),
   fishing_timer(8000),
   endupkeep_timer(1000),
   forget_timer(0),

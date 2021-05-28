@@ -1809,7 +1809,7 @@ private:
 	Timer client_scan_npc_aggro_timer;
 	Timer client_zone_wide_full_position_update_timer;
 	Timer tribute_timer;
-	Timer attacked_timer;		//running while we are being attacked (damaged)
+	Timer pvp_attacked_timer;		//running while we are being attacked (damaged)
 
 	Timer proximity_timer;
 	Timer TaskPeriodic_Timer;
