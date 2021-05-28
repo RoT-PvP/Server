@@ -1534,20 +1534,22 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 	other->AddToHateList(this, hate);
 
 	//Guard Assist Code
-	if (RuleB(Character, PVPEnableGuardFactionAssist) && this->IsClient() || RuleB(Character, PVPEnableGuardFactionAssist) && this->HasOwner() && this->GetOwner()->IsClient()) {
-		auto& mob_list = entity_list.GetCloseMobList(other);
-		for (auto& e : mob_list) {
-			auto mob = e.second;
-			float distance = Distance(other->CastToClient()->m_Position, mob->GetPosition());
-			if (mob->CheckLosFN(other) && distance <= 70 || mob->CheckLosFN(this) && distance <= 70) {
-				if (IsGuard(mob->GetRace(),mob->GetTexture(), mob->GetPrimaryFaction())) {
-					if (this->IsPet()) {
-						if (other->GetReverseFactionCon(mob) <= this->GetOwner()->GetReverseFactionCon(mob)) {
+	if (RuleB(Character, PVPEnableGuardFactionAssist)) {
+		if (this->IsClient() || (this->HasOwner() && this->GetOwner()->IsClient())) {
+			auto& mob_list = entity_list.GetCloseMobList(other);
+			for (auto& e : mob_list) {
+				auto mob = e.second;
+				if (mob->CastToNPC()->IsGuard()) {
+					float distance = Distance(other->CastToClient()->m_Position, mob->GetPosition());
+					if (mob->CheckLosFN(other) && distance <= 70 || mob->CheckLosFN(this) && distance <= 70) {
+						if (this->IsPet()) {
+							if (other->GetReverseFactionCon(mob) <= this->GetOwner()->GetReverseFactionCon(mob)) {
+								mob->AddToHateList(this);
+							}
+						}
+						else if (other->GetReverseFactionCon(mob) <= this->GetReverseFactionCon(mob)) {
 							mob->AddToHateList(this);
 						}
-					}
-					else if (other->GetReverseFactionCon(mob) <= this->GetReverseFactionCon(mob)) {
-						mob->AddToHateList(this);
 					}
 				}
 			}
@@ -1601,12 +1603,12 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 		spell_id = SPELL_UNKNOWN;
 
 	//handle EVENT_PVP. Resets after we have not been attacked for 12 seconds
-	if (attacked_timer.Check())
+	if (pvp_attacked_timer.Check())
 	{
 		LogCombat("Triggering EVENT_PVP due to attack by [{}]", other ? other->GetName() : "nullptr");
 		parse->EventPlayer(EVENT_PVP, this, other->GetName(), 0, 0);
 	}
-	attacked_timer.Start(CombatEventTimer_expire);
+	pvp_attacked_timer.Start(60000);
 
 
 	// cut all PVP spell damage to 2/3
@@ -2173,15 +2175,17 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 	}
 
 	//Guard Assist Code
-	if (RuleB(Character, PVPEnableGuardFactionAssist) && other->IsClient() && this->HasOwner() && this->GetOwner()->IsClient()) {
-		auto& mob_list = entity_list.GetCloseMobList(other);
-		for (auto& e : mob_list) {
-			auto mob = e.second;
-			float distance = Distance(other->GetPosition(), mob->GetPosition());
-			if (mob->CheckLosFN(other) && distance <= 70 || mob->CheckLosFN(this) && distance <= 70) {
-				if (IsGuard(mob->GetRace(), mob->GetTexture(), mob->GetPrimaryFaction())) {
-					if (other->GetReverseFactionCon(mob) <= this->GetOwner()->GetReverseFactionCon(mob)) {
-						mob->AddToHateList(this);
+	if (RuleB(Character, PVPEnableGuardFactionAssist)) {
+		if (this->IsClient() || (this->HasOwner() && this->GetOwner()->IsClient())) {
+			auto& mob_list = entity_list.GetCloseMobList(other);
+			for (auto& e : mob_list) {
+				auto mob = e.second;
+				if (mob->CastToNPC()->IsGuard()) {
+					float distance = Distance(other->GetPosition(), mob->GetPosition());
+					if (mob->CheckLosFN(other) && distance <= 70 || mob->CheckLosFN(this) && distance <= 70) {
+						if (other->GetReverseFactionCon(mob) <= this->GetOwner()->GetReverseFactionCon(mob)) {
+							mob->AddToHateList(this);
+						}
 					}
 				}
 			}
