@@ -1305,6 +1305,7 @@ void ZoneServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p) {
 	case ServerOP_CZTaskRemoveGroup:
 	case ServerOP_CZTaskRemoveRaid:
 	case ServerOP_CZTaskRemoveGuild:
+	case ServerOP_CZLDoNUpdate:
 	case ServerOP_WWAssignTask:
 	case ServerOP_WWCastSpell:
 	case ServerOP_WWDisableTask:

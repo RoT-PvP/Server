@@ -1717,7 +1717,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	/* Task Packets */
 	LoadClientTaskState();
 
-	m_expedition_id = ExpeditionDatabase::GetExpeditionIDFromCharacterID(CharacterID());
+	m_expedition_id = ExpeditionsRepository::GetIDByMemberID(database, CharacterID());
 
 	/**
 	 * DevTools Load Settings
@@ -2032,7 +2032,7 @@ void Client::Handle_OP_AdventureMerchantPurchase(const EQApplicationPacket *app)
 	{
 		int32 requiredpts = (int32)item->LDoNPrice*-1;
 
-		if (!UpdateLDoNPoints(requiredpts, 6))
+		if (!UpdateLDoNPoints(6, requiredpts))
 			return;
 	}
 	else if (aps->Type == DiscordMerchant)
@@ -2260,7 +2260,7 @@ void Client::Handle_OP_AdventureMerchantSell(const EQApplicationPacket *app)
 	{
 	case ADVENTUREMERCHANT:
 	{
-		UpdateLDoNPoints(price, 6);
+		UpdateLDoNPoints(6, price);
 		break;
 	}
 	case NORRATHS_KEEPERS_MERCHANT:
