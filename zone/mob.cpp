@@ -1858,19 +1858,6 @@ void Mob::SendIllusionPacket(
 	if (IsClient() && in_race == 0) {
 		race                 = CastToClient()->GetBaseRace();
 		gender               = CastToClient()->GetBaseGender();
-		new_texture          = texture          = 0xFF;
-		new_helmtexture      = helmtexture      = 0xFF;
-		new_haircolor        = haircolor        = CastToClient()->GetBaseHairColor();
-		new_beardcolor       = beardcolor       = CastToClient()->GetBaseBeardColor();
-		new_eyecolor1        = eyecolor1        = CastToClient()->GetBaseEyeColor();
-		new_eyecolor2        = eyecolor2        = CastToClient()->GetBaseEyeColor();
-		new_hairstyle        = hairstyle        = CastToClient()->GetBaseHairStyle();
-		new_luclinface       = luclinface       = CastToClient()->GetBaseFace();
-		new_beard            = beard            = CastToClient()->GetBaseBeard();
-		new_aa_title         = aa_title         = 0xFF;
-		new_drakkin_heritage = drakkin_heritage = CastToClient()->GetBaseHeritage();
-		new_drakkin_tattoo   = drakkin_tattoo   = CastToClient()->GetBaseTattoo();
-		new_drakkin_details  = drakkin_details  = CastToClient()->GetBaseDetails();
 		switch (race) {
 			case OGRE:
 				size = 9;
