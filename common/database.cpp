@@ -82,6 +82,12 @@ Database::~Database()
 {
 }
 
+void Database::SetExeCrcForAccount(uint32 accountid, uint64 checksum)
+{
+	std::string query = StringFormat("UPDATE `account` SET `checksum` = '%lld' WHERE `id` = '%i'", checksum, accountid);
+	auto results = QueryDatabase(query);
+}
+
 /*
 	Check if there is an account with name "name" and password "password"
 	Return the account id or zero if no account matches.
