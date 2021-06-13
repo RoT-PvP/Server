@@ -168,6 +168,7 @@ RULE_BOOL(Character, PVPFacingInMeleeRequired, true, "When set to false, pvp mel
 RULE_BOOL(Character, PVPCanLootCoin, false, "Can players loot coin from player corpses?")
 RULE_BOOL(Character, EnableCharacterEXPMods, false, "Enables character zone-based experience modifiers.")
 RULE_BOOL(Character, PVPEnableGuardFactionAssist, true, "Enables faction based assisting against the aggresor in pvp.")
+RULE_BOOL(Character, SkillUpFromItems, true, "Allow Skill ups from clickable items")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Mercs)
@@ -282,6 +283,7 @@ RULE_INT(Zone, GlobalLootMultiplier, 1, "Sets Global Loot drop multiplier for da
 RULE_BOOL(Zone, KillProcessOnDynamicShutdown, true, "When process has booted a zone and has hit its zone shut down timer, it will hard kill the process to free memory back to the OS")
 RULE_INT(Zone, SecondsBeforeIdle, 60, "Seconds before IDLE_WHEN_EMPTY define kicks in")
 RULE_BOOL(Zone, IsCrossZoneInviteAllowed, true, "Disables inviting players across zones")
+RULE_INT(Zone, SpawnEventMin, 3, "When strict is set in spawn_events, specifies the max EQ minutes into the trigger hour a spawn_event will fire. Going below 3 may cause the spawn_event to not fire.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Map)
@@ -386,7 +388,10 @@ RULE_INT(Spells, PVPRootBreakFromSpells, 75, "Chance for root to break when cast
 RULE_BOOL(Spells, July242002PetResists, true, "Enable Pets using PCs resist change from July 24 2002")
 RULE_BOOL(Spells, CazicTouchTargetsPetOwner, true, "If True, causes Cazic Touch to swap targets from pet to pet owner if a pet is tanking.")
 RULE_INT(Spells, AOEMaxTargets, 0, "Max number of targets a Targeted AOE spell can cast on. Set to 0 for no limit.")
+RULE_BOOL(Spells, CazicTouchTargetsPetOwner, true, "If True, causes Cazic Touch to swap targets from pet to pet owner if a pet is tanking.")
+RULE_BOOL(Spells, PreventFactionWarOnCharmBreak, false, "Enable spell interupts and dot removal on charm break to prevent faction wars.")
 RULE_BOOL(Spells, AllowDoubleInvis, false, "Allows you to cast invisibility spells on a player that is already invisible")
+RULE_BOOL(Spells, AllowSpellMemorizeFromItem, false, "Allows players to memorize spells by right-clicking spell scrolls")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)
@@ -578,9 +583,6 @@ RULE_BOOL(Bots, BotGroupXP, false, "Determines whether client gets experience fo
 RULE_BOOL(Bots, BotLevelsWithOwner, false, "Auto-updates spawned bots as owner levels/de-levels (false is original behavior)")
 RULE_INT(Bots, BotCharacterLevel, 0, "If level is greater that value player can spawn bots if BotCharacterLevelEnabled is true")
 RULE_INT(Bots, CasterStopMeleeLevel, 13, "Level at which caster bots stop melee attacks")
-RULE_INT(Bots, AllowedClasses, 0xFFFFFFFF, "Bitmask of allowed bot classes")
-RULE_INT(Bots, AllowedRaces, 0xFFFFFFFF, "Bitmask of allowed bot races")
-RULE_INT(Bots, AllowedGenders, 0x3, "Bitmask of allowed bot genders")
 RULE_BOOL(Bots, AllowOwnerOptionAltCombat, true, "When option is enabled, bots will use an auto-/shared-aggro combat model")
 RULE_BOOL(Bots, AllowOwnerOptionAutoDefend, true, "When option is enabled, bots will defend their owner on enemy aggro")
 RULE_REAL(Bots, LeashDistance, 562500.0f, "Distance a bot is allowed to travel from leash owner before being pulled back (squared value)")
