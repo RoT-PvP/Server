@@ -399,6 +399,33 @@ void Client::SendMembershipSettings() {
 	safe_delete(outapp);
 }
 
+bool Client::HandleChecksumPacket(const EQApplicationPacket *app)
+{
+	SimpleChecksum_Struct* cs = (SimpleChecksum_Struct*)app->pBuffer;
+	uint64 checksum = cs->checksum;
+
+	std::string exechecksum;
+	uint64 execheckint;
+	execheckint = -1;
+
+	if (checksum == execheckint && GetAdmin() < 255) {
+			LogDebug("RoF2 EXE Checksum is GOOD! [{}]", checksum);
+			database.SetExeCrcForAccount(GetAccountID(), checksum);
+			return true;
+	} 
+	if (checksum != execheckint && GetAdmin() < 255) {
+		LogDebug("EXECHECKSUM FAILED");
+		database.SetExeCrcForAccount(GetAccountID(), checksum);
+		return false;
+	}
+	if (GetAdmin() == 255) {
+		LogDebug("RoF2 EXE Checksum overwrited. Account is admin! [{}]", checksum);
+		database.SetExeCrcForAccount(GetAccountID(), checksum);
+		return true;
+	}
+}
+
+
 void Client::SendPostEnterWorld() {
 	auto outapp = new EQApplicationPacket(OP_PostEnterWorld, 1);
 	outapp->size=0;
@@ -1009,6 +1036,7 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 		}
 	}
 
+
 	if (GetAccountID() == 0 && opcode != OP_SendLoginInfo) {
 		// Got a packet other than OP_SendLoginInfo when not logged in
 		LogInfo("Expecting OP_SendLoginInfo, got [{}]", OpcodeNames[opcode]);
@@ -1028,7 +1056,8 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 			// before OP_World_Client_CRC1. Therefore, if we receive OP_World_Client_CRC1 before OP_EnterWorld,
 			// then 'Start Tutorial' was not chosen.
 			StartInTutorial = false;
-			return true;
+
+			return HandleChecksumPacket(app);
 		}
 		case OP_SendLoginInfo:
 		{
@@ -1112,6 +1141,8 @@ bool Client::Process() {
 		TellClientZoneUnavailable();
 	}
 
+
+
 	if(connect.Check()){
 		SendGuildList();// Send OPCode: OP_GuildsList
 		SendApproveWorld();
@@ -1152,6 +1183,11 @@ bool Client::Process() {
 void Client::EnterWorld(bool TryBootup) {
 	if (zone_id == 0)
 		return;
+
+	if (client_list.IsAccountInGame(GetLSID())) {
+		TellClientZoneUnavailable();
+		return;
+	}
 
 	ZoneServer* zone_server = nullptr;
 	if(instance_id > 0)
@@ -1226,6 +1262,7 @@ void Client::EnterWorld(bool TryBootup) {
 		TellClientZoneUnavailable();
 		return;
 	}
+
 
 	cle->SetChar(charid, char_name);
 	database.UpdateLiveChar(char_name, GetAccountID());
