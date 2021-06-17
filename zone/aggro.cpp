@@ -825,6 +825,10 @@ bool Mob::CombatRange(Mob* other, float fixed_size_mod, bool aeRampage)
 	size_mod *= RuleR(Combat,HitBoxMod);		// used for testing sizemods on different races.
 	size_mod *= fixed_size_mod;					// used to extend the size_mod
 
+	if (other->IsClient() && IsClient()) { //hitbox shortening
+		size_mod = size_mod * .60;
+	}
+
 	// prevention of ridiculously sized hit boxes
 	if (size_mod > 10000)
 		size_mod = size_mod / 7;
