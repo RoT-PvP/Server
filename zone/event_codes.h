@@ -90,6 +90,7 @@ typedef enum {
 	EVENT_USE_SKILL,
 	EVENT_COMBINE_VALIDATE,
 	EVENT_BOT_COMMAND,
+	EVENT_TEST_BUFF,
 	_LargestEventID
 } QuestEventID;
 

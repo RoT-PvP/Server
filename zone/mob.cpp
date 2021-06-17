@@ -588,10 +588,14 @@ void Mob::SetInvisible(uint8 state)
 	invisible = state;
 	SendAppearancePacket(AT_Invis, invisible);
 	// Invis and hide breaks charms
-
 	auto formerpet = GetPet();
-	if (formerpet && formerpet->GetPetType() == petCharmed && (invisible || hidden || improved_hidden))
-		formerpet->BuffFadeByEffect(SE_Charm);
+	if (formerpet && formerpet->GetPetType() == petCharmed && (invisible || hidden || improved_hidden || invisible_animals || invisible_undead)) {
+		if (RuleB(Pets, LivelikeBreakCharmOnInvis) || IsInvisible(formerpet)) {
+			formerpet->BuffFadeByEffect(SE_Charm);
+		}
+
+		LogRules("Pets:LivelikeBreakCharmOnInvis for [{}] | Invis [{}] - Hidden [{}] - Shroud of Stealth [{}] - IVA [{}] - IVU [{}]", GetCleanName(), invisible, hidden, improved_hidden, invisible_animals, invisible_undead);
+	}
 }
 
 //check to see if `this` is invisible to `other`
@@ -1854,10 +1858,25 @@ void Mob::SendIllusionPacket(
 	new_drakkin_details  = (in_drakkin_details == 0xFFFFFFFF) ? GetDrakkinDetails() : in_drakkin_details;
 	new_aa_title         = in_aa_title;
 
-	// Reset features to Base from the Player Profile
-	if (IsClient() && in_race == 0) {
-		race                 = CastToClient()->GetBaseRace();
-		gender               = CastToClient()->GetBaseGender();
+	bool  reset_features_to_player_profile = IsClient() && in_race == 0;
+	if (reset_features_to_player_profile) {
+		auto c = CastToClient();
+		race                 = c->GetBaseRace();
+		gender               = c->GetBaseGender();
+		new_texture          = texture          = 0xFF;
+		new_helmtexture      = helmtexture      = 0xFF;
+		new_haircolor        = haircolor        = c->GetBaseHairColor();
+		new_beardcolor       = beardcolor       = c->GetBaseBeardColor();
+		new_eyecolor1        = eyecolor1        = c->GetBaseEyeColor();
+		new_eyecolor2        = eyecolor2        = c->GetBaseEyeColor();
+		new_hairstyle        = hairstyle        = c->GetBaseHairStyle();
+		new_luclinface       = luclinface       = c->GetBaseFace();
+		new_beard            = beard            = c->GetBaseBeard();
+		new_aa_title         = aa_title         = 0xFF;
+		new_drakkin_heritage = drakkin_heritage = c->GetBaseHeritage();
+		new_drakkin_tattoo   = drakkin_tattoo   = c->GetBaseTattoo();
+		new_drakkin_details  = drakkin_details  = c->GetBaseDetails();
+
 		switch (race) {
 			case OGRE:
 				size = 9;
@@ -1888,50 +1907,52 @@ void Mob::SendIllusionPacket(
 		}
 	}
 
-	// update internal values for mob
-	// TODO: Move this to its own SetIllusion function later
-	//	size             = (in_size <= 0.0f) ? GetSize() : in_size;
-	//	texture          = new_texture;
-	//	helmtexture      = new_helmtexture;
-	//	haircolor        = new_haircolor;
-	//	beardcolor       = new_beardcolor;
-	//	eyecolor1        = new_eyecolor1;
-	//	eyecolor2        = new_eyecolor2;
-	//	hairstyle        = new_hairstyle;
-	//	luclinface       = new_luclinface;
-	//	beard            = new_beard;
-	//	drakkin_heritage = new_drakkin_heritage;
-	//	drakkin_tattoo   = new_drakkin_tattoo;
-	//	drakkin_details  = new_drakkin_details;
+	// update internal values for mob from illusion
+	size             = (in_size <= 0.0f) ? GetRaceGenderDefaultHeight(race, gender) : in_size;
+	texture          = new_texture;
+	helmtexture      = new_helmtexture;
+	haircolor        = new_haircolor;
+	beardcolor       = new_beardcolor;
+	eyecolor1        = new_eyecolor1;
+	eyecolor2        = new_eyecolor2;
+	hairstyle        = new_hairstyle;
+	luclinface       = new_luclinface;
+	beard            = new_beard;
+	drakkin_heritage = new_drakkin_heritage;
+	drakkin_tattoo   = new_drakkin_tattoo;
+	drakkin_details  = new_drakkin_details;
 
-	auto            outapp = new EQApplicationPacket(OP_Illusion, sizeof(Illusion_Struct));
-	Illusion_Struct *is    = (Illusion_Struct *) outapp->pBuffer;
-	is->spawnid = GetID();
-	strcpy(is->charname, GetCleanName());
-	is->race             = race;
-	is->gender           = gender;
-	is->texture          = new_texture;
-	is->helmtexture      = new_helmtexture;
-	is->haircolor        = new_haircolor;
-	is->beardcolor       = new_beardcolor;
-	is->beard            = new_beard;
-	is->eyecolor1        = new_eyecolor1;
-	is->eyecolor2        = new_eyecolor2;
-	is->hairstyle        = new_hairstyle;
-	is->face             = new_luclinface;
-	is->drakkin_heritage = new_drakkin_heritage;
-	is->drakkin_tattoo   = new_drakkin_tattoo;
-	is->drakkin_details  = new_drakkin_details;
-	is->size             = size;
+	// send packet
+	auto outapp = new EQApplicationPacket(OP_Illusion, sizeof(Illusion_Struct));
+	auto *i     = (Illusion_Struct *) outapp->pBuffer;
+	i->spawnid = GetID();
+	strcpy(i->charname, GetCleanName());
+	i->race             = race;
+	i->gender           = gender;
+	i->texture          = new_texture;
+	i->helmtexture      = new_helmtexture;
+	i->haircolor        = new_haircolor;
+	i->beardcolor       = new_beardcolor;
+	i->beard            = new_beard;
+	i->eyecolor1        = new_eyecolor1;
+	i->eyecolor2        = new_eyecolor2;
+	i->hairstyle        = new_hairstyle;
+	i->face             = new_luclinface;
+	i->drakkin_heritage = new_drakkin_heritage;
+	i->drakkin_tattoo   = new_drakkin_tattoo;
+	i->drakkin_details  = new_drakkin_details;
+	i->size             = size;
 
 	entity_list.QueueClients(this, outapp);
 	safe_delete(outapp);
 
-	/* Refresh armor and tints after send illusion packet */
+	// Refresh armor and tints after send illusion packet
 	SendArmorAppearance();
 
-	LogSpells(
-		"Illusion: Race [{}] Gender [{}] Texture [{}] HelmTexture [{}] HairColor [{}] BeardColor [{}] EyeColor1 [{}] EyeColor2 [{}] HairStyle [{}] Face [{}] DrakkinHeritage [{}] DrakkinTattoo [{}] DrakkinDetails [{}] Size [{}]",
+	LogMobAppearance(
+		"[SendIllusionPacket] race [{}] gender [{}] new_texture [{}] new_helmtexture [{}] new_haircolor [{}] new_beardcolor [{}] "
+		"new_eyecolor1 [{}] new_eyecolor2 [{}] new_hairstyle [{}] new_luclinface [{}] new_drakkin_heritage [{}] "
+		"new_drakkin_tattoo [{}] new_drakkin_details [{}] size [{}]",
 		race,
 		gender,
 		new_texture,
@@ -4913,6 +4934,22 @@ void Mob::RemoveNimbusEffect(int effectid)
 	safe_delete(outapp);
 }
 
+void Mob::RemoveAllNimbusEffects()
+{
+	uint32 nimbus_effects[3] = { nimbus_effect1, nimbus_effect2, nimbus_effect3 };
+	for (auto &current_nimbus : nimbus_effects) {
+		auto remove_packet = new EQApplicationPacket(OP_RemoveNimbusEffect, sizeof(RemoveNimbusEffect_Struct));
+		auto *remove_effect = (RemoveNimbusEffect_Struct*)remove_packet->pBuffer;
+		remove_effect->spawnid = GetID();
+		remove_effect->nimbus_effect = current_nimbus;
+		entity_list.QueueClients(this, remove_packet);
+		safe_delete(remove_packet);
+	}
+	nimbus_effect1 = 0;
+	nimbus_effect2 = 0;
+	nimbus_effect3 = 0;
+}
+
 bool Mob::IsBoat() const {
 
 	return (
@@ -5581,7 +5618,7 @@ int32 Mob::GetSpellStat(uint32 spell_id, const char *identifier, uint8 slot)
 
 	if (slot < 16){
 		if (id == "classes") {return spells[spell_id].classes[slot]; }
-		else if (id == "dieties") {return spells[spell_id].deities[slot];}
+		else if (id == "deities") {return spells[spell_id].deities[slot];}
 	}
 
 	if (slot < 12){
@@ -5614,7 +5651,7 @@ int32 Mob::GetSpellStat(uint32 spell_id, const char *identifier, uint8 slot)
 	else if (id == "Activated") {return spells[spell_id].Activated;}
 	else if (id == "resisttype") {return spells[spell_id].resisttype;}
 	else if (id == "targettype") {return spells[spell_id].targettype;}
-	else if (id == "basedeiff") {return spells[spell_id].basediff;}
+	else if (id == "basediff") {return spells[spell_id].basediff;}
 	else if (id == "skill") {return spells[spell_id].skill;}
 	else if (id == "zonetype") {return spells[spell_id].zonetype;}
 	else if (id == "EnvironmentType") {return spells[spell_id].EnvironmentType;}
@@ -5625,7 +5662,7 @@ int32 Mob::GetSpellStat(uint32 spell_id, const char *identifier, uint8 slot)
 	//else if (id == "spellanim") {stat = spells[spell_id].spellanim; } - Not implemented
 	else if (id == "uninterruptable") {return spells[spell_id].uninterruptable; }
 	else if (id == "ResistDiff") {return spells[spell_id].ResistDiff; }
-	else if (id == "dot_stacking_exemp") {return spells[spell_id].dot_stacking_exempt; }
+	else if (id == "dot_stacking_exempt") {return spells[spell_id].dot_stacking_exempt; }
 	else if (id == "RecourseLink") {return spells[spell_id].RecourseLink; }
 	else if (id == "no_partial_resist") {return spells[spell_id].no_partial_resist; }
 	else if (id == "short_buff_box") {return spells[spell_id].short_buff_box; }
@@ -5636,7 +5673,7 @@ int32 Mob::GetSpellStat(uint32 spell_id, const char *identifier, uint8 slot)
 	else if (id == "bonushate") {return spells[spell_id].bonushate; }
 	else if (id == "EndurCost") {return spells[spell_id].EndurCost; }
 	else if (id == "EndurTimerIndex") {return spells[spell_id].EndurTimerIndex; }
-	else if (id == "IsDisciplineBuf") {return spells[spell_id].IsDisciplineBuff; }
+	else if (id == "IsDisciplineBuff") {return spells[spell_id].IsDisciplineBuff; }
 	else if (id == "HateAdded") {return spells[spell_id].HateAdded; }
 	else if (id == "EndurUpkeep") {return spells[spell_id].EndurUpkeep; }
 	else if (id == "numhitstype") {return spells[spell_id].numhitstype; }
@@ -5681,22 +5718,53 @@ bool Mob::CanClassEquipItem(uint32 item_id)
 	const EQ::ItemData* itm = nullptr;
 	itm = database.GetItem(item_id);
 
-	if (!itm)
+	if (!itm) {
 		return false;
+	}
 
-	if(itm->Classes == 65535 )
+	auto item_classes = itm->Classes;
+	if(item_classes == PLAYER_CLASS_ALL_MASK) {
 		return true;
+	}
 
-	if (GetClass() > 16)
+	auto class_id = GetClass();
+	if (class_id > BERSERKER) {
 		return false;
+	}
 
-	int bitmask = 1;
-	bitmask = bitmask << (GetClass() - 1);
-
-	if(!(itm->Classes & bitmask))
+	int class_bitmask = GetPlayerClassBit(class_id);
+	if(!(item_classes & class_bitmask)) {
 		return false;
-	else
+	} else {
 		return true;
+	}
+}
+
+bool Mob::CanRaceEquipItem(uint32 item_id)
+{
+	const EQ::ItemData* itm = nullptr;
+	itm = database.GetItem(item_id);
+
+	if (!itm) {
+		return false;
+	}
+
+	auto item_races = itm->Races;
+	if(item_races == PLAYER_RACE_ALL_MASK) {
+		return true;
+	}
+
+	auto race_id = GetBaseRace();
+	if (!IsPlayerRace(race_id)) {
+		return false;
+	}
+
+	int race_bitmask = GetPlayerRaceBit(race_id);
+	if(!(item_races & race_bitmask)) {
+		return false;
+	} else {
+		return true;
+	}
 }
 
 void Mob::SendAddPlayerState(PlayerState new_state)
