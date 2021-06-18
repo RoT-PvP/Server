@@ -4297,14 +4297,15 @@ bool Client::IsLevelFirst(uint32 p_race, uint32 p_class, uint16 level) {
 }
 
 void Client::LevelFirst(uint32 p_race, uint32 p_class, uint16 level) {
-
-	std::string query = StringFormat("INSERT INTO server_first_levels "
-						"SET char_name = '%s', race = '%lu', class = '%lu', level = '%lu', "
-						"leveled_date = UNIX_TIMESTAMP(), account_status = %i",
-						GetName(), p_race, p_class, level, Admin());
-	auto results = database.QueryDatabase(query);
-
-	parse->EventPlayer(EVENT_SERVERFIRST_LEVEL, this, "", 0);
+	if (Admin() <= 0) {
+		std::string query = StringFormat("INSERT INTO server_first_levels "
+							"SET char_name = '%s', race = '%lu', class = '%lu', level = '%lu', "
+							"leveled_date = UNIX_TIMESTAMP(), account_status = %i",
+							GetName(), p_race, p_class, level, Admin());
+		auto results = database.QueryDatabase(query);
+		
+		parse->EventPlayer(EVENT_SERVERFIRST_LEVEL, this, "", 0);
+	}
 }
 
 bool Client::IsDiscovered(uint32 itemid) {
