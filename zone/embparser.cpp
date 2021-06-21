@@ -93,7 +93,6 @@ const char *QuestEventSubroutines[_LargestEventID] = {
 	"EVENT_FISH_FAILURE",
 	"EVENT_CLICK_OBJECT",
 	"EVENT_DISCOVER_ITEM",
-	"EVENT_SERVERFIRST_LEVEL",
 	"EVENT_DISCONNECT",
 	"EVENT_CONNECT",
 	"EVENT_ITEM_TICK",
@@ -123,7 +122,8 @@ const char *QuestEventSubroutines[_LargestEventID] = {
 	"EVENT_USE_SKILL",
 	"EVENT_COMBINE_VALIDATE",
 	"EVENT_BOT_COMMAND",
-	"EVENT_TEST_BUFF"
+	"EVENT_TEST_BUFF",
+	"EVENT_SERVERFIRST_LEVEL"
 };
 
 PerlembParser::PerlembParser() : perl(nullptr)
@@ -1558,17 +1558,6 @@ void PerlembParser::ExportEventVariables(
 			break;
 		}
 
-		case EVENT_SERVERFIRST_LEVEL: {
-		if (mob) {
-			ExportVar(package_name.c_str(), "name", mob->GetName());
-			ExportVar(package_name.c_str(), "race", GetRaceIDName(mob->GetRace()));
-			ExportVar(package_name.c_str(), "class", GetClassIDName(mob->GetClass()));
-			ExportVar(package_name.c_str(), "ulevel", mob->GetLevel());
-			ExportVar(package_name.c_str(), "userid", mob->GetID());
-		}
-			break;
-		}
-
 		case EVENT_COMMAND: {
 			Seperator sep(data);
 			ExportVar(package_name.c_str(), "command", (sep.arg[0] + 1));
@@ -1649,6 +1638,10 @@ void PerlembParser::ExportEventVariables(
 			ExportVar(package_name.c_str(), "data", objid);
 			ExportVar(package_name.c_str(), "text", data);
 			ExportVar(package_name.c_str(), "langid", extradata);
+			break;
+		}
+
+		case EVENT_SERVERFIRST_LEVEL: {
 			break;
 		}
 
