@@ -4921,9 +4921,25 @@ void Client::Handle_OP_Consider(const EQApplicationPacket *app)
 		}
 	}
 
-	if (zone->IsPVPZone()) {
-		if (!tmob->IsNPC())
-			con->pvpcon = tmob->CastToClient()->GetPVP();
+
+	if (!tmob->IsNPC()) {
+		uint32 color = 0;
+		if (tmob->CastToClient()->GetAlignment() == 0) {
+			color = 15;
+		}
+		else if (tmob->CastToClient()->GetAlignment() == 1) {
+			color = 2;
+		}
+		else if (tmob->CastToClient()->GetAlignment() == 2) {
+			color = 13;
+		}
+
+		if (GetAlignment() == tmob->CastToClient()->GetAlignment()) {
+			SendColoredText(color, std::string("[PVP] This character is friendly!"));
+		}
+		if (GetAlignment() != tmob->CastToClient()->GetAlignment()) {
+			SendColoredText(color, std::string("[PVP] This character is an enemy!"));
+		}
 	}
 
 	// If we're feigned show NPC as indifferent
