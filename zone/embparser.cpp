@@ -123,7 +123,6 @@ const char *QuestEventSubroutines[_LargestEventID] = {
 	"EVENT_USE_SKILL",
 	"EVENT_COMBINE_VALIDATE",
 	"EVENT_BOT_COMMAND",
-	"EVENT_WARP"
 	"EVENT_TEST_BUFF"
 };
 
@@ -1650,13 +1649,6 @@ void PerlembParser::ExportEventVariables(
 			ExportVar(package_name.c_str(), "data", objid);
 			ExportVar(package_name.c_str(), "text", data);
 			ExportVar(package_name.c_str(), "langid", extradata);
-			break;
-		}
-		case EVENT_WARP: {
-			Seperator sep(data);
-			ExportVar(package_name.c_str(), "from_x", sep.arg[0]);
-			ExportVar(package_name.c_str(), "from_y", sep.arg[1]);
-			ExportVar(package_name.c_str(), "from_z", sep.arg[2]);
 			break;
 		}
 
