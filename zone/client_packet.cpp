@@ -4809,10 +4809,13 @@ void Client::Handle_OP_Consider(const EQApplicationPacket *app)
 		}
 
 		if (GetAlignment() == tmob->CastToClient()->GetAlignment()) {
-			SendColoredText(color, std::string("[PVP] This character is friendly!"));
+			SendColoredText(color, std::string("This character is friendly!"));
 		}
-		if (GetAlignment() != tmob->CastToClient()->GetAlignment()) {
+		else if (GetAlignment() != tmob->CastToClient()->GetAlignment() && (tmob->GetLevel() >= (GetLevel() - 8) && (tmob->GetLevel() <= (GetLevel() + 8)))) {
 			SendColoredText(color, std::string("[PVP] This character is an enemy!"));
+		}
+		else if (GetAlignment() != tmob->CastToClient()->GetAlignment()) {
+			SendColoredText(color, std::string("This character is an enemy!"));
 		}
 	}
 
