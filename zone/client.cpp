@@ -505,14 +505,8 @@ void Client::SendZoneInPackets()
 	if (!GetHideMe()) entity_list.QueueClients(this, outapp, true);
 	safe_delete(outapp);
 	SetSpawned();
-	//if (GetPVP(false))	//force a PVP update until we fix the spawn struct
-		//SendAppearancePacket(AT_PVP, GetPVP(false), true, false);	 Commented out 1/28/21 Darksinga edits
-	if (IsEvil())  //Evil has a red tag
-		SendAppearancePacket(AT_PVP, IsEvil(), true, false); //rencro via xachary
-	if (IsGood())  //Good has a blue tag
-		SendAppearancePacket(AT_PVP, 0, false); //Darksinga edits
-	if (IsNeutral())  //Neutral has a blue tag
-		SendAppearancePacket(AT_PVP, 0, false); //Darksinga edits
+	if (GetPVP(false))	//force a PVP update until we fix the spawn struct
+		SendAppearancePacket(AT_PVP, GetPVP(false), true, false);	 //Commented out 1/28/21 Darksinga edits
 
 	SendPVPStats();
 
