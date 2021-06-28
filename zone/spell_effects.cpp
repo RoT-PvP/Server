@@ -1496,7 +1496,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						SendAppearancePacket(AT_Size, 3);
 					}
 					else if(spell.base[i] == WOLF) {
-						SendAppearancePacket(AT_Size, 2);
+						SendAppearancePacket(AT_Size, 6);
 					}
 					else{
 						SendAppearancePacket(AT_Size, 6);
