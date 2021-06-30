@@ -10041,9 +10041,9 @@ bool Client::CanPvP(Client *c) {
 	if ((RuleI(World, PVPSettings) == 2 || RuleB(World, PVPUseTeamsBySizeBasedPVP)) && GetPVPRaceTeamBySize() == c->GetPVPRaceTeamBySize())
 		return false;
 
-	//Check if players are flagged pvp. This may need to be removed later
-	if (!GetPVP() || !c->GetPVP()) return false;
-
+	if (GetAlignment() == c->GetAlignment())
+		return false;
+		
 	return true;
 }
 
