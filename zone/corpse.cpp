@@ -955,8 +955,6 @@ void Corpse::MakeLootRequestPackets(Client* client, const EQApplicationPacket* a
 					loot_request_type = LootRequestType::AllowedPVPSingle;
 				else if (GetPlayerKillItem() > 1)
 					loot_request_type = LootRequestType::AllowedPVPDefined;
-				else if (RuleB(Character, PVPCanLootCoin))
-					loot_request_type = LootRequestType::AllowedPVPCoin;
 			}
 		}
 		else if ((IsNPCCorpse() || become_npc) && CanPlayerLoot(client->CharacterID())) {
@@ -976,7 +974,10 @@ void Corpse::MakeLootRequestPackets(Client* client, const EQApplicationPacket* a
 	client->CommonBreakInvisible(); // we should be "all good" so lets break invis now instead of earlier before all error checking is done
 
 	// process coin
+	bool loot_coin = false;
 	std::string tmp;
+	if (database.GetVariable("LootCoin", tmp))
+		loot_coin = (tmp[0] == 1 && tmp[1] == '\0');
 
 	if (loot_request_type == LootRequestType::GMPeek || loot_request_type == LootRequestType::GMAllowed) {
 		client->Message(Chat::Yellow, "This corpse contains %u platinum, %u gold, %u silver and %u copper.",

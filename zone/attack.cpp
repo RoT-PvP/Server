@@ -1952,24 +1952,6 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			// creating the corpse takes the cash/items off the player too
 			auto new_corpse = new Corpse(this, exploss);
 
-			if (killerMob != nullptr && killerMob->IsClient() && RuleB(Character, PVPCanLootCoin)) {
-				if (killerMob->CastToClient()->isgrouped) {
-					Group* group = entity_list.GetGroupByClient(killerMob->CastToClient());
-					if (group != 0)
-					{
-						for (int i = 0; i < 6; i++)
-						{
-							if (group->members[i] != nullptr)
-							{
-								new_corpse->AllowPlayerLoot(group->members[i], i);
-							}
-						}
-					}
-				}
-				else {
-					new_corpse->AllowPlayerLoot(killerMob, 0);
-				}
-			}
 			std::string tmp;
 			database.GetVariable("ServerType", tmp);
 			if (tmp[0] == '1' && tmp[1] == '\0' && killerMob != nullptr && killerMob->IsClient()) {
@@ -1999,9 +1981,6 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 							}
 						}
 					}
-				}
-				else {
-					new_corpse->AllowPlayerLoot(killerMob, 0);
 				}
 			}
 
@@ -3585,32 +3564,12 @@ bool Mob::CheckDoubleAttack()
 	// Not 100% certain pets follow this or if it's just from pets not always
 	// having the same skills as most mobs
 	int chance = GetSkill(EQ::skills::SkillDoubleAttack);
-
 	if (GetLevel() > 35)
 		chance += GetLevel();
 
 	int per_inc = aabonuses.DoubleAttackChance + spellbonuses.DoubleAttackChance + itembonuses.DoubleAttackChance;
 	if (per_inc)
 		chance += chance * per_inc / 100;
-	
-	//mobs don't double attack until 17
-	if (IsNPC() && GetLevel() < 17) {
-		chance = 0;
-	}
-
-	//Animation pets double attack at 11
-	if (IsPet() && !IsCharmed() && GetRace() == 127) {
-		if (GetLevel() >= 11) {
-			chance += chance * per_inc / 100;
-		}
-	}
-
-	//fire pets don't double attack until 26
-	if (IsPet() && !IsCharmed() && GetRace() == 75 && GetTexture() == 1) {
-		if (GetLevel() < 26) {
-			chance = 0;
-		}
-	}
 
 	return zone->random.Int(1, 500) <= chance;
 }
