@@ -10019,7 +10019,7 @@ bool Client::CanPvP(Client *c) {
 			level_diff = c->GetLevel() - GetLevel();
 		else 
 			level_diff = GetLevel() - c->GetLevel();
-		if (level_diff > rule_level_diff && !GetZoneID() == 71 && !GetZoneID() == 72 && !GetZoneID() == 76 && !GetZoneID() == 77 && !GetZoneID() == 39 && !GetZoneID() == 89 && !GetZoneID() == 108 && !GetZoneID() == 124 && !GetZoneID() == 128)
+		if (level_diff > rule_level_diff && !GetZoneID() == 71 && !GetZoneID() == 72 && !GetZoneID() == 76 && !GetZoneID() == 77 && !GetZoneID() == 39 && !GetZoneID() == 89 && !GetZoneID() == 108 && !GetZoneID() == 124 && !GetZoneID() == 128 && !GetZoneID() == 26)
 			return false;
 	}
 
@@ -10034,7 +10034,7 @@ bool Client::CanPvP(Client *c) {
 		return false;
 
 	//is deity pvp rule enabled? If so, if we're same alignment, don't allow pvp
-	if ((RuleI(World, PVPSettings) == 4 || RuleB(World, PVPUseDeityBasedPVP)) && GetAlignment() == c->GetAlignment())
+	if ((RuleI(World, PVPSettings) == 4 || RuleB(World, PVPUseDeityBasedPVP)) && GetAlignment() == c->GetAlignment() && !GetZoneID() == 26 && !GetZoneID() == 77)
 		return false;
 	
 	//VZTZ Zek PVP Setting
