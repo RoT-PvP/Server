@@ -2818,6 +2818,22 @@ int Mob::CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caste
 	    spell_id != 287 && spell_id != 601 && IsEffectInSpell(spell_id, SE_Illusion))
 		res = 10000; // ~16h override
 
+	if (target->IsClient()) {
+		if (spell_id == 762 || spell_id == 1856 || spell_id == 1857 || spell_id == 1875 || spell_id == 1833 || spell_id == 1841 || spell_id == 1842 || spell_id == 1832 || spell_id == 1839 || spell_id == 1840 || spell_id == 760 || spell_id == 1851 || spell_id == 1852 || spell_id == 1878) {
+			int chance = zone->random.Real(1, 3);
+			if (chance == 3) {
+				res = duration * .33;
+			}
+			else if (chance == 2) {
+				res = duration * .25;
+			}
+			else if (chance == 1) {
+				res = duration * .15;
+			}
+		}
+	}
+	
+
 	res = mod_buff_duration(res, caster, target, spell_id);
 
 	LogSpells("Spell [{}]: Casting level [{}], formula [{}], base_duration [{}]: result [{}]",
