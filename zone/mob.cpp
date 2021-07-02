@@ -1272,6 +1272,16 @@ void Mob::FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho)
 		}
 	}
 
+	//if (IsClient()) {
+	//if (deity == 204 || deity == 208 || deity == 212 || deity == 210 || deity == 215) {
+	//	ns->spawn.bodytype = 1;
+	//} else if (deity == 201 || deity == 203 || deity == 206 || deity == 211) {
+	//	ns->spawn.bodytype = 27;
+	//} else {
+	//	ns->spawn.bodytype = 31;
+	//}
+	//}
+
 	memset(ns->spawn.set_to_0xFF, 0xFF, sizeof(ns->spawn.set_to_0xFF));
 	if(IsNPC() && IsDestructibleObject())
 	{
