@@ -198,8 +198,8 @@ uint32 Client::CalcEXP(uint8 conlevel) {
 		in_add_exp *= RuleR(Character, FinalExpMultiplier);
 	}
 
-	if (in_add_exp > (GetEXPForLevel(GetLevel() + 1) / 10)) { //exp given should not exceed 10%, check #2 after class / race mods -Gangsta
-		in_add_exp = (GetEXPForLevel(GetLevel() + 1) / 10);
+	if (in_add_exp > (GetEXPForLevel(GetLevel() + 1) * .11)) { //exp given should not exceed 10%, check #2 after class / race mods -Gangsta
+		in_add_exp = (GetEXPForLevel(GetLevel() + 1) * .11);
 	}
 
 	return in_add_exp;
@@ -492,12 +492,15 @@ void Client::CalculateExp(uint32 in_add_exp, uint32 &add_exp, uint32 &add_aaxp, 
 		add_exp *= RuleR(Character, FinalExpMultiplier);
 	}
 
-	if (add_exp > (GetEXPForLevel(GetLevel() +1 ) / 10)) { //exp given should not exceed 10% -Gangsta
-		add_exp = (GetEXPForLevel(GetLevel() + 1 ) /10);
-	}
 	
 	if (RuleB(Character, EnableCharacterEXPMods)) {
 		add_exp *= GetEXPModifier(this->GetZoneID());
+	}
+
+	int expcapamount = (GetEXPForLevel(GetLevel() + 1) - GetEXPForLevel(GetLevel())) * .11;
+
+	if (add_exp > expcapamount) { //exp given should not exceed 11% -Gangsta
+		add_exp = expcapamount;
 	}
 
 	add_exp = GetEXP() + add_exp;
