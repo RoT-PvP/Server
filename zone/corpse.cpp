@@ -1397,6 +1397,7 @@ void Corpse::FillSpawnStruct(NewSpawn_Struct* ns, Mob* ForWho) {
 
 	ns->spawn.max_hp = 120;
 	ns->spawn.NPC = 2;
+	ns->spawn.show_name = 1;
 
 	UpdateActiveLight();
 	ns->spawn.light = m_Light.Type[EQ::lightsource::LightActive];
