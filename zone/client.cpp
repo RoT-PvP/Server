@@ -4307,7 +4307,7 @@ void Client::LevelFirst(uint32 p_race, uint32 p_class, uint16 level) {
 							GetName(), p_race, p_class, level, Admin());
 		auto results = database.QueryDatabase(query);
 		
-		parse->EventPlayer(EVENT_SERVERFIRST_LEVEL, this, "", 0);
+		//parse->EventPlayer(EVENT_SERVERFIRST_LEVEL, this, "", 0);
 	}
 }
 
@@ -10028,8 +10028,13 @@ bool Client::CanPvP(Client *c) {
 			level_diff = c->GetLevel() - GetLevel();
 		else 
 			level_diff = GetLevel() - c->GetLevel();
-		if (level_diff > rule_level_diff && !GetZoneID() == 71 && !GetZoneID() == 72 && !GetZoneID() == 76 && !GetZoneID() == 77 && !GetZoneID() == 39 && !GetZoneID() == 89 && !GetZoneID() == 108 && !GetZoneID() == 124 && !GetZoneID() == 128 && !GetZoneID() == 26)
-			return false;
+		if (GetZoneID() == 71 || GetZoneID() == 72 || GetZoneID() == 76 || GetZoneID() == 77 || GetZoneID() == 39 || GetZoneID() == 89 || GetZoneID() == 108 || GetZoneID() == 124 || GetZoneID() == 128 && GetZoneID() == 26) {
+
+		}
+		else {
+			if (level_diff > rule_level_diff)
+				return false;
+		}
 	}
 
 	//players need to be proper level for pvp
