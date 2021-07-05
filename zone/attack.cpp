@@ -3570,7 +3570,9 @@ bool Mob::CheckDoubleAttack()
 	int per_inc = aabonuses.DoubleAttackChance + spellbonuses.DoubleAttackChance + itembonuses.DoubleAttackChance;
 	if (per_inc)
 		chance += chance * per_inc / 100;
-
+	if (GetLevel() < 11) {
+		chance = 0;
+	}
 	return zone->random.Int(1, 500) <= chance;
 }
 
