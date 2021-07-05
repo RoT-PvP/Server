@@ -161,6 +161,17 @@ bool EQ::Net::ConsoleServerConnection::SendChannelMessage(const ServerChannelMes
 	return true;
 }
 
+
+bool EQ::Net::ConsoleServerConnection::SendEmoteMessage(const ServerEmoteMessage_Struct* sem) {
+	if (!m_accept_messages) {
+		return false;
+	}
+
+	QueueMessage(fmt::format("{0} emotes {1}, '{2}'", sem->to, sem->type, sem->message));
+
+	return true;
+}
+
 void EQ::Net::ConsoleServerConnection::OnRead(TCPConnection *c, const unsigned char *data, size_t sz)
 {
 	for (size_t i = 0; i < sz; ++i) {

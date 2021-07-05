@@ -42,6 +42,12 @@ void EQ::Net::ConsoleServer::SendChannelMessage(const ServerChannelMessage_Struc
 	}
 }
 
+void EQ::Net::ConsoleServer::SendEmoteMessage(const ServerEmoteMessage_Struct* sem) {
+	for (auto& iter : m_connections) {
+		iter.second->SendEmoteMessage(sem);
+	}
+}
+
 void EQ::Net::ConsoleServer::ConnectionDisconnected(ConsoleServerConnection *c)
 {
 	auto iter = m_connections.find(c->GetUUID());

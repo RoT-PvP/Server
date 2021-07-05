@@ -5,6 +5,7 @@
 #include <map>
 
 struct ServerChannelMessage_Struct;
+struct ServerEmoteMessage_Struct;
 
 namespace EQ
 {
@@ -45,6 +46,7 @@ namespace EQ
 			void SetAcceptMessages(bool v) { m_accept_messages = v; }
 			void QueueMessage(const std::string &msg);
 			bool SendChannelMessage(const ServerChannelMessage_Struct* scm, std::function<void(void)> onTell);
+			bool SendEmoteMessage(const ServerEmoteMessage_Struct* sem);
 		private:
 			void OnRead(TCPConnection* c, const unsigned char* data, size_t sz);
 			void OnDisconnect(TCPConnection* c);
