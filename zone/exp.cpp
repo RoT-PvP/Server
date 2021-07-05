@@ -845,8 +845,10 @@ void Client::SetLevel(uint8 set_level, bool command)
 	if(set_level > m_pp.level) {
 		parse->EventPlayer(EVENT_LEVEL_UP, this, "", 0);
 
-			if (!this->GetGM() && !this->IsLevelFirst(GetBaseRace(), GetClass(), GetLevel())) {
-				this->LevelFirst(GetBaseRace(), GetClass(), GetLevel());
+			if (!this->GetGM() && this->IsClient()) {
+				if (!this->IsLevelFirst(GetBaseRace(), GetClass(), GetLevel())) {
+					this->LevelFirst(GetBaseRace(), GetClass(), GetLevel());
+				}
 			}
 
 		/* QS: PlayerLogLevels */
