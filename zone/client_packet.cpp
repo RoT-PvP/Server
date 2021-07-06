@@ -6979,7 +6979,7 @@ void Client::Handle_OP_GroupInvite2(const EQApplicationPacket *app)
 	{
 		if (Invitee->IsClient())
 		{
-			if (Invitee->CastToClient()->CanPvP(this)) {
+			if (Invitee->CastToClient()->GetAlignment() != GetAlignment()) {
 				Message(Chat::Red, "Cannot invite players of opposing faction.");
 				return;
 			}
