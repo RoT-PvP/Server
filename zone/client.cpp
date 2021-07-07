@@ -10448,3 +10448,4 @@ void Client::RemoveItem(uint32 item_id, uint32 quantity)
 		}
 	}
 }
+
