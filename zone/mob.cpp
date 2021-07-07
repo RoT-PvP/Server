@@ -264,7 +264,7 @@ Mob::Mob(
 	max_mana          = 0;
 	hp_regen          = in_hp_regen;
 	mana_regen        = in_mana_regen;
-	ooc_regen         = RuleI(NPC, OOCRegen); //default Out of Combat Regen
+	ooc_regen         = max_hp * .07; //default Out of Combat Regen
 	maxlevel          = in_maxlevel;
 	scalerate         = in_scalerate;
 	invisible         = 0;

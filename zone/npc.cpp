@@ -775,7 +775,7 @@ bool NPC::Process()
 
 		int32 ooc_regen_calc = 0;
 		if (ooc_regen > 0) { //should pull from Mob class
-			ooc_regen_calc += GetMaxHP() * ooc_regen / 100;
+			ooc_regen_calc += ooc_regen;
 		}
 
 		/**
