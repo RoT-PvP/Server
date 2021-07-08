@@ -883,9 +883,15 @@ bool Corpse::CanPlayerLoot(int charid) {
 
 		if (allowed_looters[i] == charid)
 			return true;
+			break;
 	}
+	if(IsNPCCorpse()) {
 	/* If we have no looters, obviously client can loot */
-	return looters == 0;
+		return looters == 0;
+	}
+	else {
+		return false;
+	}
 }
 
 void Corpse::AllowPlayerLoot(Mob *them, uint8 slot) {
