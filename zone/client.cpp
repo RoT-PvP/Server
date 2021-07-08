@@ -10027,7 +10027,7 @@ bool Client::CanPvP(Client *c) {
 
 		}
 		else {
-			if (level_diff > rule_level_diff)
+			if (level_diff > rule_level_diff && !GetGM())
 				return false;
 		}
 	}
@@ -10050,7 +10050,7 @@ bool Client::CanPvP(Client *c) {
 	if ((RuleI(World, PVPSettings) == 2 || RuleB(World, PVPUseTeamsBySizeBasedPVP)) && GetPVPRaceTeamBySize() == c->GetPVPRaceTeamBySize())
 		return false;
 
-	if (GetAlignment() == c->GetAlignment())
+	if (GetAlignment() == c->GetAlignment() && !GetGM())
 		return false;
 		
 	return true;
