@@ -1628,7 +1628,7 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	if (!ClientFinishedLoading())
 		damage = -5;
 	
-	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted() && !IsFeared() && !IsRunning()) { //If the target is moving dots only do partial damage
+	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted() && !IsFeared() && !IsRunning() && !IsBardSong(spell_id)) { //If the target is moving dots only do partial damage
 		damage = (damage * .66);
 	}
 	
@@ -2305,7 +2305,7 @@ void NPC::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillTyp
 	if (spell_id == 0)
 		spell_id = SPELL_UNKNOWN;
 
-	if (other != nullptr && iBuffTic && IsMoving() && !IsRooted() && !IsFeared() && !IsRunning()) { //If the target is moving dots only do partial damage
+	if (other != nullptr && iBuffTic && IsMoving() && !IsRooted() && !IsFeared() && !IsRunning() && !IsBardSong(spell_id)) { //If the target is moving dots only do partial damage
 		damage = (damage * .66);
 	}
 
