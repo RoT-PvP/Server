@@ -3686,36 +3686,33 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 
 	// Prevent double invising, which made you uninvised
 	// Not sure if all 3 should be stacking
-
-	if (!RuleB(Spells, AllowDoubleInvis)) {
-		if (IsEffectInSpell(spell_id, SE_Invisibility))
+	if(IsEffectInSpell(spell_id, SE_Invisibility))
+	{
+		if(spelltar->invisible)
 		{
-			if (spelltar->invisible)
-			{
-				spelltar->MessageString(Chat::SpellFailure, ALREADY_INVIS, GetCleanName());
-				safe_delete(action_packet);
-				return false;
-			}
+			spelltar->MessageString(Chat::SpellFailure, ALREADY_INVIS, GetCleanName());
+			safe_delete(action_packet);
+			return false;
 		}
+	}
 
-		if (IsEffectInSpell(spell_id, SE_InvisVsUndead))
+	if(IsEffectInSpell(spell_id, SE_InvisVsUndead))
+	{
+		if(spelltar->invisible_undead)
 		{
-			if (spelltar->invisible_undead)
-			{
-				spelltar->MessageString(Chat::SpellFailure, ALREADY_INVIS, GetCleanName());
-				safe_delete(action_packet);
-				return false;
-			}
+			spelltar->MessageString(Chat::SpellFailure, ALREADY_INVIS, GetCleanName());
+			safe_delete(action_packet);
+			return false;
 		}
+	}
 
-		if (IsEffectInSpell(spell_id, SE_InvisVsAnimals))
+	if(IsEffectInSpell(spell_id, SE_InvisVsAnimals))
+	{
+		if(spelltar->invisible_animals)
 		{
-			if (spelltar->invisible_animals)
-			{
-				spelltar->MessageString(Chat::SpellFailure, ALREADY_INVIS, GetCleanName());
-				safe_delete(action_packet);
-				return false;
-			}
+			spelltar->MessageString(Chat::SpellFailure, ALREADY_INVIS, GetCleanName());
+			safe_delete(action_packet);
+			return false;
 		}
 	}
 
