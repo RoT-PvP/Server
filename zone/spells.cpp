@@ -2949,7 +2949,7 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 		}
 	}
 
-	if (spellid2 == 355 && spellid1 == 278 || spellid1 == 743 || spellid2 == 824) {
+	if (spellid2 == 355 && spellid1 == 278 || spellid1 == 743 || spellid2 == 824 || spellid1 == 700 && spellid2 == 294 || spellid1 == 278 && spellid2 == 242 || spellid1 == 278 && spellid2 == 512 || spellid2 == 278 && spellid1 == 242 || spellid2 == 278 && spellid1 == 512 || spellid2 == 344 && spellid1 == 278 || spellid2 == 278 && spellid1 == 344 || spellid2 == 1619 && spellid1 == 278 || spellid2 == 278 && spellid1 == 1619 || spellid2 == 344 && spellid1 == 874 || spellid2 == 355 && spellid1 == 874 || spellid2 == 452 && spellid1 == 874 || spellid2 == 874 && spellid1 == 344 || spellid2 == 874 && spellid1 == 355 || spellid2 == 874 && spellid1 == 452 || spellid2 == 278 && spellid1 == 452 || spellid2 == 278 && spellid1 == 355) {
 		return (0);
 	}
 
@@ -5301,7 +5301,7 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		int resistrate;
 		if (leveldifference >= 0)
 		{
-			resistrate = 25 * (leveldifference + 1);
+			resistrate = 20 * (leveldifference + 1);
 			if (resistrate > diff_cap )
 			{
 				resistrate = diff_cap;

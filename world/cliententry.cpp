@@ -27,6 +27,9 @@
 #include "../common/string_util.h"
 
 extern uint32          numplayers;
+extern uint32		   evilplayers;
+extern uint32		   neutplayers;
+extern uint32		   goodplayers;
 extern LoginServerList loginserverlist;
 extern ClientList      client_list;
 extern volatile bool   RunLoops;
