@@ -3905,7 +3905,7 @@ void Client::Handle_OP_Buff(const EQApplicationPacket *app)
 	//something about IsDetrimentalSpell() crashes this portion of code..
 	//tbh we shouldn't use it anyway since this is a simple red vs blue buff check and
 	//isdetrimentalspell() is much more complex
-	if (spid == 0xFFFF || (IsValidSpell(spid) && (spells[spid].goodEffect == 0)))
+	if (spid == 0xFFFF || (IsValidSpell(spid) && (spells[spid].goodEffect == 0)) || spid == 235 || spid == 255)
 		QueuePacket(app);
 	else
 		BuffFadeBySpellID(spid);
