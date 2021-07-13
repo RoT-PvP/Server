@@ -206,6 +206,23 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		}
 	}
 
+	if ((IsClient() && GetTarget()->IsClient() && GetTarget() != this) && IsInvisSpell(spell_id) && RuleB(Spells, InvisRequiresGroup)) {
+		if(!GetTarget()->IsGrouped()) {
+			InterruptSpell(spell_id);
+			Message(Chat::Red, "You cannot invis someone who is not in your group.");
+			return(false);
+		}
+		else if (GetTarget()->IsGrouped()) {
+			Group* targetg = GetTarget()->GetGroup();
+			Group* myg = GetGroup();
+			if (targetg != myg) {
+				InterruptSpell(spell_id);
+				Message(Chat::Red, "You cannot invis someone who is not in your group.");
+				return(false);
+			}
+		}
+	}
+
 	if (IsClient() && HasActiveSong() && (item_slot && IsClient() && (slot == CastingSlot::Item || slot == CastingSlot::PotionBelt))) {
 		StopCasting();
 		Message(Chat::Skills, "You must stop singing to cast this spell.");
