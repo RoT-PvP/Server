@@ -10274,10 +10274,6 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 	case PET_ATTACK: {
 		if (!target)
 			break;
-		if (target->IsMezzed()) {
-			MessageString(Chat::NPCQuestSay, CANNOT_WAKE, mypet->GetCleanName(), target->GetCleanName());
-			break;
-		}
 		if (mypet->IsFeared())
 			break; //prevent pet from attacking stuff while feared
 
@@ -10335,17 +10331,7 @@ void Client::Handle_OP_PetCommands(const EQApplicationPacket *app)
 
 		if (!GetTarget())
 			break;
-		//if (GetTarget()->IsMezzed()) { //Commented out by Gangsta, Prevents pets from being sent on mobs that are currently Messmerized
-		//	MessageString(Chat::NPCQuestSay, CANNOT_WAKE, mypet->GetCleanName(), GetTarget()->GetCleanName());
-		//	break;
 		
-
-		//if (!CheckLosFN(target))  // Checks for LoS of target from the owner, if the owner is outside LoS the pet returns. -Gangsta
-		//	auto pet_owner = GetOwner();	
-
-		//	if (!pet_owner->CheckLosFN(pet_owner->GetTarget())) 
-		//		pet_owner->MessageString(Chat::Red,CANT_SEE_TARGET);
-		//		break;
 
 		if (RuleB(Pets, IsLoSRequired) && !CheckLosFN(target) && !mypet->CheckLosFN(target)) {
 			MessageString(Chat::Red,CANT_SEE_TARGET);
