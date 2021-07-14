@@ -1632,9 +1632,9 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 											caster->aabonuses.ImprovedReclaimEnergy;
 
 				if (!ImprovedReclaimMod)
-					ImprovedReclaimMod = (GetHP()/GetMaxHP()) * 100; //Reclaim Energy gives lower mana back based on if the pet is low hp.
+					ImprovedReclaimMod = GetHPRatio(); //Reclaim Energy gives lower mana back based on if the pet is low hp.
 
-				pet_ActSpellCost = pet_ActSpellCost*ImprovedReclaimMod/100;
+				pet_ActSpellCost = pet_ActSpellCost*ImprovedReclaimMod / 100;
 
 				caster->SetMana(caster->GetMana() + pet_ActSpellCost);
 
