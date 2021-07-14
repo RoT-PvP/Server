@@ -2847,7 +2847,7 @@ int Mob::CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caste
 	    spell_id != 287 && spell_id != 601 && IsEffectInSpell(spell_id, SE_Illusion))
 		res = 10000; // ~16h override
 
-	if (target->IsClient()) {
+	if (target->IsClient()) { //PvP duration reductions for certain CCs.
 		if (spell_id == 762 || spell_id == 1856 || spell_id == 1857 || spell_id == 1875 || spell_id == 1833 || spell_id == 1841 || spell_id == 1842 || spell_id == 1832 || spell_id == 1839 || spell_id == 1840 || spell_id == 760 || spell_id == 1851 || spell_id == 1852 || spell_id == 1878) {
 			int chance = zone->random.Real(1, 3);
 			if (chance == 3) {
@@ -2859,8 +2859,18 @@ int Mob::CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caste
 			else if (chance == 1) {
 				res = duration * .15;
 			}
+			if(res < 1) {
+				res = 1;
 			}
 		}
+		if(IsFearSpell(spell_id)) {
+			res = duration * .33;
+			if(res < 1) {
+				res = 1;
+			}
+		}
+	}
+	
 	
 
 	res = mod_buff_duration(res, caster, target, spell_id);
@@ -4618,6 +4628,88 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		if (ignoreDefault) {
 			LogDebug("Default ignored, lua return value is: [{}]", lua_ret);
 			return lua_ret;
+		}
+		if (IsFearSpell(spell_id)) {
+		if (resist_type == RESIST_MAGIC) {
+			if (GetLevel() <= 20) {
+				if (GetMR() >= 60) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() > 45 && GetMR() < 60) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() < 45) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 20 && GetLevel() <= 40) {
+				if (GetMR() >= 90) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() > 75 && GetMR() < 90) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() < 75) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+			else if (GetLevel() > 40) {
+				if (GetMR() >= 125) {
+					if (resistroll <= 98) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() > 90 && GetMR() < 125) {
+					if (resistroll <= 50) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+				else if (GetMR() < 90) {
+					if (resistroll <= 2) {
+						return 0;
+					}
+					else {
+						return 100;
+					}
+				}
+			}
+		}
 		}
 		//Rogue Poison PvP Checks
 		if (caster->GetClass() == ROGUE) {
