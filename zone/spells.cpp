@@ -478,7 +478,7 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 					Group* targetg = spelltarget->GetGroup();
 					Group* myg = GetGroup();
 					if (targetg && myg && (targetg->GetID() != myg->GetID())) {
-						InterruptSpell(spell_id);
+							InterruptSpell(spell_id);
 							Message(Chat::Red, "You cannot invis someone who is not in your group.");
 							return(false);
 					}
@@ -1053,6 +1053,14 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 		LogSpells("Casting of [{}] canceled: invalid spell id", spell_id);
 		InterruptSpell();
 		return;
+	}
+
+	if (IsDetrimentalSpell(spell_id) && spells[spell_id].range == 300) { //prevents bolt spells (300 range) from nuking the caster if the target zones or dies before spell finish.
+		target = entity_list.GetMobID(target_id);
+		if (!target) {
+			InterruptSpell(spell_id);
+			return;
+		}
 	}
 
 	// prevent rapid recast - this can happen if somehow the spell gems
