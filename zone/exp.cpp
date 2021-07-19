@@ -488,6 +488,10 @@ void Client::CalculateExp(uint32 in_add_exp, uint32 &add_exp, uint32 &add_aaxp, 
 		}
 	}
 
+	if (GetAlignment() == 0) {
+		add_exp *= 1.15;
+	}
+
 	if (RuleR(Character, FinalExpMultiplier) >= 0) {
 		add_exp *= RuleR(Character, FinalExpMultiplier);
 	}
