@@ -1002,9 +1002,12 @@ int Mob::GetWeaponDamage(Mob *against, const EQ::ItemData *weapon_item) {
 				//they don't have a dmg but we should be able to hit magical
 				dmg = dmg <= 0 ? 1 : dmg;
 			}
+			if (IsNPC() && HasOwner() && !GetOwner()->IsClient()) {
+				dmg = 1;
+			}
 		}
 		else {
-			if (IsNPC() && GetLevel() > 11) {
+			if (IsNPC() && HasOwner() && !GetOwner()->IsClient()) {
 				dmg = 1;
 			}
 			else if ((GetClass() == MONK || GetClass() == BEASTLORD) && GetLevel() >= 30) {
