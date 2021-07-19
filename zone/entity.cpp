@@ -4498,6 +4498,7 @@ void EntityList::SendUntargetable(Client *c)
 
 void EntityList::ZoneWho(Client *c, Who_All_Struct *Who)
 {
+	if(c->Admin()) {
 	// This is only called for SoF clients, as regular /who is now handled server-side for that client.
 	uint32 PacketLength = 0;
 	uint32 Entries = 0;
@@ -4662,6 +4663,7 @@ void EntityList::ZoneWho(Client *c, Who_All_Struct *Who)
 	c->QueuePacket(outapp);
 
 	safe_delete(outapp);
+	}
 }
 
 void EntityList::UnMarkNPC(uint16 ID)

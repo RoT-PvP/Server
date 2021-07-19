@@ -424,7 +424,7 @@ void WorldServer::HandleMessage(uint16 opcode, const EQ::Net::Packet &p)
 			if (client) {
 				if (pack->size == 64)//no results
 					client->MessageString(Chat::White, WHOALL_NO_RESULTS);
-				else {
+				else if (client->Admin()){
 					auto outapp = new EQApplicationPacket(OP_WhoAllResponse, pack->size);
 					memcpy(outapp->pBuffer, pack->pBuffer, pack->size);
 					client->QueuePacket(outapp);
