@@ -1148,6 +1148,9 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 				channelchance = 30 + GetSkill(EQ::skills::SkillChanneling) / 400.0f * 100;
 				channelchance -= attacked_count * 2;
 				channelchance += channelchance * channelbonuses / 100.0f;
+				if(GetSkill(EQ::skills::SkillChanneling) == 0 && attacked_count > 0) {
+					channelchance = 0;
+				}
 			}
 #ifdef BOTS
 			else if(IsBot()) {
@@ -3569,6 +3572,14 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 
 	if(IsDetrimentalSpell(spell_id) && !IsAttackAllowed(spelltar, true) && !IsResurrectionEffects(spell_id)) {
 		if(!IsClient() || !CastToClient()->GetGM()) {
+			if(!HasPet() || spelltar != GetPet()) {
+			MessageString(Chat::SpellFailure, SPELL_NO_HOLD);
+			return false;
+			}
+		}
+	}
+	if (HasPet() && spelltar == GetPet() && IsDetrimentalSpell(spell_id)) {
+		if(!IsEffectInSpell(spell_id, SE_CancelMagic)) {
 			MessageString(Chat::SpellFailure, SPELL_NO_HOLD);
 			return false;
 		}
@@ -3844,7 +3855,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 				}
 			}
 		}
-		else if	( !IsAttackAllowed(spelltar, true) && !IsResurrectionEffects(spell_id)) // Detrimental spells - PVP check
+		else if	( !IsAttackAllowed(spelltar, true) && !IsResurrectionEffects(spell_id) && (!HasPet() || spelltar != GetPet())) // Detrimental spells - PVP check
 		{
 			LogSpells("Detrimental spell [{}] can't take hold [{}] -> [{}]", spell_id, GetName(), spelltar->GetName());
 			spelltar->MessageString(Chat::SpellFailure, YOU_ARE_PROTECTED, GetCleanName());
@@ -3852,7 +3863,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 			return false;
 		}
 	}
-
+	
 	// ok at this point the spell is permitted to affect the target,
 	// but we need to check special cases and resists
 
