@@ -1781,13 +1781,17 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		}
 
 		// check for a pvp kill
-		if (killerMob->IsClient() && killerMob != this) {
+		if (killerMob != nullptr &&
+			killerMob != this &&
+			(killerMob->IsClient() || killerMob->IsPetOwnerClient())) {
+
 			Client* victim = this;
 			std::vector<EQ::Any> args;
 			args.push_back(victim);
 
 			int pvp_points = CalculatePVPPoints(killerMob->CastToClient(), victim);
 
+			// Check for groups
 			if (killerMob->CastToClient()->isgrouped) {
 				Group* group = entity_list.GetGroupByClient(killerMob->CastToClient());
 
@@ -1952,7 +1956,10 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			// creating the corpse takes the cash/items off the player too
 			auto new_corpse = new Corpse(this, exploss);
 
-			if (killerMob != nullptr && killerMob->IsClient() && RuleB(Character, PVPCanLootCoin)) {
+			if (killerMob != nullptr &&
+				(killerMob->IsClient() || killerMob->IsPetOwnerClient()) &&
+				RuleB(Character, PVPCanLootCoin)) {
+				// Check for group
 				if (killerMob->CastToClient()->isgrouped) {
 					Group* group = entity_list.GetGroupByClient(killerMob->CastToClient());
 					if (group != 0)
@@ -1966,10 +1973,18 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 						}
 					}
 				}
+				// If player is not grouped, we need to allow the player loot privs anyway. 
 				else {
-					new_corpse->AllowPlayerLoot(killerMob, 0);
+					// Also check for Pet kills
+					if (killerMob->IsPet() || killerMob->IsPetOwnerClient()) {
+						new_corpse->AllowPlayerLoot(killerMob->GetOwner()->CastToClient(), 0);
+					}
+					else {
+						new_corpse->AllowPlayerLoot(killerMob->CastToClient(), 0);
+					}
 				}
 			}
+			
 			std::string tmp;
 			database.GetVariable("ServerType", tmp);
 			if (tmp[0] == '1' && tmp[1] == '\0' && killerMob != nullptr && killerMob->IsClient()) {
