@@ -50,7 +50,6 @@ const char *LuaEvents[_LargestEventID] = {
 	"event_death",
 	"event_spawn",
 	"event_attack",
-	"event_pvp",
 	"event_combat",
 	"event_aggro",
 	"event_slay",
@@ -1324,9 +1323,6 @@ QuestEventID LuaParser::ConvertLuaEvent(QuestEventID evt) {
 		break;
 	case EVENT_AGGRO:
 	case EVENT_ATTACK:
-		return _LargestEventID;
-		break;
-	case EVENT_PVP:
 		return _LargestEventID;
 		break;
 	default:
