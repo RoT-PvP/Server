@@ -1002,12 +1002,12 @@ int Mob::GetWeaponDamage(Mob *against, const EQ::ItemData *weapon_item) {
 				//they don't have a dmg but we should be able to hit magical
 				dmg = dmg <= 0 ? 1 : dmg;
 			}
-			if (IsNPC() && HasOwner() && !GetOwner()->IsClient()) {
+			if (IsNPC() || HasOwner() && !GetOwner()->IsClient()) {
 				dmg = 1;
 			}
 		}
 		else {
-			if (IsNPC() && HasOwner() && !GetOwner()->IsClient()) {
+			if (IsNPC() || HasOwner() && !GetOwner()->IsClient()) {
 				dmg = 1;
 			}
 			else if ((GetClass() == MONK || GetClass() == BEASTLORD) && GetLevel() >= 30) {
@@ -1599,12 +1599,13 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 		spell_id = SPELL_UNKNOWN;
 
 	//handle EVENT_PVP. Resets after we have not been attacked for 12 seconds
-	if (pvp_attacked_timer.Check())
+	if (!pvp_attacked_timer.Check() && other && other->IsClient())
 	{
-		LogCombat("Triggering EVENT_PVP due to attack by [{}]", other ? other->GetName() : "nullptr");
-		parse->EventPlayer(EVENT_PVP, this, other->GetName(), 0, 0);
-	}
+	//	LogCombat("Triggering EVENT_PVP due to attack by [{}]", other ? other->GetName() : "nullptr");
+	//	parse->EventPlayer(EVENT_PVP, this, other->GetName(), 0, 0);
+//
 	pvp_attacked_timer.Start(60000);
+	}
 
 
 	// cut all PVP spell damage to 2/3

@@ -5234,6 +5234,7 @@ void Client::Handle_OP_Death(const EQApplicationPacket *app)
 	if (GetHP() > 0)
 		return;
 
+	pvp_attacked_timer.Disable();
 	Mob* killer = entity_list.GetMob(ds->killer_id);
 	Death(killer, ds->damage, ds->spell_id, (EQ::skills::SkillType)ds->attack_skill);
 	return;
@@ -12517,7 +12518,7 @@ void Client::Handle_OP_RezzAnswer(const EQApplicationPacket *app)
 
 	OPRezzAnswer(ra->action, ra->spellid, ra->zone_id, ra->instance_id, ra->x, ra->y, ra->z);
 
-	if (ra->action == 1)
+	if (ra->action == 1 && pvp_attacked_timer.GetRemainingTime() == -1)
 	{
 		EQApplicationPacket* outapp = app->Copy();
 		// Send the OP_RezzComplete to the world server. This finds it's way to the zone that
