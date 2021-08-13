@@ -1054,6 +1054,10 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 		InterruptSpell();
 		return;
 	}
+	if(IsFeared()){ //cannot finish spells while feared.
+		InterruptSpell();
+		return;
+	}
 
 	if (IsDetrimentalSpell(spell_id) && spells[spell_id].range == 300) { //prevents bolt spells (300 range) from nuking the caster if the target zones or dies before spell finish.
 		target = entity_list.GetMob(target_id);
@@ -2996,7 +3000,7 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 		}
 	}
 
-	if (spellid2 == 355 && spellid1 == 278 || spellid1 == 743 || spellid2 == 824 || spellid1 == 700 && spellid2 == 294 || spellid1 == 278 && spellid2 == 242 || spellid1 == 278 && spellid2 == 512 || spellid2 == 278 && spellid1 == 242 || spellid2 == 278 && spellid1 == 512 || spellid2 == 344 && spellid1 == 278 || spellid2 == 278 && spellid1 == 344 || spellid2 == 1619 && spellid1 == 278 || spellid2 == 278 && spellid1 == 1619 || spellid2 == 344 && spellid1 == 874 || spellid2 == 355 && spellid1 == 874 || spellid2 == 452 && spellid1 == 874 || spellid2 == 874 && spellid1 == 344 || spellid2 == 874 && spellid1 == 355 || spellid2 == 874 && spellid1 == 452 || spellid2 == 278 && spellid1 == 452 || spellid2 == 278 && spellid1 == 355) {
+	if (spellid1 == 162 && spellid2 == 10 || spellid2 == 162 && spellid1 == 10 ||spellid2 == 677 && spellid1 == 709 || spellid1 == 677 && spellid2 == 709 || spellid1 == 677 && spellid2 == 741 || spellid2 == 677 && spellid1 == 741 || spellid2 == 355 && spellid1 == 278 || spellid1 == 743  && spellid2 == 109|| spellid2 == 743  && spellid1 == 109|| spellid2 == 824 || spellid1 == 700 && spellid2 == 294 || spellid1 == 278 && spellid2 == 242 || spellid1 == 278 && spellid2 == 512 || spellid2 == 278 && spellid1 == 242 || spellid2 == 278 && spellid1 == 512 || spellid2 == 344 && spellid1 == 278 || spellid2 == 278 && spellid1 == 344 || spellid2 == 1619 && spellid1 == 278 || spellid2 == 278 && spellid1 == 1619 || spellid2 == 344 && spellid1 == 874 || spellid2 == 355 && spellid1 == 874 || spellid2 == 452 && spellid1 == 874 || spellid2 == 874 && spellid1 == 344 || spellid2 == 874 && spellid1 == 355 || spellid2 == 874 && spellid1 == 452 || spellid2 == 278 && spellid1 == 452 || spellid2 == 278 && spellid1 == 355 || spellid2 == 710 && spellid1 == 163 || spellid2 == 163 && spellid1 == 710 || spellid2 == 678 && spellid1 == 709 || spellid1 == 678 && spellid2 == 709 || spellid1 == 743 && spellid2 == 108 || spellid2 == 743 && spellid1 == 108) {
 		return (0);
 	}
 
