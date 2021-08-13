@@ -238,6 +238,7 @@ Client::Client(EQStreamInterface* ieqs)
 	position_update_same_count = 0;
 	fishing_timer.Disable();
 	shield_timer.Disable();
+	pvp_attacked_timer.Disable();
 	dead_timer.Disable();
 	camp_timer.Disable();
 	autosave_timer.Disable();
