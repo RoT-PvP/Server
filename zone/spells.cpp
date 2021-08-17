@@ -2771,15 +2771,7 @@ void Mob::BardPulse(uint16 spell_id, Mob *caster) {
 		//should we send this buff update to the client... seems like it would
 		//be a lot of traffic for no reason...
 //this may be the wrong packet...
-<<<<<<< HEAD
-<<<<<<< HEAD
-		if((IsClient() && !IsDetrimentalSpell(spell_id)) || (!resist_check == 0 && buffs[buffs_i].ticsremaining == 0 && IsDetrimentalSpell(spell_id))) {
-=======
 		if(IsClient()) {
->>>>>>> parent of 6b9da6dbe (Song Pulses applying negative spells w/o res chk)
-=======
-		if(IsClient() && !resist_check == 0 && buffs[buffs_i].ticsremaining == 0) {
->>>>>>> parent of fd621efb7 (Fixed an issue where beneficial song pulses fail)
 			auto packet = new EQApplicationPacket(OP_Action, sizeof(Action_Struct));
 
 			Action_Struct* action = (Action_Struct*) packet->pBuffer;
