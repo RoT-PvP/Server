@@ -2772,10 +2772,14 @@ void Mob::BardPulse(uint16 spell_id, Mob *caster) {
 		//be a lot of traffic for no reason...
 //this may be the wrong packet...
 <<<<<<< HEAD
+<<<<<<< HEAD
 		if((IsClient() && !IsDetrimentalSpell(spell_id)) || (!resist_check == 0 && buffs[buffs_i].ticsremaining == 0 && IsDetrimentalSpell(spell_id))) {
 =======
 		if(IsClient()) {
 >>>>>>> parent of 6b9da6dbe (Song Pulses applying negative spells w/o res chk)
+=======
+		if(IsClient() && !resist_check == 0 && buffs[buffs_i].ticsremaining == 0) {
+>>>>>>> parent of fd621efb7 (Fixed an issue where beneficial song pulses fail)
 			auto packet = new EQApplicationPacket(OP_Action, sizeof(Action_Struct));
 
 			Action_Struct* action = (Action_Struct*) packet->pBuffer;
@@ -3004,7 +3008,11 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 		}
 	}
 
+<<<<<<< HEAD
 	if (spellid1 == 162 && spellid2 == 10 || spellid2 == 162 && spellid1 == 10 ||spellid2 == 677 && spellid1 == 709 || spellid1 == 677 && spellid2 == 709 || spellid1 == 677 && spellid2 == 741 || spellid2 == 677 && spellid1 == 741 || spellid2 == 355 && spellid1 == 278 || spellid1 == 743  && spellid2 == 109|| spellid2 == 743  && spellid1 == 109|| spellid2 == 824 || spellid1 == 700 && spellid2 == 294 || spellid1 == 278 && spellid2 == 242 || spellid1 == 278 && spellid2 == 512 || spellid2 == 278 && spellid1 == 242 || spellid2 == 278 && spellid1 == 512 || spellid2 == 344 && spellid1 == 278 || spellid2 == 278 && spellid1 == 344 || spellid2 == 1619 && spellid1 == 278 || spellid2 == 278 && spellid1 == 1619 || spellid2 == 344 && spellid1 == 874 || spellid2 == 355 && spellid1 == 874 || spellid2 == 452 && spellid1 == 874 || spellid2 == 874 && spellid1 == 344 || spellid2 == 874 && spellid1 == 355 || spellid2 == 874 && spellid1 == 452 || spellid2 == 278 && spellid1 == 452 || spellid2 == 278 && spellid1 == 355 || spellid2 == 710 && spellid1 == 163 || spellid2 == 163 && spellid1 == 710 || spellid2 == 678 && spellid1 == 709 || spellid1 == 678 && spellid2 == 709 || spellid1 == 743 && spellid2 == 108 || spellid2 == 743 && spellid1 == 108) {
+=======
+	if (spellid2 == 762 && spellid1 == 278 || spellid1 == 762 && spellid2 == 278 || spellid1 == 162 && spellid2 == 10 || spellid2 == 162 && spellid1 == 10 ||spellid2 == 677 && spellid1 == 709 || spellid1 == 677 && spellid2 == 709 || spellid1 == 677 && spellid2 == 741 || spellid2 == 677 && spellid1 == 741 || spellid2 == 355 && spellid1 == 278 || spellid1 == 743  && spellid2 == 109|| spellid2 == 743  && spellid1 == 109|| spellid2 == 824 || spellid1 == 700 && spellid2 == 294 || spellid1 == 278 && spellid2 == 242 || spellid1 == 278 && spellid2 == 512 || spellid2 == 278 && spellid1 == 242 || spellid2 == 278 && spellid1 == 512 || spellid2 == 344 && spellid1 == 278 || spellid2 == 278 && spellid1 == 344 || spellid2 == 1619 && spellid1 == 278 || spellid2 == 278 && spellid1 == 1619 || spellid2 == 344 && spellid1 == 874 || spellid2 == 355 && spellid1 == 874 || spellid2 == 452 && spellid1 == 874 || spellid2 == 874 && spellid1 == 344 || spellid2 == 874 && spellid1 == 355 || spellid2 == 874 && spellid1 == 452 || spellid2 == 278 && spellid1 == 452 || spellid2 == 278 && spellid1 == 355 || spellid2 == 710 && spellid1 == 163 || spellid2 == 163 && spellid1 == 710 || spellid2 == 678 && spellid1 == 709 || spellid1 == 678 && spellid2 == 709 || spellid1 == 743 && spellid2 == 108 || spellid2 == 743 && spellid1 == 108) {
+>>>>>>> parent of fd621efb7 (Fixed an issue where beneficial song pulses fail)
 		return (0);
 	}
 
