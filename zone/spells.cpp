@@ -2639,6 +2639,10 @@ bool Mob::ApplyNextBardPulse(uint16 spell_id, Mob *spell_target, CastingSlot slo
 		return(false);
 	}
 
+	if(spell_target && IsDetrimentalSpell(spell_id)) {
+		ResistSpell(GetSpellResistType(spell_id), spell_id, this);
+	}
+
 	//range check our target, if we have one and it is not us
 	float range = 0.00f;
 
@@ -2763,15 +2767,25 @@ void Mob::BardPulse(uint16 spell_id, Mob *caster) {
 			return;
 		}
 		//extend the spell if it will expire before the next pulse
-		if(buffs[buffs_i].ticsremaining <= 3) {
+		if(buffs[buffs_i].ticsremaining <= 3 && !IsDetrimentalSpell(spell_id)) {
 			buffs[buffs_i].ticsremaining += 3;
 			LogSpells("Bard Song Pulse [{}]: extending duration in slot [{}] to [{}] tics", spell_id, buffs_i, buffs[buffs_i].ticsremaining);
+		}
+		float resist_check = 0;
+		if (IsDetrimentalSpell(spell_id)) {
+			resist_check = ResistSpell(spells[spell_id].resisttype, spell_id, caster, false, 0, true, true);
+			if (resist_check == 100) {
+				caster->SpellOnTarget(spell_id, this, false, true, -1000);
+			}
+			else {
+				caster->SpellOnTarget(spell_id, this, false, true, 1000);
+			}
 		}
 
 		//should we send this buff update to the client... seems like it would
 		//be a lot of traffic for no reason...
 //this may be the wrong packet...
-		if(IsClient()) {
+		if(IsClient() && !resist_check == 0 && buffs[buffs_i].ticsremaining == 0) {
 			auto packet = new EQApplicationPacket(OP_Action, sizeof(Action_Struct));
 
 			Action_Struct* action = (Action_Struct*) packet->pBuffer;
@@ -3000,7 +3014,7 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 		}
 	}
 
-	if (spellid1 == 162 && spellid2 == 10 || spellid2 == 162 && spellid1 == 10 ||spellid2 == 677 && spellid1 == 709 || spellid1 == 677 && spellid2 == 709 || spellid1 == 677 && spellid2 == 741 || spellid2 == 677 && spellid1 == 741 || spellid2 == 355 && spellid1 == 278 || spellid1 == 743  && spellid2 == 109|| spellid2 == 743  && spellid1 == 109|| spellid2 == 824 || spellid1 == 700 && spellid2 == 294 || spellid1 == 278 && spellid2 == 242 || spellid1 == 278 && spellid2 == 512 || spellid2 == 278 && spellid1 == 242 || spellid2 == 278 && spellid1 == 512 || spellid2 == 344 && spellid1 == 278 || spellid2 == 278 && spellid1 == 344 || spellid2 == 1619 && spellid1 == 278 || spellid2 == 278 && spellid1 == 1619 || spellid2 == 344 && spellid1 == 874 || spellid2 == 355 && spellid1 == 874 || spellid2 == 452 && spellid1 == 874 || spellid2 == 874 && spellid1 == 344 || spellid2 == 874 && spellid1 == 355 || spellid2 == 874 && spellid1 == 452 || spellid2 == 278 && spellid1 == 452 || spellid2 == 278 && spellid1 == 355 || spellid2 == 710 && spellid1 == 163 || spellid2 == 163 && spellid1 == 710 || spellid2 == 678 && spellid1 == 709 || spellid1 == 678 && spellid2 == 709 || spellid1 == 743 && spellid2 == 108 || spellid2 == 743 && spellid1 == 108) {
+	if (spellid2 == 762 && spellid1 == 278 || spellid1 == 762 && spellid2 == 278 || spellid1 == 162 && spellid2 == 10 || spellid2 == 162 && spellid1 == 10 ||spellid2 == 677 && spellid1 == 709 || spellid1 == 677 && spellid2 == 709 || spellid1 == 677 && spellid2 == 741 || spellid2 == 677 && spellid1 == 741 || spellid2 == 355 && spellid1 == 278 || spellid1 == 743  && spellid2 == 109|| spellid2 == 743  && spellid1 == 109|| spellid2 == 824 || spellid1 == 700 && spellid2 == 294 || spellid1 == 278 && spellid2 == 242 || spellid1 == 278 && spellid2 == 512 || spellid2 == 278 && spellid1 == 242 || spellid2 == 278 && spellid1 == 512 || spellid2 == 344 && spellid1 == 278 || spellid2 == 278 && spellid1 == 344 || spellid2 == 1619 && spellid1 == 278 || spellid2 == 278 && spellid1 == 1619 || spellid2 == 344 && spellid1 == 874 || spellid2 == 355 && spellid1 == 874 || spellid2 == 452 && spellid1 == 874 || spellid2 == 874 && spellid1 == 344 || spellid2 == 874 && spellid1 == 355 || spellid2 == 874 && spellid1 == 452 || spellid2 == 278 && spellid1 == 452 || spellid2 == 278 && spellid1 == 355 || spellid2 == 710 && spellid1 == 163 || spellid2 == 163 && spellid1 == 710 || spellid2 == 678 && spellid1 == 709 || spellid1 == 678 && spellid2 == 709 || spellid1 == 743 && spellid2 == 108 || spellid2 == 743 && spellid1 == 108) {
 		return (0);
 	}
 
