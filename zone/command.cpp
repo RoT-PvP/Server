@@ -75,8 +75,6 @@
 #include "mob_movement_manager.h"
 #include "npc_scale_manager.h"
 #include "../common/content/world_content_service.h"
-
-#define CPPHTTPLIB_OPENSSL_SUPPORT
 #include "../common/http/httplib.h"
 
 extern QueryServ* QServ;
@@ -361,6 +359,7 @@ int command_init(void)
 		command_add("repop", "[delay] - Repop the zone with optional delay", 100, command_repop) ||
 		command_add("resetaa", "- Resets a Player's AA in their profile and refunds spent AA's to unspent, may disconnect player.", 200, command_resetaa) ||
 		command_add("resetaa_timer", "Command to reset AA cooldown timers.", 200, command_resetaa_timer) ||
+		command_add("resetdisc_timer", "Command to reset all discipline cooldown timers.", 200, command_resetdisc_timer) ||
 		command_add("revoke", "[charname] [1/0] - Makes charname unable to talk on OOC", 200, command_revoke) ||
 		command_add("roambox", "Manages roambox settings for an NPC", 200, command_roambox) ||
 		command_add("rules", "(subcommand) - Manage server rules", 250, command_rules) ||
@@ -2939,6 +2938,44 @@ void command_findspell(Client *c, const Seperator *sep)
 	}
 }
 
+inline bool CastRestrictedSpell(int spellid)
+{
+	switch (spellid) {
+		case SPELL_TOUCH_OF_VINITRAS:
+		case SPELL_DESPERATE_HOPE:
+		case SPELL_CHARM:
+		case SPELL_METAMORPHOSIS65:
+		case SPELL_JT_BUFF:
+		case SPELL_CAN_O_WHOOP_ASS:
+		case SPELL_PHOENIX_CHARM:
+		case SPELL_CAZIC_TOUCH:
+		case SPELL_AVATAR_KNOCKBACK:
+		case SPELL_SHAPECHANGE65:
+		case SPELL_SUNSET_HOME1218:
+		case SPELL_SUNSET_HOME819:
+		case SPELL_SHAPECHANGE75:
+		case SPELL_SHAPECHANGE80:
+		case SPELL_SHAPECHANGE85:
+		case SPELL_SHAPECHANGE90:
+		case SPELL_SHAPECHANGE95:
+		case SPELL_SHAPECHANGE100:
+		case SPELL_SHAPECHANGE25:
+		case SPELL_SHAPECHANGE30:
+		case SPELL_SHAPECHANGE35:
+		case SPELL_SHAPECHANGE40:
+		case SPELL_SHAPECHANGE45:
+		case SPELL_SHAPECHANGE50:
+		case SPELL_NPC_AEGOLISM:
+		case SPELL_SHAPECHANGE55:
+		case SPELL_SHAPECHANGE60:
+		case SPELL_COMMAND_OF_DRUZZIL:
+		case SPELL_SHAPECHANGE70:
+			return true;
+		default:
+			return false;
+	}
+}
+
 void command_castspell(Client *c, const Seperator *sep)
 {
 	if (!sep->IsNumber(1))
@@ -2948,13 +2985,7 @@ void command_castspell(Client *c, const Seperator *sep)
 		/*
 		Spell restrictions.
 		*/
-		if (((spellid == 2859) || (spellid == 841) || (spellid == 300) || (spellid == 2314) ||
-			(spellid == 3716) || (spellid == 911) || (spellid == 3014) || (spellid == 982) ||
-			(spellid == 905) || (spellid == 2079) || (spellid == 1218) || (spellid == 819) ||
-			((spellid >= 780) && (spellid <= 785)) || ((spellid >= 1200) && (spellid <= 1205)) ||
-			((spellid >= 1342) && (spellid <= 1348)) || (spellid == 1923) || (spellid == 1924) ||
-			(spellid == 3355)) &&
-			c->Admin() < commandCastSpecials)
+		if (CastRestrictedSpell(spellid) && c->Admin() < commandCastSpecials)
 			c->Message(Chat::Red, "Unable to cast spell.");
 		else if (spellid >= SPDAT_RECORDS)
 			c->Message(Chat::White, "Error: #CastSpell: Argument out of range");
@@ -8091,31 +8122,31 @@ void command_summonitem(Client *c, const Seperator *sep)
 			).c_str()
 		);
 	}
-	
+
 	if (arguments >= 2 && sep->IsNumber(2)) {
 		charges = atoi(sep->arg[2]);
 	}
-	
+
 	if (arguments >= 3 && sep->IsNumber(3)) {
 		augment_one = atoi(sep->arg[3]);
 	}
-	
+
 	if (arguments >= 4 && sep->IsNumber(4)) {
 		augment_two = atoi(sep->arg[4]);
 	}
-	
+
 	if (arguments >= 5 && sep->IsNumber(5)) {
 		augment_three = atoi(sep->arg[5]);
 	}
-	
+
 	if (arguments >= 6 && sep->IsNumber(6)) {
 		augment_four = atoi(sep->arg[6]);
 	}
-	
+
 	if (arguments >= 7 && sep->IsNumber(7)) {
 		augment_five = atoi(sep->arg[7]);
 	}
-	
+
 	if (arguments == 8 && sep->IsNumber(8)) {
 		augment_six = atoi(sep->arg[8]);
 	}
@@ -8159,7 +8190,7 @@ void command_giveitem(Client *c, const Seperator *sep)
 			c->Message(Chat::Red, "Usage: #giveitem [item id | link] [charges] [augment_one_id] [augment_two_id] [augment_three_id] [augment_four_id] [augment_five_id] [augment_six_id] (Charges are optional.)");
 			return;
 		}
-		
+
 		Client *client_target = c->GetTarget()->CastToClient();
 		uint8 item_status = 0;
 		uint8 current_status = c->Admin();
@@ -8167,7 +8198,7 @@ void command_giveitem(Client *c, const Seperator *sep)
 		if (item) {
 			item_status = item->MinStatus;
 		}
-		
+
 		if (item_status > current_status) {
 			c->Message(
 				Chat::White,
@@ -8179,23 +8210,23 @@ void command_giveitem(Client *c, const Seperator *sep)
 			);
 			return;
 		}
-			
+
 		if (arguments >= 2 && sep->IsNumber(2)) {
 			charges = atoi(sep->arg[2]);
 		}
-		
+
 		if (arguments >= 3 && sep->IsNumber(3)) {
 			augment_one = atoi(sep->arg[3]);
 		}
-		
+
 		if (arguments >= 4 && sep->IsNumber(4)) {
 			augment_two = atoi(sep->arg[4]);
 		}
-		
+
 		if (arguments >= 5 && sep->IsNumber(5)) {
 			augment_three = atoi(sep->arg[5]);
 		}
-		
+
 		if (arguments >= 6 && sep->IsNumber(6)) {
 			augment_four = atoi(sep->arg[6]);
 		}
@@ -12822,16 +12853,16 @@ void command_max_all_skills(Client *c, const Seperator *sep)
 {
 	if(c) {
 		Client* client_target = (c->GetTarget() ? (c->GetTarget()->IsClient() ? c->GetTarget()->CastToClient() : c) : c);
-		std::map<EQ::skills::SkillType, std::string> Skills = EQ::skills::GetSkillTypeMap();
-		for (auto skills_iter : Skills) {
+		auto Skills = EQ::skills::GetSkillTypeMap();
+		for (auto& skills_iter : Skills) {
 			auto skill_id = skills_iter.first;
 			auto current_skill_value = (
-				(skill_id >= EQ::skills::SkillSpecializeAbjure && skill_id <= EQ::skills::SkillSpecializeEvocation) ?
+				(EQ::skills::IsSpecializedSkill(skill_id)) ?
 				50 :
 				content_db.GetSkillCap(client_target->GetClass(), skill_id, client_target->GetLevel())
 			);
 			client_target->SetSkill(skill_id, current_skill_value);
-		}		
+		}
 	}
 }
 
@@ -13692,6 +13723,27 @@ void command_resetaa_timer(Client *c, const Seperator *sep) {
 	else
 	{
 		c->Message(Chat::White, "usage: #resetaa_timer [all | timer_id]");
+	}
+}
+
+void command_resetdisc_timer(Client *c, const Seperator *sep)
+{
+	Client *target = c->GetTarget()->CastToClient();
+	if (!c->GetTarget() || !c->GetTarget()->IsClient()) {
+		target = c;
+	}
+
+	if (sep->IsNumber(1)) {
+		int timer_id = atoi(sep->arg[1]);
+		c->Message(Chat::White, "Reset of disc timer %i for %s", timer_id, c->GetName());
+		c->ResetDisciplineTimer(timer_id);
+	}
+	else if (!strcasecmp(sep->arg[1], "all")) {
+		c->Message(Chat::White, "Reset all disc timers for %s", c->GetName());
+		c->ResetAllDisciplineTimers();
+	}
+	else {
+		c->Message(Chat::White, "usage: #resetdisc_timer [all | timer_id]");
 	}
 }
 

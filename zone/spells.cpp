@@ -239,17 +239,9 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	if (spellbonuses.NegateIfCombat)
 		BuffFadeByEffect(SE_NegateIfCombat);
 
-	if(IsClient() && GetTarget() && IsHarmonySpell(spell_id))
-	{
-		for(int i = 0; i < EFFECT_COUNT; i++) {
-			// not important to check limit on SE_Lull as it doesnt have one and if the other components won't land, then SE_Lull wont either
-			if (spells[spell_id].effectid[i] == SE_ChangeFrenzyRad || spells[spell_id].effectid[i] == SE_Harmony) {
-				if((spells[spell_id].max[i] != 0 && GetTarget()->GetLevel() > spells[spell_id].max[i]) || GetTarget()->GetSpecialAbility(IMMUNE_PACIFY)) {
-					InterruptSpell(CANNOT_AFFECT_NPC, 0x121, spell_id);
-					return(false);
-				}
-			}
-		}
+	if (IsClient() && IsHarmonySpell(spell_id) && !HarmonySpellLevelCheck(spell_id, entity_list.GetMobID(target_id))) {
+		InterruptSpell(SPELL_NO_EFFECT, 0x121, spell_id);
+		return false;
 	}
 
 	if (HasActiveSong() && IsBardSong(spell_id)) {
@@ -428,8 +420,7 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		spell.targettype == ST_Self ||
 		spell.targettype == ST_AECaster ||
 		spell.targettype == ST_Ring ||
-		spell.targettype == ST_Beam ||
-		spell.targettype == ST_TargetOptional) && target_id == 0)
+		spell.targettype == ST_Beam) && target_id == 0)
 	{
 		LogSpells("Spell [{}] auto-targeted the caster. Group? [{}], target type [{}]", spell_id, IsGroupSpell(spell_id), spell.targettype);
 		target_id = GetID();
@@ -462,29 +453,25 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	// ok now we know the target
 	casting_spell_targetid = target_id;
 
-	if (IsInvisSpell(spell_id) && RuleB(Spells, InvisRequiresGroup)) {
-
-		Mob* target = GetTarget();
-
-		if (target && target->IsClient()) {
-			Client* spelltarget = entity_list.GetClientByID(target_id);
-			if (spelltarget && spelltarget->GetID() != GetID()) {
-				if (!spelltarget->IsGrouped()) {
+	if (RuleB(Spells, InvisRequiresGroup) && IsInvisSpell(spell_id)) {
+		if (GetTarget() && GetTarget()->IsClient()) {
+			Client *spell_target = entity_list.GetClientByID(target_id);
+			if (spell_target && spell_target->GetID() != GetID()) {
+				if (!spell_target->IsGrouped()) {
 					InterruptSpell(spell_id);
 					Message(Chat::Red, "You cannot invis someone who is not in your group.");
-					return(false);
+					return false;
 				}
-				else if (spelltarget->IsGrouped()) {
-					Group* targetg = spelltarget->GetGroup();
-					Group* myg = GetGroup();
-					if (targetg && myg && (targetg->GetID() != myg->GetID())) {
-							InterruptSpell(spell_id);
-							Message(Chat::Red, "You cannot invis someone who is not in your group.");
-							return(false);
+				else if (spell_target->IsGrouped()) {
+					Group *target_group = spell_target->GetGroup();
+					Group *my_group     = GetGroup();
+					if (target_group && my_group && (target_group->GetID() != my_group->GetID())) {
+						InterruptSpell(spell_id);
+						Message(Chat::Red, "You cannot invis someone who is not in your group.");
+						return false;
 					}
 				}
 			}
-
 		}
 	}
 
@@ -1461,9 +1448,11 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 		TrySympatheticProc(target, spell_id);
 	}
 
+	TryOnSpellFinished(this, target, spell_id); //Use for effects that should be checked after SpellFinished is completed.
+
 	TryTwincast(this, target, spell_id);
 
-	TryTriggerOnCast(spell_id, 0);
+	TryTriggerOnCastFocusEffect(focusTriggerOnCast, spell_id);
 
 	if(DeleteChargeFromSlot >= 0)
 		CastToClient()->DeleteItemInInventory(DeleteChargeFromSlot, 1, true);
@@ -1651,8 +1640,12 @@ bool Mob::DetermineSpellTargets(uint16 spell_id, Mob *&spell_target, Mob *&ae_ce
 
 		case ST_TargetOptional:
 		{
-			if(!spell_target)
-				spell_target = this;
+			if (!spell_target)
+			{
+				LogSpells("Spell [{}] canceled: invalid target (normal)", spell_id);
+				MessageString(Chat::Red, SPELL_NEED_TAR);
+				return false;	// can't cast these unless we have a target
+			}
 			CastAction = SingleTarget;
 			break;
 		}
@@ -2115,7 +2108,7 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 		return false;
 
 	//Death Touch targets the pet owner instead of the pet when said pet is tanking.
-	if ((RuleB(Spells, CazicTouchTargetsPetOwner) && spell_target && spell_target->HasOwner()) && spell_id == DB_SPELL_CAZIC_TOUCH || spell_id == DB_SPELL_TOUCH_OF_VINITRAS) {
+	if ((RuleB(Spells, CazicTouchTargetsPetOwner) && spell_target && spell_target->HasOwner()) && spell_id == SPELL_CAZIC_TOUCH || spell_id == SPELL_TOUCH_OF_VINITRAS) {
 		Mob* owner =  spell_target->GetOwner();
 
 		if (owner) {
@@ -3058,31 +3051,33 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 				}
 			}
 
-			/*Buff stacking prevention spell effects (446 - 449) works as follows... If B prevent A, if C prevent B, if D prevent C.
-			If checking same type ie A vs A, which ever effect base value is higher will take hold.
-			Special check is added to make sure the buffs stack properly when applied from fade on duration effect, since the buff
-			is not fully removed at the time of the trgger*/
-			if (spellbonuses.AStacker[0]) {
-				if ((effect2 == SE_AStacker) && (sp2.effectid[i] <= spellbonuses.AStacker[1]))
+			/*
+				Buff stacking prevention spell effects (446 - 449) works as follows... If B prevent A, if C prevent B, if D prevent C.
+				If checking same type ie A vs A, which ever effect base value is higher will take hold.
+				Special check is added to make sure the buffs stack properly when applied from fade on duration effect, since the buff
+				is not fully removed at the time of the trigger
+			*/
+			if (spellbonuses.AStacker[SBIndex::BUFFSTACKER_EXISTS]) {
+				if ((effect2 == SE_AStacker) && (sp2.effectid[i] <= spellbonuses.AStacker[SBIndex::BUFFSTACKER_VALUE]))
 					return -1;
 			}
 
-			if (spellbonuses.BStacker[0]) {
-				if ((effect2 == SE_BStacker) && (sp2.effectid[i] <= spellbonuses.BStacker[1]))
+			if (spellbonuses.BStacker[SBIndex::BUFFSTACKER_EXISTS]) {
+				if ((effect2 == SE_BStacker) && (sp2.effectid[i] <= spellbonuses.BStacker[SBIndex::BUFFSTACKER_VALUE]))
 					return -1;
 				if ((effect2 == SE_AStacker) && (!IsCastonFadeDurationSpell(spellid1) && buffs[buffslot].ticsremaining != 1 && IsEffectInSpell(spellid1, SE_BStacker)))
 					return -1;
 			}
 
-			if (spellbonuses.CStacker[0]) {
-				if ((effect2 == SE_CStacker) && (sp2.effectid[i] <= spellbonuses.CStacker[1]))
+			if (spellbonuses.CStacker[SBIndex::BUFFSTACKER_EXISTS]) {
+				if ((effect2 == SE_CStacker) && (sp2.effectid[i] <= spellbonuses.CStacker[SBIndex::BUFFSTACKER_VALUE]))
 					return -1;
 				if ((effect2 == SE_BStacker) && (!IsCastonFadeDurationSpell(spellid1) && buffs[buffslot].ticsremaining != 1 && IsEffectInSpell(spellid1, SE_CStacker)))
 					return -1;
 			}
 
-			if (spellbonuses.DStacker[0]) {
-				if ((effect2 == SE_DStacker) && (sp2.effectid[i] <= spellbonuses.DStacker[1]))
+			if (spellbonuses.DStacker[SBIndex::BUFFSTACKER_EXISTS]) {
+				if ((effect2 == SE_DStacker) && (sp2.effectid[i] <= spellbonuses.DStacker[SBIndex::BUFFSTACKER_VALUE]))
 					return -1;
 				if ((effect2 == SE_CStacker) && (!IsCastonFadeDurationSpell(spellid1) && buffs[buffslot].ticsremaining != 1 && IsEffectInSpell(spellid1, SE_DStacker)))
 					return -1;
@@ -3458,6 +3453,8 @@ int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_overrid
 	buffs[emptyslot].dot_rune = 0;
 	buffs[emptyslot].ExtraDIChance = 0;
 	buffs[emptyslot].RootBreakChance = 0;
+	buffs[emptyslot].focusproclimit_time = 0;
+	buffs[emptyslot].focusproclimit_procamt = 0;
 	buffs[emptyslot].instrument_mod = caster ? caster->GetInstrumentMod(spell_id) : 10;
 
 	if (level_override > 0) {
@@ -3900,6 +3897,12 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 			return false;
 		}
 	}
+	//Need this to account for special AOE cases.
+	if (IsClient() && IsHarmonySpell(spell_id) && !HarmonySpellLevelCheck(spell_id, spelltar)) {
+		MessageString(Chat::SpellFailure, SPELL_NO_EFFECT);
+		return false;
+	}
+
 	// Block next spell effect should be used up first(since its blocking the next spell)
 	if(CanBlockSpell()) {
 		int buff_count = GetMaxTotalSlots();
@@ -4087,6 +4090,10 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 		safe_delete(action_packet);
 		return false;
 	}
+
+	//Check SE_Fc_Cast_Spell_On_Land SPA 481 on target, if hit by this spell and Conditions are Met then target will cast the specified spell.
+	if (spelltar)
+		spelltar->CastSpellOnLand(this, spell_id);
 
 	if (IsValidSpell(spells[spell_id].RecourseLink) && spells[spell_id].RecourseLink != spell_id)
 		SpellFinished(spells[spell_id].RecourseLink, this, CastingSlot::Item, 0, -1, spells[spells[spell_id].RecourseLink].ResistDiff);
@@ -5236,7 +5243,12 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		resist_modifier += caster->GetSpecialAbilityParam(CASTING_RESIST_DIFF, 0);
 
 	int focus_resist = caster->GetFocusEffect(focusResistRate, spell_id);
+
 	resist_modifier -= 2 * focus_resist;
+
+	int focus_incoming_resist = GetFocusEffect(focusFcResistIncoming, spell_id);
+
+	resist_modifier -= focus_incoming_resist;
 
 	//Check for fear resist
 	bool IsFear = false;
@@ -5986,6 +5998,27 @@ int Client::FindSpellBookSlotBySpellID(uint16 spellid) {
 	}
 
 	return -1;	//default
+}
+
+uint32 Client::GetHighestScribedSpellinSpellGroup(uint32 spell_group)
+{
+	//Typical live spells follow 1/5/10 rank value for actual ranks 1/2/3, but this can technically be set as anything.
+
+	int highest_rank = 0; //highest ranked found in spellgroup
+	uint32 highest_spell_id = 0;  //spell_id of the highest ranked spell you have scribed in that spell rank.
+
+	for (int i = 0; i < EQ::spells::SPELLBOOK_SIZE; i++) {
+
+		if (IsValidSpell(m_pp.spell_book[i])) {
+			if (spells[m_pp.spell_book[i]].spellgroup == spell_group) {
+				if (highest_rank < spells[m_pp.spell_book[i]].rank) {
+					highest_rank = spells[m_pp.spell_book[i]].rank;
+					highest_spell_id = m_pp.spell_book[i];
+				}
+			}
+		}
+	}
+	return highest_spell_id;
 }
 
 bool Client::SpellGlobalCheck(uint16 spell_id, uint32 char_id) {
