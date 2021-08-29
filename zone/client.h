@@ -896,7 +896,7 @@ public:
 	void SendClearAA();
 	inline uint32 GetAAXP() const { return m_pp.expAA; }
 	inline uint32 GetAAPercent() const { return m_epp.perAA; }
-	int16 CalcAAFocus(focusType type, const AA::Rank &rank, uint16 spell_id);
+	int32 CalcAAFocus(focusType type, const AA::Rank &rank, uint16 spell_id);
 	void SetAATitle(const char *Title);
 	void SetTitleSuffix(const char *txt);
 	void MemorizeSpell(uint32 slot, uint32 spellid, uint32 scribing);
@@ -1028,6 +1028,7 @@ public:
 	int GetNextAvailableSpellBookSlot(int starting_slot = 0);
 	inline uint32 GetSpellByBookSlot(int book_slot) { return m_pp.spell_book[book_slot]; }
 	inline bool HasSpellScribed(int spellid) { return FindSpellBookSlotBySpellID(spellid) != -1; }
+	uint32 GetHighestScribedSpellinSpellGroup(uint32 spell_group);
 	uint16 GetMaxSkillAfterSpecializationRules(EQ::skills::SkillType skillid, uint16 maxSkill);
 	void SendPopupToClient(const char *Title, const char *Text, uint32 PopupID = 0, uint32 Buttons = 0, uint32 Duration = 0);
 	void SendFullPopup(const char *Title, const char *Text, uint32 PopupID = 0, uint32 NegativeID = 0, uint32 Buttons = 0, uint32 Duration = 0, const char *ButtonName0 = 0, const char *ButtonName1 = 0, uint32 SoundControls = 0);
@@ -1536,6 +1537,7 @@ public:
 	void LoadAccountFlags();
 	void SetAccountFlag(std::string flag, std::string val);
 	std::string GetAccountFlag(std::string flag);
+	void SetGMStatus(int newStatus);
 	float GetDamageMultiplier(EQ::skills::SkillType how_long_has_this_been_missing);
 	void Consume(const EQ::ItemData *item, uint8 type, int16 slot, bool auto_consume);
 	void PlayMP3(const char* fname);
@@ -1565,6 +1567,13 @@ public:
 	int mod_drink_value(const EQ::ItemData *item, int change);
 
 	void ShowNumHits(); // work around function for numhits not showing on buffs
+
+	void ApplyWeaponsStance();
+	void TogglePassiveAlternativeAdvancement(const AA::Rank &rank, uint32 ability_id);
+	bool UseTogglePassiveHotkey(const AA::Rank &rank);
+	void TogglePurchaseAlternativeAdvancementRank(int rank_id);
+	void ResetAlternateAdvancementRank(uint32 aa_id);
+	bool IsEffectinAlternateAdvancementRankEffects(const AA::Rank &rank, int effect_id);
 
 	void TripInterrogateInvState() { interrogateinv_flag = true; }
 	bool GetInterrogateInvState() { return interrogateinv_flag; }
@@ -1615,7 +1624,7 @@ protected:
 	void MakeBuffFadePacket(uint16 spell_id, int slot_id, bool send_message = true);
 	bool client_data_loaded;
 
-	int16 GetFocusEffect(focusType type, uint16 spell_id);
+	int32 GetFocusEffect(focusType type, uint16 spell_id);
 	uint16 GetSympatheticFocusEffect(focusType type, uint16 spell_id);
 
 	void FinishAlternateAdvancementPurchase(AA::Rank *rank, bool ignore_cost);
@@ -1809,7 +1818,6 @@ private:
 	Timer linkdead_timer;
 	Timer dead_timer;
 	Timer global_channel_timer;
-	Timer shield_timer;
 	Timer fishing_timer;
 	Timer endupkeep_timer;
 	Timer forget_timer; // our 2 min everybody forgets you timer
