@@ -91,6 +91,7 @@ RULE_INT(Character, ItemDSMitigationCap, 50, "Limit on damageshield mitigation g
 RULE_INT(Character, ItemEnduranceRegenCap, 15, "Limit on endurance regeneration granted by items")
 RULE_INT(Character, ItemExtraDmgCap, 150, "Cap for bonuses to melee skills like Bash, Frenzy, etc.")
 RULE_INT(Character, HasteCap, 100, "Haste cap for non-v3(over haste) haste")
+RULE_INT(Character, Hastev3Cap, 25, "Haste cap for v3(over haste) haste")
 RULE_INT(Character, SkillUpModifier, 100, "The probability for a skill-up is multiplied by value/100")
 RULE_BOOL(Character, SharedBankPlat, false, "Shared bank platinum. Off by default to prevent duplication")
 RULE_BOOL(Character, BindAnywhere, false, "Allows players to bind their soul anywhere in the world")
@@ -742,6 +743,7 @@ RULE_CATEGORY_END()
 
 RULE_CATEGORY(Logging)
 RULE_BOOL(Logging, PrintFileFunctionAndLine, false, "Ex: [World Server] [net.cpp::main:309] Loading variables...")
+RULE_BOOL(Logging, WorldGMSayLogging, true, "Relay worldserver logging to zone processes via GM say output")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(HotReload)
@@ -774,6 +776,21 @@ RULE_BOOL(DynamicZone, EmptyShutdownEnabled, true, "Enable early instance shutdo
 RULE_INT(DynamicZone, EmptyShutdownDelaySeconds, 1500, "Seconds to set dynamic zone instance expiration if early shutdown enabled")
 RULE_BOOL(DynamicZone, EnableInDynamicZoneStatus, false, "Enables the 'In Dynamic Zone' member status in dynamic zone window. If false (live-like) players inside the dynamic zone will show as 'Online'")
 RULE_INT(DynamicZone, WorldProcessRate, 6000, "Timer interval (milliseconds) that systems check their dynamic zone states")
+RULE_CATEGORY_END()
+
+RULE_CATEGORY(Cheat)
+RULE_REAL(Cheat, MQWarpDetectionDistanceFactor, 9.0, "clients move at 4.4 about if in a straight line but with movement and to acct for lag we raise it a bit")
+RULE_INT(Cheat, MQWarpExemptStatus, -1, "Required status level to exempt the MQWarpDetector. Set to -1 to disable this feature.")
+RULE_INT(Cheat, MQZoneExemptStatus, -1, "Required status level to exempt the MQZoneDetector. Set to -1 to disable this feature.")
+RULE_INT(Cheat, MQGateExemptStatus, -1, "Required status level to exempt the MQGateDetector. Set to -1 to disable this feature.")
+RULE_INT(Cheat, MQGhostExemptStatus, -1, "Required status level to exempt the MQGhostDetector. Set to -1 to disable this feature.")
+RULE_INT(Cheat, MQFastMemExemptStatus, -1, "Required status level to exempt the MQFastMemDetector. Set to -1 to disable this feature.")
+RULE_BOOL(Cheat, EnableMQWarpDetector, true, "Enable the MQWarp Detector. Set to False to disable this feature.")
+RULE_BOOL(Cheat, EnableMQZoneDetector, true, "Enable the MQZone Detector. Set to False to disable this feature.")
+RULE_BOOL(Cheat, EnableMQGateDetector, true, "Enable the MQGate Detector. Set to False to disable this feature.")
+RULE_BOOL(Cheat, EnableMQGhostDetector, true, "Enable the MQGhost Detector. Set to False to disable this feature.")
+RULE_BOOL(Cheat, EnableMQFastMemDetector, true, "Enable the MQFastMem Detector. Set to False to disable this feature.")
+RULE_BOOL(Cheat, MarkMQWarpLT, false, "Mark clients makeing smaller warps")
 RULE_CATEGORY_END()
 
 #undef RULE_CATEGORY

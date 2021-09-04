@@ -61,6 +61,7 @@ extern volatile bool RunLoops;
 #include "mob_movement_manager.h"
 #include "../common/content/world_content_service.h"
 #include "../common/expedition_lockout_timer.h"
+#include "cheat_manager.h"
 
 extern QueryServ* QServ;
 extern EntityList entity_list;
@@ -170,8 +171,6 @@ Client::Client(EQStreamInterface* ieqs)
   last_region_type(RegionTypeUnsupported),
   m_dirtyautohaters(false),
   mob_close_scan_timer(6000),
-  hp_self_update_throttle_timer(300),
-  hp_other_update_throttle_timer(500),
   position_update_timer(10000),
   consent_throttle_timer(2000),
   tmSitting(0)
@@ -179,7 +178,7 @@ Client::Client(EQStreamInterface* ieqs)
 
 	for (int client_filter = 0; client_filter < _FilterCount; client_filter++)
 		ClientFilters[client_filter] = FilterShow;
-
+	cheat_manager.SetClient(this);
 	mMovementManager->AddClient(this);
 	character_id = 0;
 	conn_state = NoPacketsReceived;
@@ -2512,7 +2511,7 @@ uint16 Client::GetMaxSkillAfterSpecializationRules(EQ::skills::SkillType skillid
 
 	uint16 PrimarySkillValue = 0, SecondarySkillValue = 0;
 
-	uint16 MaxSpecializations = GetAA(aaSecondaryForte) ? 2 : 1;
+	uint16 MaxSpecializations = aabonuses.SecondaryForte ? 2 : 1;
 
 	if (skillid >= EQ::skills::SkillSpecializeAbjure && skillid <= EQ::skills::SkillSpecializeEvocation)
 	{
@@ -5607,17 +5606,19 @@ void Client::AddLDoNWin(uint32 theme_id)
 }
 
 
-void Client::SuspendMinion()
+void Client::SuspendMinion(int value)
 {
+	/*
+		SPA 151 Allows an extra pet to be saved and resummoned later.
+		Casting with a pet but without a suspended pet will suspend the pet
+		Casting without a pet and with a suspended pet will unsuspend the pet
+		effect value 0 = save pet with no buffs or equipment
+		effect value 1 = save pet with buffs and equipment
+		effect value 2 = unknown
+		Note: SPA 308 allows for suspended pets to be resummoned after zoning.
+	*/
+
 	NPC *CurrentPet = GetPet()->CastToNPC();
-
-	int AALevel = GetAA(aaSuspendedMinion);
-
-	if(AALevel == 0)
-		return;
-
-	if(GetLevel() < 62)
-		return;
 
 	if(!CurrentPet)
 	{
@@ -5640,7 +5641,7 @@ void Client::SuspendMinion()
 				return;
 			}
 
-			if(AALevel >= 2)
+			if(value >= 1)
 			{
 				CurrentPet->SetPetState(m_suspendedminion.Buffs, m_suspendedminion.Items);
 
@@ -5709,7 +5710,7 @@ void Client::SuspendMinion()
 				m_suspendedminion.petpower = CurrentPet->GetPetPower();
 				m_suspendedminion.size = CurrentPet->GetSize();
 
-				if(AALevel >= 2)
+				if(value >= 1)
 					CurrentPet->GetPetState(m_suspendedminion.Buffs, m_suspendedminion.Items, m_suspendedminion.Name);
 				else
 					strn0cpy(m_suspendedminion.Name, CurrentPet->GetName(), 64); // Name stays even at rank 1
@@ -10462,7 +10463,7 @@ void Client::ApplyWeaponsStance()
 			- From spells, just remove the Primary buff that contains the WeaponStance effect in it.
 			- For items with worn effect, unequip the item.
 			- For AA abilities, a hotkey is used to Enable and Disable the effect. See. Client::TogglePassiveAlternativeAdvancement in aa.cpp for extensive details.
-			
+
 		Rank
 			- Most important for AA, but if you have more than one of WeaponStance effect for a given type, the spell trigger buff will apply whatever has the highest
 		'rank' value from the spells table. AA's on live for this effect naturally do this. Be awere of this if making custom spells/worn effects/AA.
@@ -10474,7 +10475,7 @@ void Client::ApplyWeaponsStance()
 	if (!IsWeaponStanceEnabled()) {
 		return;
 	}
-	
+
 	bool enabled           = false;
 	bool item_bonus_exists = false;
 	bool aa_bonus_exists   = false;
@@ -10530,7 +10531,7 @@ void Client::ApplyWeaponsStance()
 
 		if (itembonuses.WeaponStance[WEAPON_STANCE_TYPE_2H] || itembonuses.WeaponStance[WEAPON_STANCE_TYPE_SHIELD] ||
 			itembonuses.WeaponStance[WEAPON_STANCE_TYPE_DUAL_WIELD]) {
-			
+
 			enabled           = true;
 			item_bonus_exists = true;
 
