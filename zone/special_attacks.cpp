@@ -1993,9 +1993,9 @@ void Mob::Taunt(NPC *who, bool always_succeed, int chance_bonus, bool FromSpell,
 			else {
 
 				if (level_difference < 0) {
-					tauntchance += static_cast<float>(level_difference) * 4.0f;
-					if (tauntchance < 15)
-						tauntchance = 15.0f;
+					tauntchance += static_cast<float>(level_difference) * 2.0f;
+					if (tauntchance < 20)
+						tauntchance = 20.0f;
 				}
 
 				else {
@@ -2029,7 +2029,7 @@ void Mob::Taunt(NPC *who, bool always_succeed, int chance_bonus, bool FromSpell,
 				who->CastToNPC()->AddToHateList(this, newhate);
 				Success = true;
 			} else {
-				who->CastToNPC()->AddToHateList(this, GetSkill(EQ::skills::SkillTaunt));
+				who->CastToNPC()->AddToHateList(this, (GetSkill(EQ::skills::SkillTaunt) / 10));
 			}
 
 			if (who->CanTalk())
