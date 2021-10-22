@@ -230,6 +230,15 @@ void Mob::MakePoweredPet(uint16 spell_id, const char* pettype, int16 petpower,
 	auto npc_type = new NPCType;
 	memcpy(npc_type, base, sizeof(NPCType));
 
+	if (this->IsClient() && act_power > 0) {
+		npc_type->max_hp = npc_type->max_hp * 1.10;
+		npc_type->current_hp = npc_type->max_hp;
+		if (npc_type->level >= 33) {
+			npc_type->level = npc_type->level + 1;
+		}
+		npc_type->size = npc_type->size + 1;
+	}
+
 	// If pet power is set to -1 in the DB, use stat scaling
 	if ((this->IsClient()
 #ifdef BOTS
