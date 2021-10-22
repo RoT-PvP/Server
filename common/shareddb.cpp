@@ -501,7 +501,7 @@ bool SharedDatabase::GetSharedBank(uint32 id, EQ::InventoryProfile *inv, bool is
 	for (auto row = results.begin(); row != results.end(); ++row) {
 		int16 slot_id = (int16)atoi(row[0]);
 		uint32 item_id = (uint32)atoi(row[1]);
-		int8 charges = (int8)atoi(row[2]);
+		int16 charges = (int16)atoi(row[2]);
 
 		uint32 aug[EQ::invaug::SOCKET_COUNT];
 		aug[0] = (uint32)atoi(row[3]);
@@ -1855,6 +1855,8 @@ void SharedDatabase::LoadSpells(void *data, int max_spells) {
 		sp[tempid].pvpresistcalc=atoi(row[178]);
 		sp[tempid].pvpresistcap=atoi(row[179]);
 		sp[tempid].spell_category=atoi(row[180]);
+		sp[tempid].pvp_duration = atoi(row[181]);
+		sp[tempid].pvp_duration_cap = atoi(row[182]);
 		sp[tempid].pcnpc_only_flag=atoi(row[183]);
 		sp[tempid].cast_not_standing = atoi(row[184]) != 0;
 		sp[tempid].can_mgb=atoi(row[185]);
@@ -1883,6 +1885,7 @@ void SharedDatabase::LoadSpells(void *data, int max_spells) {
 		sp[tempid].override_crit_chance = atoi(row[217]);
 		sp[tempid].aemaxtargets = atoi(row[218]);
 		sp[tempid].no_heal_damage_item_mod = atoi(row[219]);
+		sp[tempid].caster_requirement_id = atoi(row[220]);
 		sp[tempid].spell_class = atoi(row[221]);
 		sp[tempid].spell_subclass = atoi(row[222]);
 		sp[tempid].persistdeath = atoi(row[224]) != 0;

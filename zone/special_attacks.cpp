@@ -1976,12 +1976,16 @@ void Mob::Taunt(NPC *who, bool always_succeed, int chance_bonus, bool FromSpell,
 	}
 
 	// All values used based on live parses after taunt was updated in 2006.
+    // Update to make taunt slightly more reliable at max skill (fitz, Sept 2021)
 	if ((hate_top && hate_top->GetHPRatio() >= 20) || hate_top == nullptr || chance_bonus) {
 		// SE_Taunt this is flat chance
 		if (chance_bonus) {
 			Success = zone->random.Roll(chance_bonus);
 		} else {
 			float tauntchance = 50.0f;
+			
+			if (GetSkill(EQ::skills::SkillTaunt) >= 200)
+				tauntchance = 65.0f;
 
 			if (always_succeed)
 				tauntchance = 101.0f;
@@ -1989,15 +1993,18 @@ void Mob::Taunt(NPC *who, bool always_succeed, int chance_bonus, bool FromSpell,
 			else {
 
 				if (level_difference < 0) {
-					tauntchance += static_cast<float>(level_difference) * 3.0f;
+					tauntchance += static_cast<float>(level_difference) * 2.0f;
 					if (tauntchance < 20)
 						tauntchance = 20.0f;
 				}
 
 				else {
 					tauntchance += static_cast<float>(level_difference) * 5.0f;
-					if (tauntchance > 65)
-						tauntchance = 65.0f;
+					if (tauntchance > 85)
+						tauntchance = 85.0f;
+					
+				if ((tauntchance > 95) && (GetSkill(EQ::skills::SkillTaunt) >= 200))
+						tauntchance = 95.0f;
 				}
 			}
 
@@ -2022,7 +2029,7 @@ void Mob::Taunt(NPC *who, bool always_succeed, int chance_bonus, bool FromSpell,
 				who->CastToNPC()->AddToHateList(this, newhate);
 				Success = true;
 			} else {
-				who->CastToNPC()->AddToHateList(this, 12);
+				who->CastToNPC()->AddToHateList(this, (GetSkill(EQ::skills::SkillTaunt) / 10));
 			}
 
 			if (who->CanTalk())

@@ -297,7 +297,7 @@ public:
 	void ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses* newbon, uint16 casterID = 0,
 		uint8 WornType = 0, int32 ticsremaining = 0, int buffslot = -1, int instrument_mod = 10,
 		bool IsAISpellEffect = false, uint16 effect_id = 0, int32 se_base = 0, int32 se_limit = 0, int32 se_max = 0);
-	void NegateSpellsBonuses(uint16 spell_id);
+	void NegateSpellEffectBonuses(uint16 spell_id);
 	virtual float GetActSpellRange(uint16 spell_id, float range, bool IsBard = false);
 	virtual int32 GetActSpellDamage(uint16 spell_id, int32 value, Mob* target = nullptr);
 	virtual int32 GetActDoTDamage(uint16 spell_id, int32 value, Mob* target);
@@ -420,6 +420,7 @@ public:
 	inline float GetTargetRingZ() const { return m_TargetRing.z; }
 	inline bool HasEndurUpkeep() const { return endur_upkeep; }
 	inline void SetEndurUpkeep(bool val) { endur_upkeep = val; }
+	bool HasBuffWithSpellGroup(int spellgroup);
 
 	//Basic Stats/Inventory
 	virtual void SetLevel(uint8 in_level, bool command = false) { level = in_level; }
@@ -837,7 +838,7 @@ public:
 	int8 GetDecayEffectValue(uint16 spell_id, uint16 spelleffect);
 	int32 GetExtraSpellAmt(uint16 spell_id, int32 extra_spell_amt, int32 base_spell_dmg);
 	void MeleeLifeTap(int32 damage);
-	bool PassCastRestriction(bool UseCastRestriction = true, int16 value = 0, bool IsDamage = true);
+	bool PassCastRestriction(int value);
 	bool ImprovedTaunt();
 	bool TryRootFadeByDamage(int buffslot, Mob* attacker);
 	float GetSlowMitigation() const { return slow_mitigation; }

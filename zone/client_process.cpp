@@ -119,8 +119,9 @@ bool Client::Process() {
 
 		// SendHPUpdate calls hpupdate_timer.Start so it can delay this timer, so lets not reset with the check
 		// since the function will anyways
-		if (hpupdate_timer.Check(false))
+		if (hpupdate_timer.Check(false)) {
 			SendHPUpdate();
+		}
 
 		/* I haven't naturally updated my position in 10 seconds, updating manually */
 		if (!is_client_moving && position_update_timer.Check()) {
@@ -202,6 +203,8 @@ bool Client::Process() {
 
 		if (IsStunned() && stunned_timer.Check())
 			Mob::UnStun();
+
+		cheat_manager.ClientProcess();
 
 		if (bardsong_timer.Check() && bardsong != 0) {
 			//NOTE: this is kinda a heavy-handed check to make sure the mob still exists before
@@ -464,7 +467,7 @@ bool Client::Process() {
 			if (gravity_timer.Check())
 				DoGravityEffect();
 		}
-		
+
 		if (shield_timer.Check()) {
 			ShieldAbilityFinish();
 		}

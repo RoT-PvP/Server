@@ -66,6 +66,7 @@ namespace EQ
 #include "zone_store.h"
 #include "task_manager.h"
 #include "task_client_state.h"
+#include "cheat_manager.h"
 
 #ifdef _WINDOWS
 	// since windows defines these within windef.h (which windows.h include)
@@ -119,17 +120,6 @@ typedef enum {
 	Rewind, // Summon to /rewind location.
 	EvacToSafeCoords
 } ZoneMode;
-
-typedef enum {
-	MQWarp,
-	MQWarpShadowStep,
-	MQWarpKnockBack,
-	MQWarpLight,
-	MQZone,
-	MQZoneUnknownDest,
-	MQGate,
-	MQGhost
-} CheatTypes;
 
 enum {
 	HideCorpseNone = 0,
@@ -604,7 +594,7 @@ public:
 	inline double GetEXPModifier(uint32 zone_id) const { return database.GetEXPModifier(CharacterID(), zone_id); };
 	inline void SetAAEXPModifier(uint32 zone_id, double aa_modifier) { database.SetAAEXPModifier(CharacterID(), zone_id, aa_modifier); };
 	inline void SetEXPModifier(uint32 zone_id, double exp_modifier) { database.SetEXPModifier(CharacterID(), zone_id, exp_modifier); };
-	
+
 	bool UpdateLDoNPoints(uint32 theme_id, int points);
 	void SetPVPPoints(uint32 Points) { m_pp.PVPCurrentPoints = Points; }
 	uint32 GetPVPPoints() { return m_pp.PVPCurrentPoints; }
@@ -1396,7 +1386,7 @@ public:
 	uint32 GetCorpseCount() { return database.GetCharacterCorpseCount(CharacterID()); }
 	uint32 GetCorpseID(int corpse) { return database.GetCharacterCorpseID(CharacterID(), corpse); }
 	uint32 GetCorpseItemAt(int corpse_id, int slot_id) { return database.GetCharacterCorpseItemAt(corpse_id, slot_id); }
-	void SuspendMinion();
+	void SuspendMinion(int value);
 	void Doppelganger(uint16 spell_id, Mob *target, const char *name_override, int pet_count, int pet_duration);
 	void NotifyNewTitlesAvailable();
 	void Signal(uint32 data);
@@ -1612,6 +1602,7 @@ public:
 	Raid *p_raid_instance;
 
 	void ShowDevToolsMenu();
+	CheatManager cheat_manager;
 
 protected:
 	friend class Mob;
@@ -1842,8 +1833,6 @@ private:
 	Timer helm_toggle_timer;
 	Timer aggro_meter_timer;
 	Timer mob_close_scan_timer;
-	Timer hp_self_update_throttle_timer; /* This is to prevent excessive packet sending under trains/fast combat */
-	Timer hp_other_update_throttle_timer; /* This is to keep clients from DOSing the server with macros that change client targets constantly */
 	Timer position_update_timer; /* Timer used when client hasn't updated within a 10 second window */
 	Timer consent_throttle_timer;
 	Timer dynamiczone_removal_timer;
