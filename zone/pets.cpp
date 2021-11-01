@@ -302,6 +302,19 @@ void Mob::MakePoweredPet(uint16 spell_id, const char* pettype, int16 petpower,
 		strcpy(npc_type->name, this->GetName());
 		npc_type->name[24] = '\0';
 		strcat(npc_type->name, "`s_ward");
+	} else if (record.petnaming == 6) {
+		int roll = zone->random.Real(1,5);
+		if(roll == 1){
+			strcpy(npc_type->name, "Alakiir");
+		} else if (roll == 2) {
+			strcpy(npc_type->name, "Rornir");
+		} else if (roll == 3) {
+			strcpy(npc_type->name, "Talon");
+		} else if (roll == 4) {
+			strcpy(npc_type->name, "Barek");
+		} else {
+			strcpy(npc_type->name, "Feather");
+		}
 	} else {
 		strcpy(npc_type->name, this->GetCleanName());
 		npc_type->name[25] = '\0';
