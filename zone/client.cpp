@@ -139,7 +139,6 @@ Client::Client(EQStreamInterface* ieqs)
   linkdead_timer(RuleI(Zone,ClientLinkdeadMS)),
   dead_timer(2000),
   global_channel_timer(1000),
-  shield_timer(500),
   pvp_attacked_timer(60000),
   fishing_timer(8000),
   endupkeep_timer(1000),
@@ -235,7 +234,6 @@ Client::Client(EQStreamInterface* ieqs)
 	pQueuedSaveWorkID = 0;
 	position_update_same_count = 0;
 	fishing_timer.Disable();
-	shield_timer.Disable();
 	pvp_attacked_timer.Disable();
 	dead_timer.Disable();
 	camp_timer.Disable();
