@@ -190,7 +190,6 @@ Mob::Mob(
 
 	last_hp_percent = 0;
 	last_hp         = 0;
-	last_max_hp     = 0;
 
 	current_speed = base_runspeed;
 
@@ -1413,6 +1412,7 @@ void Mob::SendHPUpdate(bool skip_self /*= false*/, bool force_update_all /*= fal
 
 	// If our HP is different from last HP update call - let's update selves
 	if (IsClient()) {
+		if (current_hp != last_hp || force_update_all) {
 
 		// delay allowing the client to catch up on buff states
 		if (max_hp != last_max_hp) {
@@ -1420,7 +1420,7 @@ void Mob::SendHPUpdate(bool skip_self /*= false*/, bool force_update_all /*= fal
 			return;
 		}
 
-		if (current_hp != last_hp || force_update_all) {
+				CastToClient()->QueuePacket(client_packet);
 
 			// This is to prevent excessive packet sending under trains/fast combat
 			LogHPUpdate(
