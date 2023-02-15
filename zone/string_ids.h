@@ -173,6 +173,7 @@
 #define GENERIC_STRINGID_SAY		554		//%1 says '%T2'
 #define CANNOT_WAKE					555		//%1 tells you, 'I am unable to wake %2, master.'
 #define SUMMONING_CORPSE_ZONE		596		//Summoning %1's corpse(s).
+#define TASK_NOT_RIGHT_LEVEL        615     //You are not at the right level for this task.
 #define PET_HOLD_SET_ON				698		//The pet hold mode has been set to on.
 #define PET_HOLD_SET_OFF			699		//The pet hold mode has been set to off.
 #define PET_FOCUS_SET_ON			700		//The pet focus mode has been set to on.
@@ -180,6 +181,7 @@
 #define PET_SPELLHOLD_SET_ON		702		//The pet spellhold mode has been set to on.
 #define PET_SPELLHOLD_SET_OFF		703		//The pet spellhold mode has been set to off.
 #define GUILD_NAME_IN_USE			711		//You cannot create a guild with that name, that guild already exists on this server.
+#define AA_CAP						1000	//You have reached the AA point cap, and cannot gain any further experience until some of your stored AA point pool is used.
 #define GM_GAINXP					1002	//[GM] You have gained %1 AXP and %2 EXP (%3).
 #define MALE_SLAYUNDEAD				1007	//%1's holy blade cleanses his target!(%2)
 #define FEMALE_SLAYUNDEAD			1008	//%1's holy blade cleanses her target!(%2)
@@ -209,6 +211,7 @@
 #define EATING_MESSAGE				1091	//Chomp, chomp, chomp... %1 takes a bite from a %2.
 #define DRINKING_MESSAGE			1093	//Glug, glug, glug... %1 takes a drink from a %2.
 #define SUCCESSFUL_TAUNT			1095	//I'll teach you to interfere with me %3.
+#define TRADE_BACK                  1105    //I have no need for this %3, you can have it back.
 #define PET_SIT_STRING				1130	//Changing position, Master.
 #define PET_CALMING					1131	//Sorry, Master..calming down.
 #define PET_FOLLOWING				1132	//Following you, Master.
@@ -264,6 +267,7 @@
 #define DUEL_DECLINE				1383	//%1 has declined your challenge to duel to the death.
 #define DUEL_ACCEPTED				1384	//%1 has already accepted a duel with someone else.
 #define DUEL_CONSIDERING			1385	//%1 is considering a duel with someone else.
+#define PLAYER_SUMMONED				1393	//You have been summoned!
 #define PLAYER_REGAIN				1394	//You have control of yourself again.
 #define REZZ_ALREADY_PENDING		1379	//You were unable to restore the corpse to life, but you may have success with a later attempt.
 #define IN_USE						1406	//Someone else is using that. Try again later.
@@ -292,9 +296,12 @@
 #define ALREADY_SHIELDING			3280	//Either you or your target is already shielding another.
 #define START_SHIELDING				3281	//%1 begins to use %2 as a living shield!
 #define END_SHIELDING				3282	//%1 ceases protecting %2.
+#define OVER_AA_CAP					3374	//Warning: You are currently over the earned Advancement point limit of %1. Please spend some of your stored AA points. The NEXT time you zone all of your AA points over %2 will be deleted. You MUST spend the extra points now.
 #define TRADESKILL_MISSING_ITEM		3455	//You are missing a %1.
 #define TRADESKILL_MISSING_COMPONENTS	3456	//Sorry, but you don't have everything you need for this recipe in your general inventory.
 #define TRADESKILL_LEARN_RECIPE		3457	//You have learned the recipe %1!
+#define TASK_UPDATED                3471    //Your task '%1' has been updated.
+#define YOU_ASSIGNED_TASK           3472    //You have been assigned the task '%1'.
 #define EXPEDITION_YOU_BELONG       3500    //You cannot create this expedition since you already belong to another.
 #define EXPEDITION_YOU_PLAYED_HERE  3501    //You cannot create this expedition for another %1d:%2h:%3m since you have recently played here.
 #define REQUIRED_PLAYER_COUNT       3503    //You do not meet the player count requirement.  You have %1 players.  You must have at least %2 and no more than %3.
@@ -369,7 +376,10 @@
 #define FAILED_TAUNT				5811	//You have failed to taunt your target.
 #define PHYSICAL_RESIST_FAIL		5817	//Your target avoided your %1 ability.
 #define AA_NO_TARGET				5825	//You must first select a target for this ability!
+#define YOU_RECEIVE                 5941    //You receive %1.
+#define NO_TASK_OFFERS              6009    //Sorry %3, I don't have anything for someone with your abilities.
 #define MAX_ACTIVE_TASKS			6010	//Sorry %3, you already have the maximum number of active tasks.
+#define TASK_REQUEST_COOLDOWN_TIMER 6011    //Sorry, %3, but you can't request another task for %4 minutes and %5 seconds.
 #define FORAGE_MASTERY				6012	//Your forage mastery has enabled you to find something else!
 #define GUILD_BANK_CANNOT_DEPOSIT	6097	// Cannot deposit this item. Containers must be empty, and only one of each LORE and no NO TRADE or TEMPORARY items may be deposited.
 #define GUILD_BANK_FULL				6098	// There is no more room in the Guild Bank.
@@ -418,6 +428,7 @@
 #define GAIN_GROUP_LEADERSHIP_EXP	8788	//
 #define GAIN_RAID_LEADERSHIP_EXP	8789	//
 #define BUFF_MINUTES_REMAINING		8799	//%1 (%2 minutes remaining)
+#define YOU_HAVE_BEEN_GIVEN         8994    //You have been given: %1
 #define NO_MORE_TRAPS				9002	//You have already placed your maximum number of traps.
 #define FEAR_TOO_HIGH				9035	//Your target is too high of a level for your fear spell.
 #define SLOW_MOSTLY_SUCCESSFUL		9029	//Your spell was mostly successful.
@@ -445,9 +456,12 @@
 #define NO_CAST_OUT_OF_COMBAT		9191	//You can not cast this spell while out of combat.
 #define NO_ABILITY_IN_COMBAT		9192	//You can not use this ability while in combat.
 #define NO_ABILITY_OUT_OF_COMBAT	9194	//You can not use this ability while out of combat.
+#define LESSER_SPELL_VERSION        11004   //%1 is a lesser version of %2 and cannot be scribed
 #define AE_RAMPAGE					11015	//%1 goes on a WILD RAMPAGE!
 #define FACE_ACCEPTED				12028	//Facial features accepted.
+#define TRACKING_BEGIN				12040   //You begin tracking %1.
 #define SPELL_LEVEL_TO_LOW			12048	//You will have to achieve level %1 before you can scribe the %2.
+#define YOU_RECEIVE_AS_SPLIT		12071   //You receive %1 as your split.
 #define ATTACKFAILED				12158	//%1 try to %2 %3, but %4!
 #define HIT_STRING					12183	//hit
 #define CRUSH_STRING				12191	//crush
@@ -462,12 +476,14 @@
 #define LEADER_OF_X_GUILD			12258
 #define NOT_IN_A_GUILD				12259
 #define TARGET_PLAYER_FOR_GUILD_STATUS		12260
+#define TARGET_ALREADY_IN_GROUP		12265	//% 1 is already in another group.
 #define GROUP_INVITEE_NOT_FOUND		12268	//You must target a player or use /invite <name> to invite someone to your group.
 #define GROUP_INVITEE_SELF			12270	//12270 You cannot invite yourself.
 #define ALREADY_IN_PARTY			12272	//That person is already in your party.
 #define NO_LONGER_HIDDEN			12337   //You are no longer hidden.
 #define STOP_SNEAKING				12338	//You stop sneaking
 #define NOT_IN_CONTROL				12368	//You do not have control of yourself right now.
+#define NO_SKILL_WHILE_MOUNTED		12393	//You can not use this skill while on a mount.
 #define STAND_TO_CAST				12441	//You must be standing to cast a spell.
 #define ALREADY_CASTING				12442	//You are already casting a spell!
 #define SHIMMERS_BRIEFLY			12444	//Your %1 shimmers briefly.
@@ -508,6 +524,7 @@
 #define REPORT_ONCE					12945	//You may only submit a report once per time that you zone. Thank you.
 #define NOW_INVISIBLE				12950	//%1 is now Invisible.
 #define NOW_VISIBLE					12951	//%1 is now Visible.
+#define YOU_TAKE_DOT				12954	//You have taken %1 damage from %2 by %3
 #define GUILD_NOT_MEMBER2			12966	//You are not in a guild.
 #define HOT_HEAL_SELF				12976 	//You have been healed for %1 hit points by your %2.
 #define HOT_HEAL_OTHER				12997	//You have healed %1 for %2 hit points with your %3.

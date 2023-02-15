@@ -32,15 +32,25 @@
 #include "worldserver.h"
 #include <list>
 #include <signal.h>
+#include <csignal>
+#include <thread>
 
 #include "../common/net/tcp_server.h"
 #include "../common/net/servertalk_client_connection.h"
+#include "../common/discord/discord_manager.h"
+#include "../common/path_manager.h"
+#include "../common/zone_store.h"
+#include "../common/events/player_event_logs.h"
 
 ChatChannelList *ChannelList;
 Clientlist *g_Clientlist;
 EQEmuLogSys LogSys;
-Database database;
+UCSDatabase database;
 WorldServer *worldserver = nullptr;
+DiscordManager discord_manager;
+PathManager path;
+ZoneStore zone_store;
+PlayerEventLogs player_event_logs;
 
 const ucsconfig *Config;
 
@@ -49,23 +59,55 @@ std::string WorldShortName;
 uint32 ChatMessagesSent = 0;
 uint32 MailMessagesSent = 0;
 
-volatile bool RunLoops = true;
-
-void CatchSignal(int sig_num) {
-
-	RunLoops = false;
-}
-
 std::string GetMailPrefix() {
 
 	return "SOE.EQ." + WorldShortName + ".";
 
 }
 
+void crash_func() {
+	std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+	int* p=0;
+	*p=0;
+}
+
+void Shutdown() {
+	LogInfo("Shutting down...");
+	ChannelList->RemoveAllChannels();
+	g_Clientlist->CloseAllConnections();
+	LogSys.CloseFileLogs();
+}
+
+int caught_loop = 0;
+void CatchSignal(int sig_num) {
+	LogInfo("Caught signal [{}]", sig_num);
+
+	EQ::EventLoop::Get().Shutdown();
+
+	caught_loop++;
+	// when signal handler is incapable of exiting properly
+	if (caught_loop > 1) {
+		LogInfo("In a signal handler loop and process is incapable of exiting properly, forcefully cleaning up");
+		ChannelList->RemoveAllChannels();
+		g_Clientlist->CloseAllConnections();
+		LogSys.CloseFileLogs();
+		std::exit(0);
+	}
+}
+
+void PlayerEventQueueListener() {
+	while (caught_loop == 0) {
+		discord_manager.ProcessMessageQueue();
+		Sleep(100);
+	}
+}
+
 int main() {
 	RegisterExecutablePlatform(ExePlatformUCS);
 	LogSys.LoadLogSettingsDefaults();
 	set_exception_handler();
+
+	path.LoadPaths();
 
 	// Check every minute for unused channels we can delete
 	//
@@ -98,6 +140,7 @@ int main() {
 	}
 
 	LogSys.SetDatabase(&database)
+		->SetLogPath(path.GetLogPath())
 		->LoadLogDatabaseSettings()
 		->StartFileLogs();
 
@@ -112,13 +155,10 @@ int main() {
 	} else {
 		if(!RuleManager::Instance()->LoadRules(&database, "default", false)) {
 			LogInfo("No rule set configured, using default rules");
-		} else {
-			LogInfo("Loaded default rule set 'default'", tmp);
 		}
 	}
 
 	EQ::InitializeDynamicLookups();
-	LogInfo("Initialized dynamic dictionary entries");
 
 	database.ExpireMail();
 
@@ -134,16 +174,18 @@ int main() {
 
 	database.LoadChatChannels();
 
-	if (signal(SIGINT, CatchSignal) == SIG_ERR)	{
-		LogInfo("Could not set signal handler");
-		return 1;
-	}
-	if (signal(SIGTERM, CatchSignal) == SIG_ERR)	{
-		LogInfo("Could not set signal handler");
-		return 1;
-	}
+	std::signal(SIGINT, CatchSignal);
+	std::signal(SIGTERM, CatchSignal);
+	std::signal(SIGKILL, CatchSignal);
+	std::signal(SIGSEGV, CatchSignal);
+
+	std::thread(PlayerEventQueueListener).detach();
 
 	worldserver = new WorldServer;
+
+	// uncomment to simulate timed crash for catching SIGSEV
+//	std::thread crash_test(crash_func);
+//	crash_test.detach();
 
 	auto loop_fn = [&](EQ::Timer* t) {
 
@@ -166,12 +208,7 @@ int main() {
 
 	EQ::EventLoop::Get().Run();
 
-	ChannelList->RemoveAllChannels();
-
-	g_Clientlist->CloseAllConnections();
-
-	LogSys.CloseFileLogs();
-
+	Shutdown();
 }
 
 void UpdateWindowTitle(char* iNewTitle) {

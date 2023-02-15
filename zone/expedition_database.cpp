@@ -23,28 +23,24 @@
 #include "zonedb.h"
 #include "../common/database.h"
 #include "../common/expedition_lockout_timer.h"
-#include "../common/string_util.h"
+#include "../common/strings.h"
 #include <fmt/core.h>
 
-uint32_t ExpeditionDatabase::InsertExpedition(
-	const std::string& uuid, uint32_t dz_id, const std::string& expedition_name,
-	uint32_t leader_id, uint32_t min_players, uint32_t max_players)
+uint32_t ExpeditionDatabase::InsertExpedition(uint32_t dz_id)
 {
-	LogExpeditionsDetail(
-		"Inserting new expedition [{}] leader [{}] uuid [{}]", expedition_name, leader_id, uuid
-	);
+	LogExpeditionsDetail("Inserting new expedition dz [{}]", dz_id);
 
 	std::string query = fmt::format(SQL(
 		INSERT INTO expeditions
-			(uuid, dynamic_zone_id, expedition_name, leader_id, min_players, max_players)
+			(dynamic_zone_id)
 		VALUES
-			('{}', {}, '{}', {}, {}, {});
-	), uuid, dz_id, EscapeString(expedition_name), leader_id, min_players, max_players);
+			({});
+	), dz_id);
 
 	auto results = database.QueryDatabase(query);
 	if (!results.Success())
 	{
-		LogExpeditions("Failed to obtain an expedition id for [{}]", expedition_name);
+		LogExpeditions("Failed to obtain an expedition id for dz [{}]", dz_id);
 		return 0;
 	}
 
@@ -104,7 +100,7 @@ std::vector<ExpeditionLockoutTimer> ExpeditionDatabase::LoadCharacterLockouts(
 			character_id = {}
 			AND expire_time > NOW()
 			AND expedition_name = '{}';
-	), character_id, EscapeString(expedition_name));
+	), character_id, Strings::Escape(expedition_name));
 
 	auto results = database.QueryDatabase(query);
 	if (results.Success())
@@ -149,7 +145,7 @@ void ExpeditionDatabase::DeleteAllCharacterLockouts(
 		std::string query = fmt::format(SQL(
 			DELETE FROM character_expedition_lockouts
 			WHERE character_id = {} AND expedition_name = '{}';
-		), character_id, EscapeString(expedition_name));
+		), character_id, Strings::Escape(expedition_name));
 
 		database.QueryDatabase(query);
 	}
@@ -168,7 +164,7 @@ void ExpeditionDatabase::DeleteCharacterLockout(
 			character_id = {}
 			AND expedition_name = '{}'
 			AND event_name = '{}';
-	), character_id, EscapeString(expedition_name), EscapeString(event_name));
+	), character_id, Strings::Escape(expedition_name), Strings::Escape(event_name));
 
 	database.QueryDatabase(query);
 }
@@ -195,7 +191,7 @@ void ExpeditionDatabase::DeleteMembersLockout(
 				IN ({})
 				AND expedition_name = '{}'
 				AND event_name = '{}';
-		), query_character_ids, EscapeString(expedition_name), EscapeString(event_name));
+		), query_character_ids, Strings::Escape(expedition_name), Strings::Escape(event_name));
 
 		database.QueryDatabase(query);
 	}
@@ -208,7 +204,7 @@ void ExpeditionDatabase::DeleteLockout(uint32_t expedition_id, const std::string
 	auto query = fmt::format(SQL(
 		DELETE FROM expedition_lockouts
 		WHERE expedition_id = {} AND event_name = '{}';
-	), expedition_id, EscapeString(event_name));
+	), expedition_id, Strings::Escape(event_name));
 
 	database.QueryDatabase(query);
 }
@@ -227,8 +223,8 @@ void ExpeditionDatabase::InsertCharacterLockouts(uint32_t character_id,
 			lockout.GetExpireTime(),
 			lockout.GetDuration(),
 			lockout.GetExpeditionUUID(),
-			EscapeString(lockout.GetExpeditionName()),
-			EscapeString(lockout.GetEventName())
+			Strings::Escape(lockout.GetExpeditionName()),
+			Strings::Escape(lockout.GetEventName())
 		);
 	}
 
@@ -267,8 +263,8 @@ void ExpeditionDatabase::InsertMembersLockout(
 			lockout.GetExpireTime(),
 			lockout.GetDuration(),
 			lockout.GetExpeditionUUID(),
-			EscapeString(lockout.GetExpeditionName()),
-			EscapeString(lockout.GetEventName())
+			Strings::Escape(lockout.GetExpeditionName()),
+			Strings::Escape(lockout.GetEventName())
 		);
 	}
 
@@ -310,7 +306,7 @@ void ExpeditionDatabase::InsertLockout(
 	),
 		expedition_id,
 		lockout.GetExpeditionUUID(),
-		EscapeString(lockout.GetEventName()),
+		Strings::Escape(lockout.GetEventName()),
 		lockout.GetExpireTime(),
 		lockout.GetDuration()
 	);
@@ -330,7 +326,7 @@ void ExpeditionDatabase::InsertLockouts(
 			"({}, '{}', '{}', FROM_UNIXTIME({}), {}),",
 			expedition_id,
 			lockout.second.GetExpeditionUUID(),
-			EscapeString(lockout.second.GetEventName()),
+			Strings::Escape(lockout.second.GetEventName()),
 			lockout.second.GetExpireTime(),
 			lockout.second.GetDuration()
 		);
@@ -392,8 +388,8 @@ void ExpeditionDatabase::AddLockoutDuration(const std::vector<DynamicZoneMember>
 			lockout.GetExpireTime(),
 			lockout.GetDuration(),
 			lockout.GetExpeditionUUID(),
-			EscapeString(lockout.GetExpeditionName()),
-			EscapeString(lockout.GetEventName())
+			Strings::Escape(lockout.GetExpeditionName()),
+			Strings::Escape(lockout.GetEventName())
 		);
 	}
 

@@ -53,6 +53,7 @@ namespace DatabaseSchema {
 			{"character_expedition_lockouts",  "character_id"},
 			{"character_exp_modifiers",        "character_id"},
 			{"character_inspect_messages",     "id"},
+			{"character_instance_safereturns", "character_id"},
 			{"character_item_recast",          "id"},
 			{"character_languages",            "id"},
 			{"character_leadership_abilities", "id"},
@@ -61,9 +62,11 @@ namespace DatabaseSchema {
 			{"character_pet_buffs",            "char_id"},
 			{"character_pet_info",             "char_id"},
 			{"character_pet_inventory",        "char_id"},
+			{"character_peqzone_flags",        "id"},
 			{"character_potionbelt",           "id"},
 			{"character_skills",               "id"},
 			{"character_spells",               "id"},
+			{"character_task_timers",          "character_id"},
 			{"character_tasks",                "charid"},
 			{"character_tribute",              "id"},
 			{"completed_tasks",                "charid"},
@@ -80,7 +83,6 @@ namespace DatabaseSchema {
 			{"player_titlesets",               "char_id"},
 			{"quest_globals",                  "charid"},
 			{"timers",                         "char_id"},
-			{"titles",                         "char_id"},
 			{"trader",                         "char_id"},
 			{"zone_flags",                     "charID"}
 		};
@@ -119,6 +121,7 @@ namespace DatabaseSchema {
 			"character_expedition_lockouts",
 			"character_exp_modifiers",
 			"character_inspect_messages",
+			"character_instance_safereturns",
 			"character_item_recast",
 			"character_languages",
 			"character_leadership_abilities",
@@ -127,9 +130,11 @@ namespace DatabaseSchema {
 			"character_pet_buffs",
 			"character_pet_info",
 			"character_pet_inventory",
+			"character_peqzone_flags",
 			"character_potionbelt",
 			"character_skills",
 			"character_spells",
+			"character_task_timers",
 			"character_tasks",
 			"character_tribute",
 			"completed_tasks",
@@ -154,7 +159,6 @@ namespace DatabaseSchema {
 			"spell_buckets",
 			"spell_globals",
 			"timers",
-			"titles",
 			"trader",
 			"trader_audit",
 			"zone_flags"
@@ -185,13 +189,14 @@ namespace DatabaseSchema {
 			"char_create_point_allocations",
 			"damageshieldtypes",
 			"doors",
+			"dynamic_zone_templates",
+			"faction_association",
 			"faction_base_data",
 			"faction_list",
 			"faction_list_mod",
 			"fishing",
 			"forage",
 			"global_loot",
-			"goallists",
 			"graveyard",
 			"grid",
 			"grid_entries",
@@ -220,7 +225,6 @@ namespace DatabaseSchema {
 			"pets_beastlord_data",
 			"pets_equipmentset",
 			"pets_equipmentset_entries",
-			"proximities",
 			"skill_caps",
 			"spawn2",
 			"spawn_conditions",
@@ -266,6 +270,7 @@ namespace DatabaseSchema {
 			"perl_event_export_settings",
 			"profanity_list",
 			"rule_sets",
+			"titles",
 			"rule_values",
 			"variables",
 		};
@@ -310,20 +315,24 @@ namespace DatabaseSchema {
 			"banned_ips",
 			"bug_reports",
 			"bugs",
+			"completed_shared_task_activity_state",
+			"completed_shared_task_members",
+			"completed_shared_tasks",
+			"discord_webhooks",
 			"dynamic_zone_members",
 			"dynamic_zones",
-			"eventlog",
 			"expedition_lockouts",
 			"expeditions",
 			"gm_ips",
 			"group_id",
 			"group_leaders",
-			"hackers",
-			"ip_exemptions",
 			"instance_list",
+			"ip_exemptions",
 			"item_tick",
 			"lfguild",
+			"merc_buffs",
 			"merchantlist_temp",
+			"mercs",
 			"object_contents",
 			"raid_details",
 			"raid_leaders",
@@ -332,6 +341,12 @@ namespace DatabaseSchema {
 			"respawn_times",
 			"saylink",
 			"server_scheduled_events",
+			"player_event_log_settings",
+			"player_event_logs"
+			"shared_task_activity_state",
+			"shared_task_dynamic_zones",
+			"shared_task_members",
+			"shared_tasks",
 		};
 	}
 
@@ -361,6 +376,60 @@ namespace DatabaseSchema {
 		return {
 			"db_version",
 			"inventory_versions",
+		};
+	}
+
+	/**
+	 * @description Gets all player bot tables
+	 * @note These tables have no content in the PEQ daily dump
+	 *
+	 * @return
+	 */
+	static std::vector<std::string> GetBotTables()
+	{
+		return {
+			"bot_buffs",
+			"bot_command_settings",
+			"bot_create_combinations",
+			"bot_data",
+			"bot_group_members",
+			"bot_groups",
+			"bot_guild_members",
+			"bot_heal_rotation_members",
+			"bot_heal_rotation_targets",
+			"bot_heal_rotations",
+			"bot_inspect_messages",
+			"bot_inventories",
+			"bot_owner_options",
+			"bot_pet_buffs",
+			"bot_pet_inventories",
+			"bot_pets",
+			"bot_spell_casting_chances",
+			"bot_spell_settings",
+			"bot_spells_entries",
+			"bot_stances",
+			"bot_timers"
+		};
+	}
+
+	static std::vector<std::string> GetMercTables()
+	{
+		return {
+			"merc_armorinfo",
+			"merc_inventory",
+			"merc_merchant_entries",
+			"merc_merchant_template_entries",
+			"merc_merchant_templates",
+			"merc_name_types",
+			"merc_npc_types",
+			"merc_spell_list_entries",
+			"merc_spell_lists",
+			"merc_stance_entries",
+			"merc_stats",
+			"merc_subtypes",
+			"merc_templates",
+			"merc_types",
+			"merc_weaponinfo"
 		};
 	}
 

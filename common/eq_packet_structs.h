@@ -29,7 +29,7 @@
 #include "textures.h"
 
 
-static const uint32 BUFF_COUNT = 25;
+static const uint32 BUFF_COUNT = 42;
 static const uint32 PET_BUFF_COUNT = 30;
 static const uint32 MAX_MERC = 100;
 static const uint32 MAX_MERC_GRADES = 10;
@@ -374,17 +374,19 @@ struct NewZone_Struct {
 /*0684*/	uint16	zone_id;
 /*0686*/	uint16	zone_instance;
 /*0688*/	uint32	unknown688;
-/*0692*/	uint8	unknown692[8];
+/*0692*/	uint8  unknown692[8];
 // Titanium doesn't have a translator, but we can still safely add stuff under here without issues since client memcpy's only what it knows
 // Just wastes some bandwidth sending to tit clients /shrug
-/*0700*/	float	fog_density;
-/*0704*/	uint32	SuspendBuffs;
-/*0708*/	uint32	FastRegenHP;
-/*0712*/	uint32	FastRegenMana;
-/*0716*/	uint32	FastRegenEndurance;
-/*0720*/	uint32	NPCAggroMaxDist;
-/*0724*/	uint32	underworld_teleport_index; // > 0 teleports w/ zone point index, invalid succors, if this value is 0, it prevents you from running off edges that would end up underworld
-/*0728*/
+/*0700*/	float  fog_density;
+/*0704*/	uint32 suspend_buffs;
+/*0708*/	uint32 fast_regen_hp;
+/*0712*/	uint32 fast_regen_mana;
+/*0716*/	uint32 fast_regen_endurance;
+/*0720*/	uint32 npc_aggro_max_dist;
+/*0724*/	uint32 underworld_teleport_index; // > 0 teleports w/ zone point index, invalid succors, if this value is 0, it prevents you from running off edges that would end up underworld
+/*0728*/	uint32 lava_damage; // Seen 50
+/*0732*/	uint32 min_lava_damage; // Seen 10
+/*0736*/
 };
 
 /*
@@ -446,6 +448,7 @@ struct ManaChange_Struct
 /*08*/	uint32	spell_id;
 /*12*/	uint8	keepcasting;	// won't stop the cast. Change mana while casting?
 /*13*/	uint8	padding[3];		// client doesn't read it, garbage data seems like
+/*16*/	int32	slot;			// -1 normal, otherwise clear ETA and GCD
 };
 
 struct SwapSpell_Struct
@@ -2192,11 +2195,19 @@ struct QuestReward_Struct
 	/*068*/
 };
 
+struct CashReward_Struct
+{
+	/*000*/ uint32 copper;
+	/*004*/ uint32 silver;
+	/*008*/ uint32 gold;
+	/*012*/ uint32 platinum;
+};
+
 // Size: 8
 struct Camera_Struct
 {
 	uint32	duration;	// Duration in ms
-	uint32	intensity;	// Between 1023410176 and 1090519040
+	float intensity;
 };
 
 struct ZonePoint_Entry {
@@ -2316,9 +2327,12 @@ struct FaceChange_Struct {
 /*004*/	uint8	hairstyle;
 /*005*/	uint8	beard;
 /*006*/	uint8	face;
-/*007*/ uint32	drakkin_heritage;
-/*011*/ uint32	drakkin_tattoo;
-/*015*/ uint32	drakkin_details;
+/*007*/ uint8  unused_padding;
+/*008*/ uint32 drakkin_heritage;
+/*012*/ uint32 drakkin_tattoo;
+/*016*/ uint32 drakkin_details;
+/*020*/ uint32 entity_id;
+/*024*/
 //there are only 10 faces for barbs changing woad just
 //increase the face value by ten so if there were 8 woad
 //designs then there would be 80 barb faces
@@ -2762,7 +2776,7 @@ struct EnvDamage2_Struct {
 /*0004*/	uint16 unknown4;
 /*0006*/	uint32 damage;
 /*0010*/	uint8 unknown10[12];
-/*0022*/	uint8 dmgtype; //FA = Lava; FC = Falling
+/*0022*/	uint8 dmgtype; // FA = Lava, FB = Drowning, FC = Falling, FD = Trap
 /*0023*/	uint8 unknown2[4];
 /*0027*/	uint16 constant; //Always FFFF
 /*0029*/	uint16 unknown29;
@@ -3621,14 +3635,19 @@ struct LevelAppearance_Struct { //Sends a little graphic on level up
 };
 
 struct MerchantList {
-	uint32	id;
-	uint32	slot;
-	uint32	item;
-	int16	faction_required;
-	int8	level_required;
-	uint16	alt_currency_cost;
-	uint32	classes_required;
-	uint8	probability;
+	uint32      id;
+	uint32      slot;
+	uint32      item;
+	int16       faction_required;
+	int8        level_required;
+	uint8       min_status;
+	uint8       max_status;
+	uint16      alt_currency_cost;
+	uint32      classes_required;
+	uint8       probability;
+	std::string bucket_name;
+	std::string bucket_value;
+	uint8       bucket_comparison;
 };
 
 struct TempMerchantList {
@@ -3717,15 +3736,64 @@ struct SetTitleReply_Struct {
 	uint32	entity_id;
 };
 
-struct TaskMemberList_Struct {
-/*00*/ uint32	gopher_id;
-/*04*/ uint32	unknown04;
-/*08*/ uint32	member_count;	//1 less than the number of members
-/*12*/ char	list_pointer[0];
+struct SharedTaskMemberList_Struct {
+/*00*/ uint32 gopher_id;
+/*04*/ uint32 unknown04;
+/*08*/ uint32 member_count;    //1 less than the number of members
+///*12*/ char   list_pointer[0];
+	char      member_name[1];    //null terminated string
+	uint32    monster_mission; // class chosen
+	uint8     task_leader;    //boolean flag
+
 /*	list is of the form:
-	char member_name[1]	//null terminated string
 	uint8	task_leader	//boolean flag
 */
+};
+
+struct SharedTaskQuit_Struct {
+	int32 field1;
+	int32 field2;
+	int32 field3;
+};
+
+struct SharedTaskAddPlayer_Struct {
+	int32 field1;
+	int32 field2;
+	char  player_name[64];
+};
+
+struct SharedTaskMakeLeader_Struct {
+	int32 field1;
+	int32 field2;
+	char  player_name[64];
+};
+
+struct SharedTaskRemovePlayer_Struct {
+	int32 field1;
+	int32 field2;
+	char  player_name[64];
+};
+
+struct SharedTaskInvite_Struct {
+	int32_t unknown00;      // probably the unique character id sent in some packets
+	int32_t invite_id;      // invite id sent back in response
+	char    task_name[64];
+	char    inviter_name[64];
+};
+
+struct SharedTaskInviteResponse_Struct {
+	int32_t unknown00;  // 0
+	int32_t invite_id;  // same id sent in the invite, probably for server verification
+	int8_t  accepted;   // 0: declined 1: accepted
+	int8_t  padding[3]; // padding garbage probably
+};
+
+struct SharedTaskAccept_Struct {
+	int32_t  unknown00;
+	int32_t  unknown04;
+	uint32_t npc_entity_id;  // npc task giver entity id (sent in selection window)
+	uint32_t task_id;
+	float    reward_multiplier; // added after titanium (sent in selection window)
 };
 
 #if 0
@@ -3820,7 +3888,7 @@ struct TaskHistory_Struct {
 #endif
 
 struct AcceptNewTask_Struct {
-	uint32	unknown00;
+	uint32	task_type; // type sent in selection window
 	uint32	task_id;		//set to 0 for 'decline'
 	uint32	task_master_id;	//entity ID
 };
@@ -4294,8 +4362,8 @@ struct AARankPrereq_Struct
 struct AARankEffect_Struct
 {
 	int32 effect_id;
-	int32 base1;
-	int32 base2;
+	int32 base_value;
+	int32 limit_value;
 	int32 slot;
 };
 
@@ -4303,8 +4371,8 @@ struct AARankEffect_Struct
 
 struct AA_Ability {
 /*00*/	uint32 skill_id;
-/*04*/	uint32 base1;
-/*08*/	uint32 base2;
+/*04*/	uint32 base_value;
+/*08*/	uint32 limit_value;
 /*12*/	uint32 slot;
 };
 
@@ -4482,7 +4550,7 @@ struct ItemVerifyReply_Struct {
 struct ItemRecastDelay_Struct {
 /*000*/	uint32	recast_delay;	// in seconds
 /*004*/	uint32	recast_type;
-/*008*/	uint32	unknown008;
+/*008*/	bool	ignore_casting_requirement; //Ignores recast times allows items to be reset?
 /*012*/
 };
 
@@ -4943,7 +5011,7 @@ struct DynamicZoneCompassEntry_Struct
 /*000*/ uint16 dz_zone_id;      // target dz id pair
 /*002*/ uint16 dz_instance_id;
 /*004*/ uint32 dz_type;         // 1: Expedition, 2: Tutorial (purple), 3: Task, 4: Mission, 5: Quest (green)
-/*008*/ uint32 unknown008;
+/*008*/ uint32 dz_switch_id;
 /*012*/ float y;
 /*016*/ float x;
 /*020*/ float z;
@@ -5100,10 +5168,10 @@ struct AltCurrencySelectItemReply_Struct {
 /*000*/ uint32	unknown000;
 /*004*/ uint8	unknown004; //0xff
 /*005*/ uint8	unknown005; //0xff
-/*006*/ uint8	unknown006; //0xff
-/*007*/ uint8	unknown007; //0xff
-/*008*/ char	item_name[64];
-/*072*/ uint32	unknown074;
+/*006*/ uint16	unknown006; //0xffff
+/*008*/ uint16	unknown008; //0xffff
+/*010*/ char	item_name[64];
+/*074*/ uint16	unknown074;
 /*076*/ uint32	cost;
 /*080*/ uint32	unknown080;
 /*084*/ uint32	unknown084;
@@ -5539,8 +5607,8 @@ struct Checksum_Struct {
 };
 
 struct SimpleChecksum_Struct {
-    uint64_t checksum;
-    uint8_t  data[3];
+    uint64 checksum;
+    uint8  data[2048];
 };
 
 struct UpdateMovementEntry {

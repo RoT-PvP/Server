@@ -23,9 +23,9 @@
 #include "../common/rulesys.h"
 #include "../common/types.h"
 #include "../common/random.h"
-#include "../common/string_util.h"
+#include "../common/strings.h"
 #include "zonedb.h"
-#include "zone_store.h"
+#include "../common/zone_store.h"
 #include "../common/repositories/grid_repository.h"
 #include "../common/repositories/grid_entries_repository.h"
 #include "../common/repositories/zone_points_repository.h"
@@ -35,6 +35,9 @@
 #include "aa_ability.h"
 #include "pathfinder_interface.h"
 #include "global_loot_manager.h"
+#include "queryserv.h"
+#include "../common/discord/discord.h"
+#include "../common/repositories/dynamic_zone_templates_repository.h"
 
 class DynamicZone;
 
@@ -94,7 +97,7 @@ class MobMovementManager;
 
 class Zone {
 public:
-	static bool Bootup(uint32 iZoneID, uint32 iInstanceID, bool iStaticZone = false);
+	static bool Bootup(uint32 iZoneID, uint32 iInstanceID, bool is_static = false);
 	static void Shutdown(bool quiet = false);
 
 	Zone(uint32 in_zoneid, uint32 in_instanceid, const char *in_short_name);
@@ -125,7 +128,7 @@ public:
 	);
 	bool HasGraveyard();
 	bool HasWeather();
-	bool Init(bool iStaticZone);
+	bool Init(bool is_static);
 	bool IsCity() const { return (is_city); }
 	bool IsHotzone() const { return (is_hotzone); }
 	bool IsLoaded();
@@ -134,7 +137,7 @@ public:
 	bool IsUCSServerAvailable() { return m_ucss_available; }
 	bool IsZone(uint32 zone_id, uint16 instance_id) const;
 	bool LoadGroundSpawns();
-	bool LoadZoneCFG(const char *filename, uint16 instance_id);
+	bool LoadZoneCFG(const char *filename, uint16 instance_version);
 	bool LoadZoneObjects();
 	bool Process();
 	bool SaveZoneCFG();
@@ -147,11 +150,12 @@ public:
 	const char *GetSpellBlockedMessage(uint32 spell_id, const glm::vec3 &location);
 
 	EQ::Random random;
-	EQTime        zone_time;
+	EQTime     zone_time;
 
-	ZonePoint *GetClosestZonePoint(const glm::vec3 &location, const char *to_name, Client *client, float max_distance = 40000.0f);
+	ZonePoint *
+	GetClosestZonePoint(const glm::vec3 &location, const char *to_name, Client *client, float max_distance = 40000.0f);
 
-	inline bool BuffTimersSuspended() const { return newzone_data.SuspendBuffs != 0; };
+	inline bool BuffTimersSuspended() const { return newzone_data.suspend_buffs != 0; };
 	inline bool HasMap() { return zonemap != nullptr; }
 	inline bool HasWaterMap() { return watermap != nullptr; }
 	inline bool InstantGrids() { return (!initgrids_timer.Enabled()); }
@@ -162,13 +166,13 @@ public:
 	inline const char *GetShortName() { return short_name; }
 	inline const uint8 GetZoneType() const { return zone_type; }
 	inline const uint16 GetInstanceVersion() const { return instanceversion; }
-	inline const uint32 &GetMaxClients() { return pMaxClients; }
-	inline const uint32 &graveyard_id() { return pgraveyard_id; }
+	inline const uint32 &GetMaxClients() { return m_max_clients; }
+	inline const uint32 &graveyard_id() { return m_graveyard_id; }
 	inline const uint32 &graveyard_zoneid() { return pgraveyard_zoneid; }
 	inline const uint32 GetInstanceID() const { return instanceid; }
 	inline const uint32 GetZoneID() const { return zoneid; }
-	inline glm::vec4 GetSafePoint() { return m_SafePoint; }
-	inline glm::vec4 GetGraveyardPoint() { return m_Graveyard; }
+	inline glm::vec4 GetSafePoint() { return m_safe_points; }
+	inline glm::vec4 GetGraveyardPoint() { return m_graveyard; }
 	inline std::vector<int> GetGlobalLootTables(NPC *mob) const { return m_global_loot.GetGlobalLootTables(mob); }
 	inline Timer *GetInstanceTimer() { return Instance_Timer; }
 	inline void AddGlobalLootEntry(GlobalLootEntry &in) { return m_global_loot.AddEntry(in); }
@@ -179,7 +183,7 @@ public:
 	void DumpMerchantList(uint32 npcid);
 	int SaveTempItem(uint32 merchantid, uint32 npcid, uint32 item, int32 charges, bool sold = false);
 	int32 MobsAggroCount() { return aggroedmobs; }
-	DynamicZone* GetDynamicZone();
+	DynamicZone *GetDynamicZone();
 
 	IPathfinder                                   *pathing;
 	LinkedList<NPC_Emote_Struct *>                NPCEmoteList;
@@ -187,31 +191,31 @@ public:
 	LinkedList<ZonePoint *>                       zone_point_list;
 	std::vector<ZonePointsRepository::ZonePoints> virtual_zone_point_list;
 
-	Map                            *zonemap;
+	Map                   *zonemap;
 	MercTemplate *GetMercTemplate(uint32 template_id);
-	NewZone_Struct                 newzone_data;
+	NewZone_Struct        newzone_data;
 	QGlobalCache *CreateQGlobals()
 	{
 		qGlobals = new QGlobalCache();
 		return qGlobals;
 	}
 	QGlobalCache *GetQGlobals() { return qGlobals; }
-	SpawnConditionManager          spawn_conditions;
-	SpawnGroupList                 spawn_group_list;
+	SpawnConditionManager spawn_conditions;
+	SpawnGroupList        spawn_group_list;
 
-	std::list<AltCurrencyDefinition_Struct>               AlternateCurrencies;
-	std::list<InternalVeteranReward>                      VeteranRewards;
-	std::map<uint32, LDoNTrapTemplate *>                  ldon_trap_list;
-	std::map<uint32, MercTemplate>                        merc_templates;
-	std::map<uint32, NPCType *>                           merctable;
-	std::map<uint32, NPCType *>                           npctable;
-	std::map<uint32, std::list<LDoNTrapTemplate *> >      ldon_trap_entry_list;
-	std::map<uint32, std::list<MerchantList> >            merchanttable;
-	std::map<uint32, std::list<MercSpellEntry> >          merc_spells_list;
-	std::map<uint32, std::list<MercStanceInfo> >          merc_stance_list;
-	std::map<uint32, std::list<TempMerchantList> >        tmpmerchanttable;
-	std::map<uint32, std::string>                         adventure_entry_list_flavor;
-	std::map<uint32, ZoneEXPModInfo>                      level_exp_mod;
+	std::list<AltCurrencyDefinition_Struct>          AlternateCurrencies;
+	std::list<InternalVeteranReward>                 VeteranRewards;
+	std::map<uint32, LDoNTrapTemplate *>             ldon_trap_list;
+	std::map<uint32, MercTemplate>                   merc_templates;
+	std::map<uint32, NPCType *>                      merctable;
+	std::map<uint32, NPCType *>                      npctable;
+	std::map<uint32, std::list<LDoNTrapTemplate *> > ldon_trap_entry_list;
+	std::map<uint32, std::list<MerchantList> >       merchanttable;
+	std::map<uint32, std::list<MercSpellEntry> >     merc_spells_list;
+	std::map<uint32, std::list<MercStanceInfo> >     merc_stance_list;
+	std::map<uint32, std::list<TempMerchantList> >   tmpmerchanttable;
+	std::map<uint32, std::string>                    adventure_entry_list_flavor;
+	std::map<uint32, ZoneEXPModInfo>                 level_exp_mod;
 
 	std::pair<AA::Ability *, AA::Rank *> GetAlternateAdvancementAbilityAndRank(int id, int points_spent);
 
@@ -219,10 +223,12 @@ public:
 	std::unordered_map<int, std::unique_ptr<AA::Ability>> aa_abilities;
 	std::unordered_map<int, std::unique_ptr<AA::Rank>>    aa_ranks;
 
-	std::vector<GridRepository::Grid>             zone_grids;
-	std::vector<GridEntriesRepository::GridEntry> zone_grid_entries;
+	std::vector<GridRepository::Grid>               zone_grids;
+	std::vector<GridEntriesRepository::GridEntries> zone_grid_entries;
 
-	std::unordered_map<uint32, std::unique_ptr<Expedition>> expedition_cache;
+	std::unordered_map<uint32, std::unique_ptr<DynamicZone>> dynamic_zone_cache;
+	std::unordered_map<uint32, std::unique_ptr<Expedition>>  expedition_cache;
+	std::unordered_map<uint32, DynamicZoneTemplatesRepository::DynamicZoneTemplates> dz_template_cache;
 
 	time_t weather_timer;
 	Timer  spawn2_timer;
@@ -239,6 +245,17 @@ public:
 	uint32 CountSpawn2();
 	uint32 GetSpawnKillCount(uint32 in_spawnid);
 	uint32 GetTempMerchantQuantity(uint32 NPCID, uint32 Slot);
+
+	uint32 GetCurrencyID(uint32 item_id);
+	uint32 GetCurrencyItemID(uint32 currency_id);
+
+	std::string GetAAName(int aa_id);
+
+	inline bool IsRaining() { return zone_weather == EQ::constants::WeatherTypes::Raining; }
+	inline bool IsSnowing() { return zone_weather == EQ::constants::WeatherTypes::Snowing; }
+
+	std::string GetZoneDescription();
+	void SendReloadMessage(std::string reload_type);
 
 	void AddAggroMob() { aggroedmobs++; }
 	void AddAuth(ServerZoneIncomingClient_Struct *szic);
@@ -257,7 +274,8 @@ public:
 	void LoadAdventureFlavor();
 	void LoadAlternateAdvancement();
 	void LoadAlternateCurrencies();
-	void LoadZoneBlockedSpells(uint32 zone_id);
+	void LoadDynamicZoneTemplates();
+	void LoadZoneBlockedSpells();
 	void LoadLDoNTrapEntries();
 	void LoadLDoNTraps();
 	void LoadLevelEXPMods();
@@ -269,12 +287,12 @@ public:
 	void LoadTempMerchantData();
 	void LoadTickItems();
 	void LoadVeteranRewards();
-	void LoadZoneDoors(const char *zone, int16 version);
+	void LoadZoneDoors();
 	void ReloadStaticData();
-	void ReloadWorld(uint32 Option);
+	void ReloadWorld(uint8 global_repop);
 	void RemoveAuth(const char *iCharName, const char *iLSKey);
 	void RemoveAuth(uint32 lsid);
-	void Repop(uint32 delay = 0);
+	void Repop();
 	void RequestUCSServerStatus();
 	void ResetAuth();
 	void SetDate(uint16 year, uint8 month, uint8 day, uint8 hour, uint8 minute);
@@ -283,17 +301,17 @@ public:
 	void SetStaticZone(bool sz) { staticzone = sz; }
 	void SetTime(uint8 hour, uint8 minute, bool update_world = true);
 	void SetUCSServerAvailable(bool ucss_available, uint32 update_timestamp);
-	void ShowDisabledSpawnStatus(Mob *client);
-	void ShowEnabledSpawnStatus(Mob *client);
-	void ShowSpawnStatusByID(Mob *client, uint32 spawnid);
 	void SpawnConditionChanged(const SpawnCondition &c, int16 old_value);
-	void SpawnStatus(Mob *client);
 	void StartShutdownTimer(uint32 set_time = (RuleI(Zone, AutoShutdownDelay)));
+	void ResetShutdownTimer();
 	void UpdateQGlobal(uint32 qid, QGlobal newGlobal);
 	void weatherSend(Client *client = nullptr);
+	void ClearSpawnTimers();
 
 	bool IsQuestHotReloadQueued() const;
 	void SetQuestHotReloadQueued(bool in_quest_hot_reload_queued);
+
+	bool CheckDataBucket(uint8 bucket_comparison, std::string bucket_value, std::string player_value);
 
 	WaterMap *watermap;
 	ZonePoint *GetClosestZonePoint(const glm::vec3 &location, uint32 to, Client *client, float max_distance = 40000.0f);
@@ -309,8 +327,13 @@ public:
 	 * @param log_category
 	 * @param message
 	 */
-	static void GMSayHookCallBackProcess(uint16 log_category, std::string message)
+	static void GMSayHookCallBackProcess(uint16 log_category, const char *func, std::string message)
 	{
+		// we don't want to loop up with chat messages
+		if (message.find("OP_SpecialMesg") != std::string::npos) {
+			return;
+		}
+
 		/**
 		 * Cut messages down to 4000 max to prevent client crash
 		 */
@@ -321,40 +344,57 @@ public:
 		/**
 		 * Replace Occurrences of % or MessageStatus will crash
 		 */
-		find_replace(message, std::string("%"), std::string("."));
+		Strings::FindReplace(message, std::string("%"), std::string("."));
 
 		if (message.find('\n') != std::string::npos) {
-			auto message_split = SplitString(message, '\n');
+			auto message_split = Strings::Split(message, '\n');
 			entity_list.MessageStatus(
 				0,
-				80,
+				AccountStatus::QuestTroupe,
 				LogSys.GetGMSayColorFromCategory(log_category),
-				"%s",
 				message_split[0].c_str()
 			);
 
 			for (size_t iter = 1; iter < message_split.size(); ++iter) {
 				entity_list.MessageStatus(
 					0,
-					80,
+					AccountStatus::QuestTroupe,
 					LogSys.GetGMSayColorFromCategory(log_category),
-					"--- %s",
-					message_split[iter].c_str()
+					fmt::format(
+						"--- {}",
+						message_split[iter]
+					).c_str()
 				);
 			}
 		}
 		else {
-			entity_list.MessageStatus(0, 80, LogSys.GetGMSayColorFromCategory(log_category), "%s", message.c_str());
+			entity_list.MessageStatus(
+				0,
+				AccountStatus::QuestTroupe,
+				LogSys.GetGMSayColorFromCategory(log_category),
+				fmt::format("[{}] [{}] {}", Logs::LogCategoryName[log_category], func, message).c_str()
+			);
 		}
 	}
 
+	static void SendDiscordMessage(int webhook_id, const std::string& message);
+	static void SendDiscordMessage(const std::string& webhook_name, const std::string& message);
+	static void DiscordWebhookMessageHandler(uint16 log_category, int webhook_id, const std::string &message)
+	{
+		std::string message_prefix;
+		if (!LogSys.origination_info.zone_short_name.empty()) {
+			message_prefix = fmt::format(
+				"[**{}**] **Zone** [**{}**] ",
+				Logs::LogCategoryName[log_category],
+				LogSys.origination_info.zone_short_name
+			);
+		}
+
+		SendDiscordMessage(webhook_id, message_prefix + Discord::FormatDiscordMessage(log_category, message));
+	};
+
 	double GetMaxMovementUpdateRange() const { return max_movement_update_range; }
 
-	/**
-	 * Modding hooks
-	 */
-	void mod_init();
-	void mod_repop();
 	void SetIsHotzone(bool is_hotzone);
 
 private:
@@ -375,9 +415,9 @@ private:
 	char      *long_name;
 	char      *map_name;
 	char      *short_name;
-	char      file_name[16];
-	glm::vec4 m_SafePoint;
-	glm::vec4 m_Graveyard;
+	char      file_name[32];
+	glm::vec4 m_safe_points;
+	glm::vec4 m_graveyard;
 	int       default_ruleset;
 	int       zone_total_blocked_spells;
 	int       npc_position_update_distance;
@@ -386,8 +426,8 @@ private:
 	uint16    instanceversion;
 	uint32    instanceid;
 	uint32    instance_time_remaining;
-	uint32    pgraveyard_id, pgraveyard_zoneid;
-	uint32    pMaxClients;
+	uint32    m_graveyard_id, pgraveyard_zoneid;
+	uint32    m_max_clients;
 	uint32    zoneid;
 	uint32    m_last_ucss_update;
 

@@ -26,9 +26,7 @@
 #include "entity.h"
 #include "mob.h"
 
-#ifdef BOTS
 #include "bot.h"
-#endif
 
 #include "quest_parser_collection.h"
 
@@ -47,11 +45,13 @@ void Mob::CalcBonuses()
 	CalcMaxMana();
 	SetAttackTimer();
 	CalcAC();
+	CalcSeeInvisibleLevel();
+	CalcInvisibleLevel();
 
 	/* Fast walking NPC's are prone to disappear into walls/hills
 		We set this here because NPC's can cast spells to change walkspeed/runspeed
 	*/
-	float get_walk_speed = static_cast<float>(0.025f * this->GetWalkspeed());
+	float get_walk_speed = static_cast<float>(0.025f * GetWalkspeed());
 	rooted = FindType(SE_Root);
 }
 
@@ -80,6 +80,9 @@ void Client::CalcBonuses()
 	CalcEdibleBonuses(&itembonuses);
 	CalcSpellBonuses(&spellbonuses);
 	CalcAABonuses(&aabonuses);
+
+	CalcSeeInvisibleLevel();
+	CalcInvisibleLevel();
 
 	ProcessItemCaps(); // caps that depend on spell/aa bonuses
 
@@ -125,7 +128,7 @@ void Client::CalcBonuses()
 		consume_food_timer.SetTimer(timer);
 }
 
-int Client::CalcRecommendedLevelBonus(uint8 level, uint8 reclevel, int basestat)
+int Mob::CalcRecommendedLevelBonus(uint8 level, uint8 reclevel, int basestat)
 {
 	if( (reclevel > 0) && (level < reclevel) )
 	{
@@ -348,7 +351,7 @@ void Client::AddItemBonuses(const EQ::ItemInstance *inst, StatBonuses *newbon, b
 		}
 
 		// FatherNitwit: New style haste, shields, and regens
-		if (newbon->haste < (int32)item->Haste) {
+		if (newbon->haste < item->Haste) {
 			newbon->haste = item->Haste;
 		}
 		if (item->Regen > 0)
@@ -650,404 +653,407 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 		return;
 
 	uint32 effect = 0;
-	int32 base1 = 0;
-	int32 base2 = 0; // only really used for SE_RaiseStatCap & SE_ReduceSkillTimer in aa_effects table
+	int32 base_value = 0;
+	int32 limit_value = 0; // only really used for SE_RaiseStatCap & SE_ReduceSkillTimer in aa_effects table
 	uint32 slot = 0;
 
 	for (const auto &e : rank.effects) {
 		effect = e.effect_id;
-		base1 = e.base1;
-		base2 = e.base2;
+		base_value = e.base_value;
+		limit_value = e.limit_value;
 		slot = e.slot;
 
 		// we default to 0 (SE_CurrentHP) for the effect, so if there aren't any base1/2 values, we'll just skip it
-		if (effect == 0 && base1 == 0 && base2 == 0)
+		if (effect == 0 && base_value == 0 && limit_value == 0)
 			continue;
 
 		// IsBlankSpellEffect()
-		if (effect == SE_Blank || (effect == SE_CHA && base1 == 0) || effect == SE_StackingCommand_Block ||
+		if (effect == SE_Blank || (effect == SE_CHA && base_value == 0) || effect == SE_StackingCommand_Block ||
 		    effect == SE_StackingCommand_Overwrite)
 			continue;
 
 		LogAA("Applying Effect [{}] from AA [{}] in slot [{}] (base1: [{}], base2: [{}]) on [{}]",
-			effect, rank.id, slot, base1, base2, GetCleanName());
+			effect, rank.id, slot, base_value, limit_value, GetCleanName());
 
 		uint8 focus = IsFocusEffect(0, 0, true, effect);
 		if (focus) {
-			newbon->FocusEffects[focus] = static_cast<uint8>(effect);
+			newbon->FocusEffects[focus] = effect;
 			continue;
 		}
 
 		switch (effect) {
 		case SE_ACv2:
 		case SE_ArmorClass:
-			newbon->AC += base1;
+			newbon->AC += base_value;
 			break;
 		// Note: AA effects that use accuracy are skill limited, while spell effect is not.
 		case SE_Accuracy:
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			if ((base2 == ALL_SKILLS) && (newbon->Accuracy[EQ::skills::HIGHEST_SKILL + 1] < base1))
-				newbon->Accuracy[EQ::skills::HIGHEST_SKILL + 1] = base1;
-			else if (newbon->Accuracy[base2] < base1)
-				newbon->Accuracy[base2] += base1;
+			if ((limit_value == ALL_SKILLS) && (newbon->Accuracy[EQ::skills::HIGHEST_SKILL + 1] < base_value))
+				newbon->Accuracy[EQ::skills::HIGHEST_SKILL + 1] = base_value;
+			else if (newbon->Accuracy[limit_value] < base_value)
+				newbon->Accuracy[limit_value] += base_value;
 			break;
 		case SE_CurrentHP: // regens
-			newbon->HPRegen += base1;
+			newbon->HPRegen += base_value;
 			break;
 		case SE_CurrentEndurance:
-			newbon->EnduranceRegen += base1;
+			newbon->EnduranceRegen += base_value;
 			break;
 		case SE_MovementSpeed:
-			newbon->movementspeed += base1; // should we let these stack?
+			newbon->movementspeed += base_value; // should we let these stack?
 			/*if (base1 > newbon->movementspeed)	//or should we use a total value?
 				newbon->movementspeed = base1;*/
 			break;
 		case SE_STR:
-			newbon->STR += base1;
+			newbon->STR += base_value;
 			break;
 		case SE_DEX:
-			newbon->DEX += base1;
+			newbon->DEX += base_value;
 			break;
 		case SE_AGI:
-			newbon->AGI += base1;
+			newbon->AGI += base_value;
 			break;
 		case SE_STA:
-			newbon->STA += base1;
+			newbon->STA += base_value;
 			break;
 		case SE_INT:
-			newbon->INT += base1;
+			newbon->INT += base_value;
 			break;
 		case SE_WIS:
-			newbon->WIS += base1;
+			newbon->WIS += base_value;
 			break;
 		case SE_CHA:
-			newbon->CHA += base1;
+			newbon->CHA += base_value;
 			break;
 		case SE_WaterBreathing:
 			// handled by client
 			break;
 		case SE_CurrentMana:
-			newbon->ManaRegen += base1;
+			newbon->ManaRegen += base_value;
 			break;
 		case SE_ManaPool:
-			newbon->Mana += base1;
+			newbon->Mana += base_value;
 			break;
 		case SE_ItemManaRegenCapIncrease:
-			newbon->ItemManaRegenCap += base1;
+			newbon->ItemManaRegenCap += base_value;
 			break;
 		case SE_ResistFire:
-			newbon->FR += base1;
+			newbon->FR += base_value;
 			break;
 		case SE_ResistCold:
-			newbon->CR += base1;
+			newbon->CR += base_value;
 			break;
 		case SE_ResistPoison:
-			newbon->PR += base1;
+			newbon->PR += base_value;
 			break;
 		case SE_ResistDisease:
-			newbon->DR += base1;
+			newbon->DR += base_value;
 			break;
 		case SE_ResistMagic:
-			newbon->MR += base1;
+			newbon->MR += base_value;
 			break;
 		case SE_ResistCorruption:
-			newbon->Corrup += base1;
+			newbon->Corrup += base_value;
 			break;
 		case SE_IncreaseSpellHaste:
 			break;
 		case SE_IncreaseRange:
 			break;
 		case SE_MaxHPChange:
-			newbon->MaxHP += base1;
+			newbon->MaxHP += base_value;
 			break;
 		case SE_Packrat:
-			newbon->Packrat += base1;
+			newbon->Packrat += base_value;
 			break;
 		case SE_TwoHandBash:
 			break;
 		case SE_SetBreathLevel:
 			break;
 		case SE_RaiseStatCap:
-			switch (base2) {
+			switch (limit_value) {
 			// are these #define'd somewhere?
 			case 0: // str
-				newbon->STRCapMod += base1;
+				newbon->STRCapMod += base_value;
 				break;
 			case 1: // sta
-				newbon->STACapMod += base1;
+				newbon->STACapMod += base_value;
 				break;
 			case 2: // agi
-				newbon->AGICapMod += base1;
+				newbon->AGICapMod += base_value;
 				break;
 			case 3: // dex
-				newbon->DEXCapMod += base1;
+				newbon->DEXCapMod += base_value;
 				break;
 			case 4: // wis
-				newbon->WISCapMod += base1;
+				newbon->WISCapMod += base_value;
 				break;
 			case 5: // int
-				newbon->INTCapMod += base1;
+				newbon->INTCapMod += base_value;
 				break;
 			case 6: // cha
-				newbon->CHACapMod += base1;
+				newbon->CHACapMod += base_value;
 				break;
 			case 7: // mr
-				newbon->MRCapMod += base1;
+				newbon->MRCapMod += base_value;
 				break;
 			case 8: // cr
-				newbon->CRCapMod += base1;
+				newbon->CRCapMod += base_value;
 				break;
 			case 9: // fr
-				newbon->FRCapMod += base1;
+				newbon->FRCapMod += base_value;
 				break;
 			case 10: // pr
-				newbon->PRCapMod += base1;
+				newbon->PRCapMod += base_value;
 				break;
 			case 11: // dr
-				newbon->DRCapMod += base1;
+				newbon->DRCapMod += base_value;
 				break;
 			case 12: // corruption
-				newbon->CorrupCapMod += base1;
+				newbon->CorrupCapMod += base_value;
 				break;
 			}
 			break;
 		case SE_SpellSlotIncrease:
 			break;
 		case SE_MysticalAttune:
-			newbon->BuffSlotIncrease += base1;
+			newbon->BuffSlotIncrease += base_value;
 			break;
 		case SE_TotalHP:
-			newbon->HP += base1;
+			newbon->HP += base_value;
 			break;
 		case SE_StunResist:
-			newbon->StunResist += base1;
+			newbon->StunResist += base_value;
 			break;
 		case SE_SpellCritChance:
-			newbon->CriticalSpellChance += base1;
+			newbon->CriticalSpellChance += base_value;
 			break;
 		case SE_SpellCritDmgIncrease:
-			newbon->SpellCritDmgIncrease += base1;
+			newbon->SpellCritDmgIncrease += base_value;
 			break;
 		case SE_DotCritDmgIncrease:
-			newbon->DotCritDmgIncrease += base1;
+			newbon->DotCritDmgIncrease += base_value;
 			break;
 		case SE_ResistSpellChance:
-			newbon->ResistSpellChance += base1;
+			newbon->ResistSpellChance += base_value;
 			break;
 		case SE_CriticalHealChance:
-			newbon->CriticalHealChance += base1;
+			newbon->CriticalHealChance += base_value;
 			break;
 		case SE_CriticalHealOverTime:
-			newbon->CriticalHealOverTime += base1;
+			newbon->CriticalHealOverTime += base_value;
 			break;
 		case SE_CriticalDoTChance:
-			newbon->CriticalDoTChance += base1;
+			newbon->CriticalDoTChance += base_value;
 			break;
 		case SE_ReduceSkillTimer:
-			newbon->SkillReuseTime[base2] += base1;
+			newbon->SkillReuseTime[limit_value] += base_value;
 			break;
 		case SE_Fearless:
 			newbon->Fearless = true;
 			break;
 		case SE_PersistantCasting:
-			newbon->PersistantCasting += base1;
+			newbon->PersistantCasting += base_value;
 			break;
 		case SE_DelayDeath:
-			newbon->DelayDeath += base1;
+			newbon->DelayDeath += base_value;
 			break;
 		case SE_FrontalStunResist:
-			newbon->FrontalStunResist += base1;
+			newbon->FrontalStunResist += base_value;
 			break;
 		case SE_ImprovedBindWound:
-			newbon->BindWound += base1;
+			newbon->BindWound += base_value;
 			break;
 		case SE_MaxBindWound:
-			newbon->MaxBindWound += base1;
+			newbon->MaxBindWound += base_value;
 			break;
 		case SE_SeeInvis:
-			newbon->SeeInvis = base1;
+			base_value = std::min({ base_value, MAX_INVISIBILTY_LEVEL });
+			if (newbon->SeeInvis < base_value) {
+				newbon->SeeInvis = base_value;
+			}
 			break;
 		case SE_BaseMovementSpeed:
-			newbon->BaseMovementSpeed += base1;
+			newbon->BaseMovementSpeed += base_value;
 			break;
 		case SE_IncreaseRunSpeedCap:
-			newbon->IncreaseRunSpeedCap += base1;
+			newbon->IncreaseRunSpeedCap += base_value;
 			break;
 		case SE_ConsumeProjectile:
-			newbon->ConsumeProjectile += base1;
+			newbon->ConsumeProjectile += base_value;
 			break;
 		case SE_ForageAdditionalItems:
-			newbon->ForageAdditionalItems += base1;
+			newbon->ForageAdditionalItems += base_value;
 			break;
 		case SE_Salvage:
-			newbon->SalvageChance += base1;
+			newbon->SalvageChance += base_value;
 			break;
 		case SE_ArcheryDamageModifier:
-			newbon->ArcheryDamageModifier += base1;
+			newbon->ArcheryDamageModifier += base_value;
 			break;
 		case SE_DoubleRangedAttack:
-			newbon->DoubleRangedAttack += base1;
+			newbon->DoubleRangedAttack += base_value;
 			break;
 		case SE_DamageShield:
-			newbon->DamageShield += base1;
+			newbon->DamageShield += base_value;
 			break;
 		case SE_CharmBreakChance:
-			newbon->CharmBreakChance += base1;
+			newbon->CharmBreakChance += base_value;
 			break;
 		case SE_OffhandRiposteFail:
-			newbon->OffhandRiposteFail += base1;
+			newbon->OffhandRiposteFail += base_value;
 			break;
 		case SE_ItemAttackCapIncrease:
-			newbon->ItemATKCap += base1;
+			newbon->ItemATKCap += base_value;
 			break;
 		case SE_GivePetGroupTarget:
 			newbon->GivePetGroupTarget = true;
 			break;
 		case SE_ItemHPRegenCapIncrease:
-			newbon->ItemHPRegenCap += base1;
+			newbon->ItemHPRegenCap += base_value;
 			break;
 		case SE_Ambidexterity:
-			newbon->Ambidexterity += base1;
+			newbon->Ambidexterity += base_value;
 			break;
 		case SE_PetMaxHP:
-			newbon->PetMaxHP += base1;
+			newbon->PetMaxHP += base_value;
 			break;
 		case SE_AvoidMeleeChance:
-			newbon->AvoidMeleeChanceEffect += base1;
+			newbon->AvoidMeleeChanceEffect += base_value;
 			break;
 		case SE_CombatStability:
-			newbon->CombatStability += base1;
+			newbon->CombatStability += base_value;
 			break;
 		case SE_AddSingingMod:
-			switch (base2) {
+			switch (limit_value) {
 			case EQ::item::ItemTypeWindInstrument:
-				newbon->windMod += base1;
+				newbon->windMod += base_value;
 				break;
 			case EQ::item::ItemTypeStringedInstrument:
-				newbon->stringedMod += base1;
+				newbon->stringedMod += base_value;
 				break;
 			case EQ::item::ItemTypeBrassInstrument:
-				newbon->brassMod += base1;
+				newbon->brassMod += base_value;
 				break;
 			case EQ::item::ItemTypePercussionInstrument:
-				newbon->percussionMod += base1;
+				newbon->percussionMod += base_value;
 				break;
 			case EQ::item::ItemTypeSinging:
-				newbon->singingMod += base1;
+				newbon->singingMod += base_value;
 				break;
 			}
 			break;
 		case SE_SongModCap:
-			newbon->songModCap += base1;
+			newbon->songModCap += base_value;
 			break;
 		case SE_PetCriticalHit:
-			newbon->PetCriticalHit += base1;
+			newbon->PetCriticalHit += base_value;
 			break;
 		case SE_PetAvoidance:
-			newbon->PetAvoidance += base1;
+			newbon->PetAvoidance += base_value;
 			break;
 		case SE_ShieldBlock:
-			newbon->ShieldBlock += base1;
+			newbon->ShieldBlock += base_value;
 			break;
 		case SE_ShieldEquipDmgMod:
-			newbon->ShieldEquipDmgMod += base1;
+			newbon->ShieldEquipDmgMod += base_value;
 			break;
 		case SE_SecondaryDmgInc:
 			newbon->SecondaryDmgInc = true;
 			break;
 		case SE_ChangeAggro:
-			newbon->hatemod += base1;
+			newbon->hatemod += base_value;
 			break;
 		case SE_EndurancePool:
-			newbon->Endurance += base1;
+			newbon->Endurance += base_value;
 			break;
 		case SE_ChannelChanceItems:
-			newbon->ChannelChanceItems += base1;
+			newbon->ChannelChanceItems += base_value;
 			break;
 		case SE_ChannelChanceSpells:
-			newbon->ChannelChanceSpells += base1;
+			newbon->ChannelChanceSpells += base_value;
 			break;
 		case SE_DoubleSpecialAttack:
-			newbon->DoubleSpecialAttack += base1;
+			newbon->DoubleSpecialAttack += base_value;
 			break;
 		case SE_TripleBackstab:
-			newbon->TripleBackstab += base1;
+			newbon->TripleBackstab += base_value;
 			break;
 		case SE_FrontalBackstabMinDmg:
 			newbon->FrontalBackstabMinDmg = true;
 			break;
 		case SE_FrontalBackstabChance:
-			newbon->FrontalBackstabChance += base1;
+			newbon->FrontalBackstabChance += base_value;
 			break;
 		case SE_Double_Backstab_Front:
-			newbon->Double_Backstab_Front += base1;
+			newbon->Double_Backstab_Front += base_value;
 			break;
 		case SE_BlockBehind:
-			newbon->BlockBehind += base1;
+			newbon->BlockBehind += base_value;
 			break;
 		case SE_StrikeThrough:
 		case SE_StrikeThrough2:
-			newbon->StrikeThrough += base1;
+			newbon->StrikeThrough += base_value;
 			break;
 		case SE_DoubleAttackChance:
-			newbon->DoubleAttackChance += base1;
+			newbon->DoubleAttackChance += base_value;
 			break;
 		case SE_GiveDoubleAttack:
-			newbon->GiveDoubleAttack += base1;
+			newbon->GiveDoubleAttack += base_value;
 			break;
 		case SE_ProcChance:
-			newbon->ProcChanceSPA += base1;
+			newbon->ProcChanceSPA += base_value;
 			break;
 		case SE_RiposteChance:
-			newbon->RiposteChance += base1;
+			newbon->RiposteChance += base_value;
 			break;
 		case SE_DodgeChance:
-			newbon->DodgeChance += base1;
+			newbon->DodgeChance += base_value;
 			break;
 		case SE_ParryChance:
-			newbon->ParryChance += base1;
+			newbon->ParryChance += base_value;
 			break;
 		case SE_IncreaseBlockChance:
-			newbon->IncreaseBlockChance += base1;
+			newbon->IncreaseBlockChance += base_value;
 			break;
 		case SE_Flurry:
-			newbon->FlurryChance += base1;
+			newbon->FlurryChance += base_value;
 			break;
 		case SE_PetFlurry:
-			newbon->PetFlurry += base1;
+			newbon->PetFlurry += base_value;
 			break;
 		case SE_BardSongRange:
-			newbon->SongRange += base1;
+			newbon->SongRange += base_value;
 			break;
 		case SE_RootBreakChance:
-			newbon->RootBreakChance += base1;
+			newbon->RootBreakChance += base_value;
 			break;
 		case SE_UnfailingDivinity:
-			newbon->UnfailingDivinity += base1;
+			newbon->UnfailingDivinity += base_value;
 			break;
 		case SE_CrippBlowChance:
-			newbon->CrippBlowChance += base1;
+			newbon->CrippBlowChance += base_value;
 			break;
 
 		case SE_HitChance: {
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			if (base2 == ALL_SKILLS)
-				newbon->HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1] += base1;
+			if (limit_value == ALL_SKILLS)
+				newbon->HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1] += base_value;
 			else
-				newbon->HitChanceEffect[base2] += base1;
+				newbon->HitChanceEffect[limit_value] += base_value;
 		}
 
 		case SE_ProcOnKillShot:
 			for (int i = 0; i < MAX_SPELL_TRIGGER * 3; i += 3) {
 				if (!newbon->SpellOnKill[i] ||
-				    ((newbon->SpellOnKill[i] == base2) && (newbon->SpellOnKill[i + 1] < base1))) {
+				    ((newbon->SpellOnKill[i] == limit_value) && (newbon->SpellOnKill[i + 1] < base_value))) {
 					// base1 = chance, base2 = SpellID to be triggered, base3 = min npc level
-					newbon->SpellOnKill[i] = base2;
-					newbon->SpellOnKill[i + 1] = base1;
+					newbon->SpellOnKill[i] = limit_value;
+					newbon->SpellOnKill[i + 1] = base_value;
 
 					if (GetLevel() > 15)
 						newbon->SpellOnKill[i + 2] =
@@ -1064,141 +1070,218 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 			for (int i = 0; i < MAX_SPELL_TRIGGER * 2; i += 2) {
 				if (!newbon->SpellOnDeath[i]) {
 					// base1 = SpellID to be triggered, base2 = chance to fire
-					newbon->SpellOnDeath[i] = base1;
-					newbon->SpellOnDeath[i + 1] = base2;
+					newbon->SpellOnDeath[i] = base_value;
+					newbon->SpellOnDeath[i + 1] = limit_value;
 					break;
 				}
 			}
 			break;
 
+		case SE_WeaponProc:
+		case SE_AddMeleeProc:
+			for (int i = 0; i < MAX_AA_PROCS; i += 4) {
+				if (!newbon->SpellProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID]) {
+					newbon->SpellProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID] = rank.id;   //aa rank id
+					newbon->SpellProc[i + SBIndex::COMBAT_PROC_SPELL_ID] = base_value; //proc spell id
+					newbon->SpellProc[i + SBIndex::COMBAT_PROC_RATE_MOD] = limit_value; //proc rate modifer
+					newbon->SpellProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER] = 0;	  //Lock out Timer
+					break;
+				}
+			}
+			break;
+
+		case SE_RangedProc:
+			for (int i = 0; i < MAX_AA_PROCS; i += 4) {
+				if (!newbon->RangedProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID]) {
+					newbon->RangedProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID] = rank.id;   //aa rank id
+					newbon->RangedProc[i + SBIndex::COMBAT_PROC_SPELL_ID] = base_value; //proc spell id
+					newbon->RangedProc[i + SBIndex::COMBAT_PROC_RATE_MOD] = limit_value; //proc rate modifer
+					newbon->RangedProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER] = 0;	   //Lock out Timer
+					break;
+				}
+			}
+			break;
+
+		case SE_DefensiveProc:
+			for (int i = 0; i < MAX_AA_PROCS; i += 4) {
+				if (!newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID]) {
+					newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID] = rank.id;   //aa rank id
+					newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_SPELL_ID] = base_value; //proc spell id
+					newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_RATE_MOD] = limit_value; //proc rate modifer
+					newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER] = 0;	  //Lock out Timer
+					break;
+				}
+			}
+			break;
+
+		case SE_Proc_Timer_Modifier: {
+			/*
+				AA can multiples of this in a single effect, proc should use the timer
+				that comes after the respective proc spell effect, thus rank.id will be already set
+				when this is checked.
+			*/
+
+			newbon->Proc_Timer_Modifier = true;
+
+			for (int i = 0; i < MAX_AA_PROCS; i += 4) {
+				if (newbon->SpellProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID] == rank.id) {
+					if (!newbon->SpellProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER]) {
+						newbon->SpellProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER] = limit_value;//Lock out Timer
+						break;
+					}
+				}
+
+				if (newbon->RangedProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID] == rank.id) {
+					if (!newbon->RangedProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER]) {
+						newbon->RangedProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER] = limit_value;//Lock out Timer
+						break;
+					}
+				}
+
+				if (newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_ORIGIN_ID] == rank.id) {
+					if (!newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER]) {
+						newbon->DefensiveProc[i + SBIndex::COMBAT_PROC_REUSE_TIMER] = limit_value;//Lock out Timer
+						break;
+					}
+				}
+			}
+			break;
+		}
 
 		case SE_CriticalHitChance: {
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			if (base2 == ALL_SKILLS)
-				newbon->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] += base1;
+			if (limit_value == ALL_SKILLS)
+				newbon->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] += base_value;
 			else
-				newbon->CriticalHitChance[base2] += base1;
+				newbon->CriticalHitChance[limit_value] += base_value;
 		} break;
 
 		case SE_CriticalDamageMob: {
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
 			// base1 = effect value, base2 = skill restrictions(-1 for all)
-			if (base2 == ALL_SKILLS)
-				newbon->CritDmgMod[EQ::skills::HIGHEST_SKILL + 1] += base1;
+			if (limit_value == ALL_SKILLS)
+				newbon->CritDmgMod[EQ::skills::HIGHEST_SKILL + 1] += base_value;
 			else
-				newbon->CritDmgMod[base2] += base1;
+				newbon->CritDmgMod[limit_value] += base_value;
 			break;
 		}
 
 		case SE_Critical_Melee_Damage_Mod_Max:
 		{
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			int skill = base2 == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : base2;
-			if (base1 < 0 && newbon->CritDmgModNoStack[skill] > base1)
-				newbon->CritDmgModNoStack[skill] = base1;
-			else if (base1 > 0 && newbon->CritDmgModNoStack[skill] < base1)
-				newbon->CritDmgModNoStack[skill] = base1;
+			int skill = limit_value == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : limit_value;
+			if (base_value < 0 && newbon->CritDmgModNoStack[skill] > base_value)
+				newbon->CritDmgModNoStack[skill] = base_value;
+			else if (base_value > 0 && newbon->CritDmgModNoStack[skill] < base_value)
+				newbon->CritDmgModNoStack[skill] = base_value;
 			break;
 		}
 
 		case SE_CriticalSpellChance: {
-			newbon->CriticalSpellChance += base1;
+			newbon->CriticalSpellChance += base_value;
 
-			if (base2 > newbon->SpellCritDmgIncNoStack)
-				newbon->SpellCritDmgIncNoStack = base2;
+			if (limit_value > newbon->SpellCritDmgIncNoStack)
+				newbon->SpellCritDmgIncNoStack = limit_value;
 
 			break;
 		}
 
 		case SE_ResistFearChance: {
-			if (base1 == 100) // If we reach 100% in a single spell/item then we should be immune to
+			if (base_value == 100) // If we reach 100% in a single spell/item then we should be immune to
 					  // negative fear resist effects until our immunity is over
 				newbon->Fearless = true;
 
-			newbon->ResistFearChance += base1; // these should stack
+			newbon->ResistFearChance += base_value; // these should stack
 			break;
 		}
 
 		case SE_SkillDamageAmount: {
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			if (base2 == ALL_SKILLS)
-				newbon->SkillDamageAmount[EQ::skills::HIGHEST_SKILL + 1] += base1;
+			if (limit_value == ALL_SKILLS)
+				newbon->SkillDamageAmount[EQ::skills::HIGHEST_SKILL + 1] += base_value;
 			else
-				newbon->SkillDamageAmount[base2] += base1;
+				newbon->SkillDamageAmount[limit_value] += base_value;
 			break;
 		}
 
 		case SE_SkillAttackProc: {
-			// You can only have one of these per client. [AA Dragon Punch]
-			newbon->SkillAttackProc[SBIndex::SKILLPROC_CHANCE]   = base1; // Chance base 1000 = 100% proc rate
-			newbon->SkillAttackProc[SBIndex::SKILLPROC_SKILL]    = base2; // Skill to Proc Off
-			newbon->SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID] = rank.spell; // spell to proc
-			break;
+			for (int i = 0; i < MAX_CAST_ON_SKILL_USE; i += 3) {
+				if (!newbon->SkillAttackProc[i + SBIndex::SKILLATK_PROC_SPELL_ID]) { // spell id
+					newbon->SkillAttackProc[i + SBIndex::SKILLATK_PROC_SPELL_ID] = rank.spell; // spell to proc
+					newbon->SkillAttackProc[i + SBIndex::SKILLATK_PROC_CHANCE] = base_value; // Chance base 1000 = 100% proc rate
+					newbon->SkillAttackProc[i + SBIndex::SKILLATK_PROC_SKILL] = limit_value; // Skill to Proc Offr
+
+					if (limit_value < EQ::skills::HIGHEST_SKILL) {
+						newbon->HasSkillAttackProc[limit_value] = true; //check first before looking for any effects.
+					}
+					break;
+				}
+			}
 		}
 
 		case SE_DamageModifier: {
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			if (base2 == ALL_SKILLS)
-				newbon->DamageModifier[EQ::skills::HIGHEST_SKILL + 1] += base1;
+			if (limit_value == ALL_SKILLS)
+				newbon->DamageModifier[EQ::skills::HIGHEST_SKILL + 1] += base_value;
 			else
-				newbon->DamageModifier[base2] += base1;
+				newbon->DamageModifier[limit_value] += base_value;
 			break;
 		}
 
 		case SE_DamageModifier2: {
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			if (base2 == ALL_SKILLS)
-				newbon->DamageModifier2[EQ::skills::HIGHEST_SKILL + 1] += base1;
+			if (limit_value == ALL_SKILLS)
+				newbon->DamageModifier2[EQ::skills::HIGHEST_SKILL + 1] += base_value;
 			else
-				newbon->DamageModifier2[base2] += base1;
+				newbon->DamageModifier2[limit_value] += base_value;
 			break;
 		}
 
 		case SE_Skill_Base_Damage_Mod: {
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
-			if (base2 == ALL_SKILLS)
-				newbon->DamageModifier3[EQ::skills::HIGHEST_SKILL + 1] += base1;
+			if (limit_value == ALL_SKILLS)
+				newbon->DamageModifier3[EQ::skills::HIGHEST_SKILL + 1] += base_value;
 			else
-				newbon->DamageModifier3[base2] += base1;
+				newbon->DamageModifier3[limit_value] += base_value;
 			break;
 		}
 
 		case SE_SlayUndead: {
-			if (newbon->SlayUndead[SBIndex::SLAYUNDEAD_DMG_MOD] < base1)
-				newbon->SlayUndead[SBIndex::SLAYUNDEAD_RATE_MOD] = base1; // Rate
-			newbon->SlayUndead[SBIndex::SLAYUNDEAD_DMG_MOD]      = base2;	 // Damage Modifier
+			if (newbon->SlayUndead[SBIndex::SLAYUNDEAD_DMG_MOD] < base_value)
+				newbon->SlayUndead[SBIndex::SLAYUNDEAD_RATE_MOD] = base_value; // Rate
+			newbon->SlayUndead[SBIndex::SLAYUNDEAD_DMG_MOD]      = limit_value;	 // Damage Modifier
 			break;
 		}
 
 		case SE_DoubleRiposte: {
-			newbon->DoubleRiposte += base1;
+			newbon->DoubleRiposte += base_value;
 			break;
 		}
 
 		case SE_GiveDoubleRiposte: {
 			// 0=Regular Riposte 1=Skill Attack Riposte 2=Skill
-			if (base2 == 0) {
-				if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] < base1)
-					newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] = base1;
+			if (limit_value == 0) {
+				if (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] < base_value)
+					newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] = base_value;
 			}
 			// Only for special attacks.
-			else if (base2 > 0 && (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] < base1)) {
-				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] = base1;
-				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]            = base2;
+			else if (limit_value > 0 && (newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] < base_value)) {
+				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL_ATK_CHANCE] = base_value;
+				newbon->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_SKILL]            = limit_value;
 			}
 
 			break;
@@ -1207,48 +1290,48 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 		// Physically raises skill cap ie if 55/55 it will raise to 55/60
 		case SE_RaiseSkillCap: {
 
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
 
-			if (newbon->RaiseSkillCap[base2] < base1)
-				newbon->RaiseSkillCap[base2] = base1;
+			if (newbon->RaiseSkillCap[limit_value] < base_value)
+				newbon->RaiseSkillCap[limit_value] = base_value;
 			break;
 		}
 
 		case SE_MasteryofPast: {
-			if (newbon->MasteryofPast < base1)
-				newbon->MasteryofPast = base1;
+			if (newbon->MasteryofPast < base_value)
+				newbon->MasteryofPast = base_value;
 			break;
 		}
 
 		case SE_CastingLevel: {
-			newbon->adjusted_casting_skill += base1;
+			newbon->adjusted_casting_skill += base_value;
 			break;
 		}
 
 		case SE_CastingLevel2: {
-			newbon->effective_casting_level += base1;
+			newbon->effective_casting_level += base_value;
 			break;
 		}
 
 		case SE_DivineSave: {
-			if (newbon->DivineSaveChance[SBIndex::DIVINE_SAVE_CHANCE] < base1) {
-				newbon->DivineSaveChance[SBIndex::DIVINE_SAVE_CHANCE]           = base1;
-				newbon->DivineSaveChance[SBIndex::DIVINE_SAVE_SPELL_TRIGGER_ID] = base2;
+			if (newbon->DivineSaveChance[SBIndex::DIVINE_SAVE_CHANCE] < base_value) {
+				newbon->DivineSaveChance[SBIndex::DIVINE_SAVE_CHANCE]           = base_value;
+				newbon->DivineSaveChance[SBIndex::DIVINE_SAVE_SPELL_TRIGGER_ID] = limit_value;
 			}
 			break;
 		}
 
 		case SE_SpellEffectResistChance: {
 			for (int e = 0; e < MAX_RESISTABLE_EFFECTS * 2; e += 2) {
-				if (newbon->SEResist[e + 1] && (newbon->SEResist[e] == base2) &&
-				    (newbon->SEResist[e + 1] < base1)) {
-					newbon->SEResist[e] = base2; // Spell Effect ID
-					newbon->SEResist[e + 1] = base1; // Resist Chance
+				if (newbon->SEResist[e + 1] && (newbon->SEResist[e] == limit_value) &&
+				    (newbon->SEResist[e + 1] < base_value)) {
+					newbon->SEResist[e] = limit_value; // Spell Effect ID
+					newbon->SEResist[e + 1] = base_value; // Resist Chance
 					break;
 				} else if (!newbon->SEResist[e + 1]) {
-					newbon->SEResist[e] = base2; // Spell Effect ID
-					newbon->SEResist[e + 1] = base1; // Resist Chance
+					newbon->SEResist[e] = limit_value; // Spell Effect ID
+					newbon->SEResist[e + 1] = base_value; // Resist Chance
 					break;
 				}
 			}
@@ -1256,67 +1339,70 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 		}
 
 		case SE_MitigateDamageShield: {
-			if (base1 < 0)
-				base1 = base1 * (-1);
 
-			newbon->DSMitigationOffHand += base1;
+			//AA that increase mitigation are set to negative.
+			if (base_value < 0) {
+				base_value = base_value * (-1);
+			}
+
+			newbon->DSMitigationOffHand += base_value;
 			break;
 		}
 
 		case SE_FinishingBlow: {
 			// base1 = chance, base2 = damage
-			if (newbon->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG] < base2) {
-				newbon->FinishingBlow[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = base1;
-				newbon->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG]         = base2;
+			if (newbon->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG] < limit_value) {
+				newbon->FinishingBlow[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = base_value;
+				newbon->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG]         = limit_value;
 			}
 			break;
 		}
 
 		case SE_FinishingBlowLvl: {
 			// base1 = level, base2 = ??? (Set to 200 in AA data, possible proc rate mod?)
-			if (newbon->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < base1) {
-				newbon->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = base1;
-				newbon->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = base2;
+			if (newbon->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < base_value) {
+				newbon->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = base_value;
+				newbon->FinishingBlowLvl[SBIndex::FINISHING_BLOW_LEVEL_HP_RATIO] = limit_value;
 			}
 			break;
 		}
 
 		case SE_StunBashChance:
-			newbon->StunBashChance += base1;
+			newbon->StunBashChance += base_value;
 			break;
 
 		case SE_IncreaseChanceMemwipe:
-			newbon->IncreaseChanceMemwipe += base1;
+			newbon->IncreaseChanceMemwipe += base_value;
 			break;
 
 		case SE_CriticalMend:
-			newbon->CriticalMend += base1;
+			newbon->CriticalMend += base_value;
 			break;
 
 		case SE_HealRate:
-			newbon->HealRate += base1;
+			newbon->HealRate += base_value;
 			break;
 
 		case SE_MeleeLifetap: {
 
-			if ((base1 < 0) && (newbon->MeleeLifetap > base1))
-				newbon->MeleeLifetap = base1;
+			if ((base_value < 0) && (newbon->MeleeLifetap > base_value))
+				newbon->MeleeLifetap = base_value;
 
-			else if (newbon->MeleeLifetap < base1)
-				newbon->MeleeLifetap = base1;
+			else if (newbon->MeleeLifetap < base_value)
+				newbon->MeleeLifetap = base_value;
 			break;
 		}
 
 		case SE_Vampirism:
-			newbon->Vampirism += base1;
+			newbon->Vampirism += base_value;
 			break;
 
 		case SE_FrenziedDevastation:
-			newbon->FrenziedDevastation += base2;
+			newbon->FrenziedDevastation += limit_value;
 			break;
 
 		case SE_SpellProcChance:
-			newbon->SpellProcChance += base1;
+			newbon->SpellProcChance += base_value;
 			break;
 
 		case SE_Berserk:
@@ -1324,76 +1410,84 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 			break;
 
 		case SE_Metabolism:
-			newbon->Metabolism += base1;
+			newbon->Metabolism += base_value;
 			break;
 
 		case SE_ImprovedReclaimEnergy: {
-			if ((base1 < 0) && (newbon->ImprovedReclaimEnergy > base1))
-				newbon->ImprovedReclaimEnergy = base1;
+			if ((base_value < 0) && (newbon->ImprovedReclaimEnergy > base_value))
+				newbon->ImprovedReclaimEnergy = base_value;
 
-			else if (newbon->ImprovedReclaimEnergy < base1)
-				newbon->ImprovedReclaimEnergy = base1;
+			else if (newbon->ImprovedReclaimEnergy < base_value)
+				newbon->ImprovedReclaimEnergy = base_value;
 			break;
 		}
 
 		case SE_HeadShot: {
-			if (newbon->HeadShot[SBIndex::FINISHING_EFFECT_DMG] < base2) {
-				newbon->HeadShot[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = base1;
-				newbon->HeadShot[SBIndex::FINISHING_EFFECT_DMG]         = base2;
+			if (newbon->HeadShot[SBIndex::FINISHING_EFFECT_DMG] < limit_value) {
+				newbon->HeadShot[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = base_value;
+				newbon->HeadShot[SBIndex::FINISHING_EFFECT_DMG]         = limit_value;
 			}
 			break;
 		}
 
 		case SE_HeadShotLevel: {
-			if (newbon->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < base1)
-				newbon->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = base1;
-				newbon->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = base2;
+			if (newbon->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < base_value)
+				newbon->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = base_value;
+				newbon->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = limit_value;
 			break;
 		}
 
 		case SE_Assassinate: {
-			if (newbon->Assassinate[SBIndex::FINISHING_EFFECT_DMG] < base2) {
-				newbon->Assassinate[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = base1;
-				newbon->Assassinate[SBIndex::FINISHING_EFFECT_DMG]         = base2;
+			if (newbon->Assassinate[SBIndex::FINISHING_EFFECT_DMG] < limit_value) {
+				newbon->Assassinate[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = base_value;
+				newbon->Assassinate[SBIndex::FINISHING_EFFECT_DMG]         = limit_value;
 			}
 			break;
 		}
 
 		case SE_AssassinateLevel: {
-			if (newbon->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < base1) {
-				newbon->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = base1;
-				newbon->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = base2;
+			if (newbon->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < base_value) {
+				newbon->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = base_value;
+				newbon->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = limit_value;
 			}
 			break;
 		}
 
 		case SE_PetMeleeMitigation:
-			newbon->PetMeleeMitigation += base1;
+			newbon->PetMeleeMitigation += base_value;
 			break;
 
 		case SE_FactionModPct: {
-			if ((base1 < 0) && (newbon->FactionModPct > base1))
-				newbon->FactionModPct = base1;
+			if ((base_value < 0) && (newbon->FactionModPct > base_value))
+				newbon->FactionModPct = base_value;
 
-			else if (newbon->FactionModPct < base1)
-				newbon->FactionModPct = base1;
+			else if (newbon->FactionModPct < base_value)
+				newbon->FactionModPct = base_value;
 			break;
 		}
 
+		case SE_Illusion:
+			newbon->Illusion = true;
+			break;
+
 		case SE_IllusionPersistence:
-			newbon->IllusionPersistence = true;
+			newbon->IllusionPersistence = base_value;
 			break;
 
 		case SE_LimitToSkill: {
+
 			// Bad data or unsupported new skill
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (base_value > EQ::skills::HIGHEST_SKILL) {
 				break;
-			if (base1 <= EQ::skills::HIGHEST_SKILL)
-				newbon->LimitToSkill[base1] = true;
+			}
+			if (base_value <= EQ::skills::HIGHEST_SKILL) {
+				newbon->LimitToSkill[base_value] = true;
+				newbon->LimitToSkill[EQ::skills::HIGHEST_SKILL + 2] = true; //Used as a general exists check
+			}
 			break;
 		}
 
-		case SE_SkillProc: {
+		case SE_SkillProcAttempt: {
 			for (int e = 0; e < MAX_SKILL_PROCS; e++) {
 				if (newbon->SkillProc[e] && newbon->SkillProc[e] == rank.id)
 					break; // Do not use the same aa id more than once.
@@ -1421,32 +1515,32 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 		}
 
 		case SE_MeleeMitigation:
-			newbon->MeleeMitigationEffect += base1;
+			newbon->MeleeMitigationEffect += base_value;
 			break;
 
 		case SE_ATK:
-			newbon->ATK += base1;
+			newbon->ATK += base_value;
 			break;
 		case SE_IncreaseExtTargetWindow:
-			newbon->extra_xtargets += base1;
+			newbon->extra_xtargets += base_value;
 			break;
 
 		case SE_PC_Pet_Rampage: {
-			newbon->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_CHANCE] += base1; //Chance to rampage
-			if (newbon->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < base2)
-				newbon->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = base2; //Damage modifer - take highest
+			newbon->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_CHANCE] += base_value; //Chance to rampage
+			if (newbon->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < limit_value)
+				newbon->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = limit_value; //Damage modifer - take highest
 			break;
 		}
 
 		case SE_PC_Pet_AE_Rampage: {
-			newbon->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_CHANCE] += base1; //Chance to rampage
-			if (newbon->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < base2)
-				newbon->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = base2; //Damage modifer - take highest
+			newbon->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_CHANCE] += base_value; //Chance to rampage
+			if (newbon->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < limit_value)
+				newbon->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = limit_value; //Damage modifer - take highest
 			break;
 		}
 
 		case SE_PC_Pet_Flurry_Chance:
-			newbon->PC_Pet_Flurry += base1; //Chance to Flurry
+			newbon->PC_Pet_Flurry += base_value; //Chance to Flurry
 			break;
 
 		case SE_ShroudofStealth:
@@ -1454,53 +1548,55 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 			break;
 
 		case SE_ReduceFallDamage:
-			newbon->ReduceFallDamage += base1;
+			newbon->ReduceFallDamage += base_value;
 			break;
 
 		case SE_ReduceTradeskillFail:{
 
-			if (base2 > EQ::skills::HIGHEST_SKILL)
+			if (limit_value > EQ::skills::HIGHEST_SKILL)
 				break;
 
-			newbon->ReduceTradeskillFail[base2] += base1;
+			newbon->ReduceTradeskillFail[limit_value] += base_value;
 			break;
 		}
 
 		case SE_TradeSkillMastery:
-			if (newbon->TradeSkillMastery < base1)
-				newbon->TradeSkillMastery = base1;
+			if (newbon->TradeSkillMastery < base_value)
+				newbon->TradeSkillMastery = base_value;
 			break;
 
 		case SE_NoBreakAESneak:
-			if (newbon->NoBreakAESneak < base1)
-				newbon->NoBreakAESneak = base1;
+			if (newbon->NoBreakAESneak < base_value)
+				newbon->NoBreakAESneak = base_value;
 			break;
 
 		case SE_FeignedCastOnChance:
-			if (newbon->FeignedCastOnChance < base1)
-				newbon->FeignedCastOnChance = base1;
+			if (newbon->FeignedCastOnChance < base_value)
+				newbon->FeignedCastOnChance = base_value;
 			break;
 
 		case SE_AddPetCommand:
-			if (base1 && base2 < PET_MAXCOMMANDS)
-				newbon->PetCommands[base2] = true;
+			if (base_value && limit_value < PET_MAXCOMMANDS)
+				newbon->PetCommands[limit_value] = true;
 			break;
 
 		case SE_FeignedMinion:
-			if (newbon->FeignedMinionChance < base1)
-				newbon->FeignedMinionChance = base1;
+			if (newbon->FeignedMinionChance < base_value) {
+				newbon->FeignedMinionChance = base_value;
+			}
+			newbon->PetCommands[PET_FEIGN] = true;
 			break;
 
 		case SE_AdditionalAura:
-			newbon->aura_slots += base1;
+			newbon->aura_slots += base_value;
 			break;
 
 		case SE_IncreaseTrapCount:
-			newbon->trap_slots += base1;
+			newbon->trap_slots += base_value;
 			break;
 
 		case SE_ForageSkill:
-			newbon->GrantForage += base1;
+			newbon->GrantForage += base_value;
 			// we need to grant a skill point here
 			// I'd rather not do this here, but whatever, probably fine
 			if (IsClient()) {
@@ -1511,88 +1607,88 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 			break;
 
 		case SE_Attack_Accuracy_Max_Percent:
-			newbon->Attack_Accuracy_Max_Percent += base1;
+			newbon->Attack_Accuracy_Max_Percent += base_value;
 			break;
 
 		case SE_AC_Mitigation_Max_Percent:
-			newbon->AC_Mitigation_Max_Percent += base1;
+			newbon->AC_Mitigation_Max_Percent += base_value;
 			break;
 
 		case SE_AC_Avoidance_Max_Percent:
-			newbon->AC_Avoidance_Max_Percent += base1;
+			newbon->AC_Avoidance_Max_Percent += base_value;
 			break;
 
 		case SE_Damage_Taken_Position_Mod:
 		{
 			//Mitigate if damage taken from behind base2 = 0, from front base2 = 1
-			if (base2 < 0 || base2 > 2)
+			if (limit_value < 0 || limit_value > 2)
 				break;
-			else if (base1 < 0 && newbon->Damage_Taken_Position_Mod[base2] > base1)
-				newbon->Damage_Taken_Position_Mod[base2] = base1;
-			else if (base1 > 0 && newbon->Damage_Taken_Position_Mod[base2] < base1)
-				newbon->Damage_Taken_Position_Mod[base2] = base1;
+			else if (base_value < 0 && newbon->Damage_Taken_Position_Mod[limit_value] > base_value)
+				newbon->Damage_Taken_Position_Mod[limit_value] = base_value;
+			else if (base_value > 0 && newbon->Damage_Taken_Position_Mod[limit_value] < base_value)
+				newbon->Damage_Taken_Position_Mod[limit_value] = base_value;
 			break;
 		}
 
 		case SE_Melee_Damage_Position_Mod:
 		{
-			if (base2 < 0 || base2 > 2)
+			if (limit_value < 0 || limit_value > 2)
 				break;
-			else if (base1 < 0 && newbon->Melee_Damage_Position_Mod[base2] > base1)
-				newbon->Melee_Damage_Position_Mod[base2] = base1;
-			else if (base1 > 0 && newbon->Melee_Damage_Position_Mod[base2] < base1)
-				newbon->Melee_Damage_Position_Mod[base2] = base1;
+			else if (base_value < 0 && newbon->Melee_Damage_Position_Mod[limit_value] > base_value)
+				newbon->Melee_Damage_Position_Mod[limit_value] = base_value;
+			else if (base_value > 0 && newbon->Melee_Damage_Position_Mod[limit_value] < base_value)
+				newbon->Melee_Damage_Position_Mod[limit_value] = base_value;
 			break;
 		}
 
 		case SE_Damage_Taken_Position_Amt:
 		{
 			//Mitigate if damage taken from behind base2 = 0, from front base2 = 1
-			if (base2 < 0 || base2 > 2)
+			if (limit_value < 0 || limit_value > 2)
 				break;
 
-			newbon->Damage_Taken_Position_Amt[base2] += base1;
+			newbon->Damage_Taken_Position_Amt[limit_value] += base_value;
 			break;
 		}
 
 		case SE_Melee_Damage_Position_Amt:
 		{
 			//Mitigate if damage taken from behind base2 = 0, from front base2 = 1
-			if (base2 < 0 || base2 > 2)
+			if (limit_value < 0 || limit_value > 2)
 				break;
 
-			newbon->Melee_Damage_Position_Amt[base2] += base1;
+			newbon->Melee_Damage_Position_Amt[limit_value] += base_value;
 			break;
 		}
 
 		case SE_DS_Mitigation_Amount:
-			newbon->DS_Mitigation_Amount += base1;
+			newbon->DS_Mitigation_Amount += base_value;
 			break;
 
 		case SE_DS_Mitigation_Percentage:
-			newbon->DS_Mitigation_Percentage += base1;
+			newbon->DS_Mitigation_Percentage += base_value;
 			break;
 
 		case SE_Pet_Crit_Melee_Damage_Pct_Owner:
-			newbon->Pet_Crit_Melee_Damage_Pct_Owner += base1;
+			newbon->Pet_Crit_Melee_Damage_Pct_Owner += base_value;
 			break;
 
 		case SE_Pet_Add_Atk:
-			newbon->Pet_Add_Atk += base1;
+			newbon->Pet_Add_Atk += base_value;
 			break;
 
 		case SE_Weapon_Stance:
 		{
-			if (IsValidSpell(base1)) { //base1 is the spell_id of buff
-				if (base2 <= WEAPON_STANCE_TYPE_MAX) { //0=2H, 1=Shield, 2=DW
-					if (IsValidSpell(newbon->WeaponStance[base2])) { //Check if we already a spell_id saved for this effect
-						if (spells[newbon->WeaponStance[base2]].rank < spells[base1].rank) { //If so, check if any new spellids with higher rank exist (live spells for this are ranked).
-							newbon->WeaponStance[base2] = base1; //Overwrite with new effect
+			if (IsValidSpell(base_value)) { //base1 is the spell_id of buff
+				if (limit_value <= WEAPON_STANCE_TYPE_MAX) { //0=2H, 1=Shield, 2=DW
+					if (IsValidSpell(newbon->WeaponStance[limit_value])) { //Check if we already a spell_id saved for this effect
+						if (spells[newbon->WeaponStance[limit_value]].rank < spells[base_value].rank) { //If so, check if any new spellids with higher rank exist (live spells for this are ranked).
+							newbon->WeaponStance[limit_value] = base_value; //Overwrite with new effect
 							SetWeaponStanceEnabled(true);
 						}
 					}
 					else {
-						newbon->WeaponStance[base2] = base1; //If no prior effect exists, then apply
+						newbon->WeaponStance[limit_value] = base_value; //If no prior effect exists, then apply
 						SetWeaponStanceEnabled(true);
 					}
 				}
@@ -1602,18 +1698,18 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 
 		case SE_ExtraAttackChance:
 		{
-			if (newbon->ExtraAttackChance[SBIndex::EXTRA_ATTACK_CHANCE] < base1) {
-				newbon->ExtraAttackChance[SBIndex::EXTRA_ATTACK_CHANCE]   = base1;
-				newbon->ExtraAttackChance[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+			if (newbon->ExtraAttackChance[SBIndex::EXTRA_ATTACK_CHANCE] < base_value) {
+				newbon->ExtraAttackChance[SBIndex::EXTRA_ATTACK_CHANCE]   = base_value;
+				newbon->ExtraAttackChance[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 			}
 			break;
 		}
 
 		case SE_AddExtraAttackPct_1h_Primary:
 		{
-			if (newbon->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_CHANCE] < base1) {
-				newbon->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_CHANCE]   = base1;
-				newbon->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+			if (newbon->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_CHANCE] < base_value) {
+				newbon->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_CHANCE]   = base_value;
+				newbon->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 			}
 			break;
 		}
@@ -1621,52 +1717,87 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 		case SE_AddExtraAttackPct_1h_Secondary:
 		{
 
-			if (newbon->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_CHANCE] < base1) {
-				newbon->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_CHANCE]   = base1;
-				newbon->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+			if (newbon->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_CHANCE] < base_value) {
+				newbon->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_CHANCE]   = base_value;
+				newbon->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 			}
 			break;
 		}
 
 		case SE_Double_Melee_Round:
 		{
-			if (newbon->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_CHANCE] < base1) {
-				newbon->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_CHANCE] = base1;
-				newbon->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_DMG_BONUS] = base2;
+			if (newbon->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_CHANCE] < base_value) {
+				newbon->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_CHANCE] = base_value;
+				newbon->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_DMG_BONUS] = limit_value;
 
 			}
 			break;
 		}
 
-		case SE_ExtendedShielding: 
+		case SE_ExtendedShielding:
 		{
-			if (newbon->ExtendedShielding < base1) {
-				newbon->ExtendedShielding = base1;
+			if (newbon->ExtendedShielding < base_value) {
+				newbon->ExtendedShielding = base_value;
 			}
 			break;
 		}
 
-		case SE_ShieldDuration: 
+		case SE_ShieldDuration:
 		{
-			if (newbon->ShieldDuration < base1) {
-				newbon->ShieldDuration = base1;
+			if (newbon->ShieldDuration < base_value) {
+				newbon->ShieldDuration = base_value;
 			}
 			break;
 		}
 
 		case SE_Worn_Endurance_Regen_Cap:
-			newbon->ItemEnduranceRegenCap += base1;
+			newbon->ItemEnduranceRegenCap += base_value;
 			break;
 
 
 		case SE_SecondaryForte:
-			if (newbon->SecondaryForte < base1) {
-				newbon->SecondaryForte = base1;
+			if (newbon->SecondaryForte < base_value) {
+				newbon->SecondaryForte = base_value;
 			}
 			break;
-        
+
 		case SE_ZoneSuspendMinion:
-			newbon->ZoneSuspendMinion = base1;
+			newbon->ZoneSuspendMinion = base_value;
+			break;
+
+
+		case SE_Reflect:
+
+			if (newbon->reflect[SBIndex::REFLECT_CHANCE] < base_value) {
+				newbon->reflect[SBIndex::REFLECT_CHANCE] = base_value;
+			}
+			if (newbon->reflect[SBIndex::REFLECT_RESISTANCE_MOD] < limit_value) {
+				newbon->reflect[SBIndex::REFLECT_RESISTANCE_MOD] = limit_value;
+			}
+			break;
+
+		case SE_SpellDamageShield:
+			newbon->SpellDamageShield += base_value;
+			break;
+
+		case SE_Amplification:
+			newbon->Amplification += base_value;
+			break;
+
+		case SE_MitigateSpellDamage:
+		{
+			newbon->MitigateSpellRune[SBIndex::MITIGATION_RUNE_PERCENT] += base_value;
+			break;
+		}
+
+		case SE_MitigateDotDamage:
+		{
+			newbon->MitigateDotRune[SBIndex::MITIGATION_RUNE_PERCENT] += base_value;
+			break;
+		}
+
+		case SE_TrapCircumvention:
+			newbon->TrapCircumvention += base_value;
 			break;
 
 		// to do
@@ -1680,9 +1811,6 @@ void Mob::ApplyAABonuses(const AA::Rank &rank, StatBonuses *newbon)
 			break;
 		case SE_NimbleEvasion:
 			break;
-		case SE_TrapCircumvention:
-			break;
-
 
 		// not handled here
 		case SE_HastenedAASkill:
@@ -1734,7 +1862,7 @@ void Mob::CalcSpellBonuses(StatBonuses* newbon)
 		if(buffs[i].spellid != SPELL_UNKNOWN){
 			ApplySpellsBonuses(buffs[i].spellid, buffs[i].casterlevel, newbon, buffs[i].casterid, 0, buffs[i].ticsremaining, i, buffs[i].instrument_mod);
 
-			if (buffs[i].numhits > 0)
+			if (buffs[i].hit_number > 0)
 				Numhits(true);
 		}
 	}
@@ -1759,7 +1887,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			     uint8 WornType, int32 ticsremaining, int buffslot, int instrument_mod,
 			     bool IsAISpellEffect, uint16 effect_id, int32 se_base, int32 se_limit, int32 se_max)
 {
-	int i, effect_value, base2, max, effectid;
+	int i, effect_value, limit_value, max_value, spell_effect_id;
 	bool AdditiveWornBonus = false;
 
 	if(!IsAISpellEffect && !IsValidSpell(spell_id))
@@ -1777,34 +1905,35 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			if (focus)
 			{
 				if (WornType){
-					if (RuleB(Spells, UseAdditiveFocusFromWornSlot))
-						new_bonus->FocusEffectsWorn[focus] += spells[spell_id].base[i];
+					if (RuleB(Spells, UseAdditiveFocusFromWornSlot)) {
+						new_bonus->FocusEffectsWorn[focus] += spells[spell_id].base_value[i];
+					}
 				}
-
-				else
-					new_bonus->FocusEffects[focus] = static_cast<uint8>(spells[spell_id].effectid[i]);
-
+				else {
+					new_bonus->FocusEffects[focus] = spells[spell_id].effect_id[i];
+				}
 				continue;
 			}
 
-			if (WornType && (RuleI(Spells, AdditiveBonusWornType) == WornType))
+			if (WornType && (RuleI(Spells, AdditiveBonusWornType) == WornType)) {
 				AdditiveWornBonus = true;
+			}
 
-			effectid = spells[spell_id].effectid[i];
+			spell_effect_id = spells[spell_id].effect_id[i];
 			effect_value = CalcSpellEffectValue(spell_id, i, casterlevel, instrument_mod, nullptr, ticsremaining, casterId);
-			base2 = spells[spell_id].base2[i];
-			max = spells[spell_id].max[i];
+			limit_value = spells[spell_id].limit_value[i];
+			max_value = spells[spell_id].max_value[i];
 		}
 		//Use AISpellEffects
 		else {
-			effectid = effect_id;
+			spell_effect_id = effect_id;
 			effect_value = se_base;
-			base2 = se_limit;
-			max = se_max;
-			i = EFFECT_COUNT; //End the loop
+			limit_value = se_limit;
+			max_value = se_max;
+			i = (EFFECT_COUNT - 1); // AISpellEffects do a single pass
 		}
 
-		switch (effectid)
+		switch (spell_effect_id)
 		{
 			case SE_CurrentHP: //regens
 				if(effect_value > 0) {
@@ -1818,7 +1947,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_ChangeFrenzyRad:
 			{
-				if (max != 0 && GetLevel() > max)
+				if (max_value != 0 && GetLevel() > max_value)
 					break;
 
 				if(new_bonus->AggroRange == -1 || effect_value < new_bonus->AggroRange)
@@ -1830,7 +1959,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_Harmony:
 			{
-				if (max != 0 && GetLevel() > max)
+				if (max_value != 0 && GetLevel() > max_value)
 					break;
 				// Harmony effect as buff - kinda tricky
 				// harmony could stack with a lull spell, which has better aggro range
@@ -2027,7 +2156,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_CHA:
 			{
-				if (spells[spell_id].base[i] != 0) {
+				if (spells[spell_id].base_value[i] != 0) {
 					new_bonus->CHA += effect_value;
 				}
 				break;
@@ -2117,7 +2246,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_RaiseStatCap:
 			{
-				switch(spells[spell_id].base2[i])
+				switch(spells[spell_id].limit_value[i])
 				{
 					//are these #define'd somewhere?
 					case 0: //str
@@ -2188,8 +2317,8 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				new_bonus->DamageShield += effect_value;
 				new_bonus->DamageShieldSpellID = spell_id;
 				//When using npc_spells_effects MAX value can be set to determine DS Type
-				if (IsAISpellEffect && max)
-					new_bonus->DamageShieldType = GetDamageShieldType(spell_id, max);
+				if (IsAISpellEffect && max_value)
+					new_bonus->DamageShieldType = GetDamageShieldType(spell_id, max_value);
 				else
 					new_bonus->DamageShieldType = GetDamageShieldType(spell_id);
 
@@ -2201,15 +2330,24 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				new_bonus->ReverseDamageShield += effect_value;
 				new_bonus->ReverseDamageShieldSpellID = spell_id;
 
-				if (IsAISpellEffect && max)
-					new_bonus->ReverseDamageShieldType = GetDamageShieldType(spell_id, max);
+				if (IsAISpellEffect && max_value)
+					new_bonus->ReverseDamageShieldType = GetDamageShieldType(spell_id, max_value);
 				else
 					new_bonus->ReverseDamageShieldType = GetDamageShieldType(spell_id);
 				break;
 			}
 
 			case SE_Reflect:
-				new_bonus->reflect_chance += effect_value;
+
+				if (AdditiveWornBonus) {
+					new_bonus->reflect[SBIndex::REFLECT_CHANCE] += effect_value;
+				}
+
+				else if (new_bonus->reflect[SBIndex::REFLECT_CHANCE] < effect_value) {
+					new_bonus->reflect[SBIndex::REFLECT_CHANCE] = effect_value;
+					new_bonus->reflect[SBIndex::REFLECT_RESISTANCE_MOD] = limit_value;
+					new_bonus->reflect[SBIndex::REFLECT_DMG_EFFECTIVENESS] = max_value;
+				}
 				break;
 
 			case SE_Amplification:
@@ -2228,28 +2366,28 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_CriticalHitChance:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
 				if (AdditiveWornBonus) {
-					if(base2 == ALL_SKILLS)
+					if(limit_value == ALL_SKILLS)
 						new_bonus->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] += effect_value;
 					else
-						new_bonus->CriticalHitChance[base2] += effect_value;
+						new_bonus->CriticalHitChance[limit_value] += effect_value;
 				}
 
 				else if(effect_value < 0) {
 
-					if (base2 == ALL_SKILLS && new_bonus->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] > effect_value)
+					if (limit_value == ALL_SKILLS && new_bonus->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] > effect_value)
 						new_bonus->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] = effect_value;
-					else if(base2 != ALL_SKILLS && new_bonus->CriticalHitChance[base2] > effect_value)
-						new_bonus->CriticalHitChance[base2] = effect_value;
+					else if(limit_value != ALL_SKILLS && new_bonus->CriticalHitChance[limit_value] > effect_value)
+						new_bonus->CriticalHitChance[limit_value] = effect_value;
 				}
 
 
-				else if (base2 == ALL_SKILLS && new_bonus->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] < effect_value)
+				else if (limit_value == ALL_SKILLS && new_bonus->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] < effect_value)
 					new_bonus->CriticalHitChance[EQ::skills::HIGHEST_SKILL + 1] = effect_value;
-				else if(base2 != ALL_SKILLS && new_bonus->CriticalHitChance[base2] < effect_value)
-						new_bonus->CriticalHitChance[base2] = effect_value;
+				else if(limit_value != ALL_SKILLS && new_bonus->CriticalHitChance[limit_value] < effect_value)
+						new_bonus->CriticalHitChance[limit_value] = effect_value;
 
 				break;
 			}
@@ -2364,7 +2502,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_MeleeLifetap:
 			{
 				if (AdditiveWornBonus)
-					new_bonus->MeleeLifetap += spells[spell_id].base[i];
+					new_bonus->MeleeLifetap += spells[spell_id].base_value[i];
 
 				else if((effect_value < 0) && (new_bonus->MeleeLifetap > effect_value))
 					new_bonus->MeleeLifetap = effect_value;
@@ -2426,7 +2564,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if(new_bonus->MeleeSkillCheck < effect_value) {
 					new_bonus->MeleeSkillCheck = effect_value;
-					new_bonus->MeleeSkillCheckSkill = base2==ALL_SKILLS?255:base2;
+					new_bonus->MeleeSkillCheckSkill = limit_value==ALL_SKILLS?255:limit_value;
 				}
 				break;
 			}
@@ -2434,17 +2572,17 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_HitChance:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
 
 				if (AdditiveWornBonus){
-					if(base2 == ALL_SKILLS)
+					if(limit_value == ALL_SKILLS)
 						new_bonus->HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1] += effect_value;
 					else
-						new_bonus->HitChanceEffect[base2] += effect_value;
+						new_bonus->HitChanceEffect[limit_value] += effect_value;
 				}
 
-				else if(base2 == ALL_SKILLS){
+				else if(limit_value == ALL_SKILLS){
 
 					if ((effect_value < 0) && (new_bonus->HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1] > effect_value))
 						new_bonus->HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1] = effect_value;
@@ -2456,12 +2594,12 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 				else {
 
-					if ((effect_value < 0) && (new_bonus->HitChanceEffect[base2] > effect_value))
-						new_bonus->HitChanceEffect[base2] = effect_value;
+					if ((effect_value < 0) && (new_bonus->HitChanceEffect[limit_value] > effect_value))
+						new_bonus->HitChanceEffect[limit_value] = effect_value;
 
-					else if (!new_bonus->HitChanceEffect[base2] ||
-							((new_bonus->HitChanceEffect[base2] > 0) && (new_bonus->HitChanceEffect[base2] < effect_value)))
-							new_bonus->HitChanceEffect[base2] = effect_value;
+					else if (!new_bonus->HitChanceEffect[limit_value] ||
+							((new_bonus->HitChanceEffect[limit_value] > 0) && (new_bonus->HitChanceEffect[limit_value] < effect_value)))
+							new_bonus->HitChanceEffect[limit_value] = effect_value;
 				}
 
 				break;
@@ -2471,9 +2609,9 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_DamageModifier:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				int skill = base2 == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : base2;
+				int skill = limit_value == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : limit_value;
 				if (effect_value < 0 && new_bonus->DamageModifier[skill] > effect_value)
 					new_bonus->DamageModifier[skill] = effect_value;
 				else if (effect_value > 0 && new_bonus->DamageModifier[skill] < effect_value)
@@ -2484,9 +2622,9 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_DamageModifier2:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				int skill = base2 == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : base2;
+				int skill = limit_value == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : limit_value;
 				if (effect_value < 0 && new_bonus->DamageModifier2[skill] > effect_value)
 					new_bonus->DamageModifier2[skill] = effect_value;
 				else if (effect_value > 0 && new_bonus->DamageModifier2[skill] < effect_value)
@@ -2497,9 +2635,9 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_Skill_Base_Damage_Mod:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				int skill = base2 == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : base2;
+				int skill = limit_value == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : limit_value;
 				if (effect_value < 0 && new_bonus->DamageModifier3[skill] > effect_value)
 					new_bonus->DamageModifier3[skill] = effect_value;
 				else if (effect_value > 0 && new_bonus->DamageModifier3[skill] < effect_value)
@@ -2510,9 +2648,9 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_MinDamageModifier:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				int skill = base2 == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : base2;
+				int skill = limit_value == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : limit_value;
 				if (effect_value < 0 && new_bonus->MinDamageModifier[skill] > effect_value)
 					new_bonus->MinDamageModifier[skill] = effect_value;
 				else if (effect_value > 0 && new_bonus->MinDamageModifier[skill] < effect_value)
@@ -2545,11 +2683,11 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if (AdditiveWornBonus) {
 					new_bonus->ExtraAttackChance[SBIndex::EXTRA_ATTACK_CHANCE] += effect_value;
-					new_bonus->ExtraAttackChance[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+					new_bonus->ExtraAttackChance[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 				}
 				if (new_bonus->ExtraAttackChance[SBIndex::EXTRA_ATTACK_CHANCE] < effect_value) {
 					new_bonus->ExtraAttackChance[SBIndex::EXTRA_ATTACK_CHANCE]   = effect_value;
-					new_bonus->ExtraAttackChance[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+					new_bonus->ExtraAttackChance[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 				}
 				break;
 			}
@@ -2558,12 +2696,12 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if (AdditiveWornBonus) {
 					new_bonus->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_CHANCE] += effect_value;
-					new_bonus->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+					new_bonus->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 				}
 
 				if (new_bonus->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_CHANCE] < effect_value) {
 					new_bonus->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_CHANCE]   = effect_value;
-					new_bonus->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+					new_bonus->ExtraAttackChancePrimary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 				}
 				break;
 			}
@@ -2572,12 +2710,12 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if (AdditiveWornBonus) {
 					new_bonus->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_CHANCE] += effect_value;
-					new_bonus->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+					new_bonus->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 				}
 
 				if (new_bonus->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_CHANCE] < effect_value) {
 					new_bonus->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_CHANCE]   = effect_value;
-					new_bonus->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = base2 ? base2 : 1;
+					new_bonus->ExtraAttackChanceSecondary[SBIndex::EXTRA_ATTACK_NUM_ATKS] = limit_value ? limit_value : 1;
 				}
 				break;
 			}
@@ -2586,12 +2724,12 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if (AdditiveWornBonus) {
 					new_bonus->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_CHANCE] += effect_value;
-					new_bonus->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_DMG_BONUS] += base2;
+					new_bonus->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_DMG_BONUS] += limit_value;
 				}
 
 				if (new_bonus->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_CHANCE] < effect_value) {
 					new_bonus->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_CHANCE] = effect_value;
-					new_bonus->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_DMG_BONUS] = base2;
+					new_bonus->DoubleMeleeRound[SBIndex::DOUBLE_MELEE_ROUND_DMG_BONUS] = limit_value;
 				}
 				break;
 			}
@@ -2610,8 +2748,8 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 					new_bonus->DeathSave[SBIndex::DEATH_SAVE_TYPE]               = effect_value; //1='Partial' 2='Full'
 					new_bonus->DeathSave[SBIndex::DEATH_SAVE_BUFFSLOT]           = buffslot;
 					//These are used in later expansion spell effects.
-					new_bonus->DeathSave[SBIndex::DEATH_SAVE_MIN_LEVEL_FOR_HEAL] = base2;//Min level for HealAmt
-					new_bonus->DeathSave[SBIndex::DEATH_SAVE_HEAL_AMT]           = max;//HealAmt
+					new_bonus->DeathSave[SBIndex::DEATH_SAVE_MIN_LEVEL_FOR_HEAL] = limit_value;//Min level for HealAmt
+					new_bonus->DeathSave[SBIndex::DEATH_SAVE_HEAL_AMT]           = max_value;//HealAmt
 				}
 				break;
 			}
@@ -2626,7 +2764,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				else if(new_bonus->DivineSaveChance[SBIndex::DIVINE_SAVE_CHANCE] < effect_value)
 				{
 					new_bonus->DivineSaveChance[SBIndex::DIVINE_SAVE_CHANCE]           = effect_value;
-					new_bonus->DivineSaveChance[SBIndex::DIVINE_SAVE_SPELL_TRIGGER_ID] = base2;
+					new_bonus->DivineSaveChance[SBIndex::DIVINE_SAVE_SPELL_TRIGGER_ID] = limit_value;
 				}
 				break;
 			}
@@ -2638,7 +2776,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_Accuracy:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
 				if ((effect_value < 0) && (new_bonus->Accuracy[EQ::skills::HIGHEST_SKILL + 1] > effect_value))
 					new_bonus->Accuracy[EQ::skills::HIGHEST_SKILL + 1] = effect_value;
@@ -2664,21 +2802,21 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_SkillDamageTaken:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
 				//When using npc_spells_effects if MAX value set, use stackable quest based modifier.
-				if (IsAISpellEffect && max){
-					if(base2 == ALL_SKILLS)
+				if (IsAISpellEffect && max_value){
+					if(limit_value == ALL_SKILLS)
 						SkillDmgTaken_Mod[EQ::skills::HIGHEST_SKILL + 1] = effect_value;
 					else
-						SkillDmgTaken_Mod[base2] = effect_value;
+						SkillDmgTaken_Mod[limit_value] = effect_value;
 				}
 				else {
 
-					if(base2 == ALL_SKILLS)
+					if(limit_value == ALL_SKILLS)
 						new_bonus->SkillDmgTaken[EQ::skills::HIGHEST_SKILL + 1] += effect_value;
 					else
-						new_bonus->SkillDmgTaken[base2] += effect_value;
+						new_bonus->SkillDmgTaken[limit_value] += effect_value;
 
 				}
 				break;
@@ -2692,8 +2830,8 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				new_bonus->CriticalSpellChance += effect_value;
 
-				if (base2 > new_bonus->SpellCritDmgIncNoStack)
-					new_bonus->SpellCritDmgIncNoStack = base2;
+				if (limit_value > new_bonus->SpellCritDmgIncNoStack)
+					new_bonus->SpellCritDmgIncNoStack = limit_value;
 				break;
 			}
 
@@ -2727,8 +2865,15 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_MitigateDamageShield:
 			{
-				if (effect_value < 0)
-					effect_value = effect_value*-1;
+				/*
+				Bard songs have identical negative base value and positive max
+				The effect for the songs should increase mitigation. There are
+				spells that do decrease the mitigation with just negative base values.
+				To be consistent all values that increase mitigation will be set to positives
+				*/
+				if (max_value > 0 && effect_value < 0) {
+					effect_value = max_value;
+				}
 
 				new_bonus->DSMitigationOffHand += effect_value;
 				break;
@@ -2745,9 +2890,9 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 					if(!new_bonus->SpellOnKill[e])
 					{
 						// Base2 = Spell to fire | Base1 = % chance | Base3 = min level
-						new_bonus->SpellOnKill[e] = base2;
+						new_bonus->SpellOnKill[e] = limit_value;
 						new_bonus->SpellOnKill[e+1] = effect_value;
-						new_bonus->SpellOnKill[e+2] = max;
+						new_bonus->SpellOnKill[e+2] = max_value;
 						break;
 					}
 				}
@@ -2761,7 +2906,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 					if(!new_bonus->SpellOnDeath[e])
 					{
 						// Base2 = Spell to fire | Base1 = % chance
-						new_bonus->SpellOnDeath[e] = base2;
+						new_bonus->SpellOnDeath[e] = limit_value;
 						new_bonus->SpellOnDeath[e+1] = effect_value;
 						break;
 					}
@@ -2772,21 +2917,21 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_CriticalDamageMob:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				if(base2 == ALL_SKILLS)
+				if(limit_value == ALL_SKILLS)
 					new_bonus->CritDmgMod[EQ::skills::HIGHEST_SKILL + 1] += effect_value;
 				else
-					new_bonus->CritDmgMod[base2] += effect_value;
+					new_bonus->CritDmgMod[limit_value] += effect_value;
 				break;
 			}
 
 			case SE_Critical_Melee_Damage_Mod_Max:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				int skill = base2 == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : base2;
+				int skill = limit_value == ALL_SKILLS ? EQ::skills::HIGHEST_SKILL + 1 : limit_value;
 				if (effect_value < 0 && new_bonus->CritDmgModNoStack[skill] > effect_value)
 					new_bonus->CritDmgModNoStack[skill] = effect_value;
 				else if (effect_value > 0 && new_bonus->CritDmgModNoStack[skill] < effect_value) {
@@ -2797,20 +2942,20 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_ReduceSkillTimer:
 			{
-				if(new_bonus->SkillReuseTime[base2] < effect_value)
-					new_bonus->SkillReuseTime[base2] = effect_value;
+				if(new_bonus->SkillReuseTime[limit_value] < effect_value)
+					new_bonus->SkillReuseTime[limit_value] = effect_value;
 				break;
 			}
 
 			case SE_SkillDamageAmount:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				if(base2 == ALL_SKILLS)
+				if(limit_value == ALL_SKILLS)
 					new_bonus->SkillDamageAmount[EQ::skills::HIGHEST_SKILL + 1] += effect_value;
 				else
-					new_bonus->SkillDamageAmount[base2] += effect_value;
+					new_bonus->SkillDamageAmount[limit_value] += effect_value;
 				break;
 			}
 
@@ -2847,11 +2992,11 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if(new_bonus->HPPercCap[SBIndex::RESOURCE_PERCENT_CAP] != 0 && new_bonus->HPPercCap[SBIndex::RESOURCE_PERCENT_CAP] > effect_value){
 					new_bonus->HPPercCap[SBIndex::RESOURCE_PERCENT_CAP] = effect_value;
-					new_bonus->HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = base2;
+					new_bonus->HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = limit_value;
 				}
 				else if(new_bonus->HPPercCap[SBIndex::RESOURCE_PERCENT_CAP] == 0){
 					new_bonus->HPPercCap[SBIndex::RESOURCE_PERCENT_CAP] = effect_value;
-					new_bonus->HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = base2;
+					new_bonus->HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = limit_value;
 				}
 				break;
 			}
@@ -2859,11 +3004,11 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if(new_bonus->ManaPercCap[SBIndex::RESOURCE_PERCENT_CAP] != 0 && new_bonus->ManaPercCap[SBIndex::RESOURCE_PERCENT_CAP] > effect_value){
 					new_bonus->ManaPercCap[SBIndex::RESOURCE_PERCENT_CAP] = effect_value;
-					new_bonus->ManaPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = base2;
+					new_bonus->ManaPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = limit_value;
 				}
 				else if(new_bonus->ManaPercCap[SBIndex::RESOURCE_PERCENT_CAP] == 0) {
 					new_bonus->ManaPercCap[SBIndex::RESOURCE_PERCENT_CAP] = effect_value;
-					new_bonus->ManaPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = base2;
+					new_bonus->ManaPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = limit_value;
 				}
 
 				break;
@@ -2872,12 +3017,12 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if(new_bonus->EndPercCap[SBIndex::RESOURCE_PERCENT_CAP] != 0 && new_bonus->EndPercCap[SBIndex::RESOURCE_PERCENT_CAP] > effect_value) {
 					new_bonus->EndPercCap[SBIndex::RESOURCE_PERCENT_CAP] = effect_value;
-					new_bonus->EndPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = base2;
+					new_bonus->EndPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = limit_value;
 				}
 
 				else if(new_bonus->EndPercCap[SBIndex::RESOURCE_PERCENT_CAP] == 0){
 					new_bonus->EndPercCap[SBIndex::RESOURCE_PERCENT_CAP] = effect_value;
-					new_bonus->EndPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = base2;
+					new_bonus->EndPercCap[SBIndex::RESOURCE_AMOUNT_CAP]  = limit_value;
 				}
 
 				break;
@@ -2913,29 +3058,29 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				//Lower the ratio the more favorable
 				if((!new_bonus->HPToManaConvert) || (new_bonus->HPToManaConvert >= effect_value))
-				new_bonus->HPToManaConvert = spells[spell_id].base[i];
+				new_bonus->HPToManaConvert = spells[spell_id].base_value[i];
 				break;
 			}
 
 			case SE_SkillDamageAmount2:
 			{
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
-				if(base2 == ALL_SKILLS)
+				if(limit_value == ALL_SKILLS)
 					new_bonus->SkillDamageAmount2[EQ::skills::HIGHEST_SKILL + 1] += effect_value;
 				else
-					new_bonus->SkillDamageAmount2[base2] += effect_value;
+					new_bonus->SkillDamageAmount2[limit_value] += effect_value;
 				break;
 			}
 
 			case SE_NegateAttacks:
 			{
 				if (!new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_EXISTS] ||
-					((new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_EXISTS] && new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_MAX_DMG_ABSORB_PER_HIT]) && (new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_MAX_DMG_ABSORB_PER_HIT] < max))){
+					((new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_EXISTS] && new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_MAX_DMG_ABSORB_PER_HIT]) && (new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_MAX_DMG_ABSORB_PER_HIT] < max_value))){
 					new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_EXISTS]                 = 1;
 					new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_BUFFSLOT]               = buffslot;
-					new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_MAX_DMG_ABSORB_PER_HIT] = max;
+					new_bonus->NegateAttacks[SBIndex::NEGATE_ATK_MAX_DMG_ABSORB_PER_HIT] = max_value;
 				}
 				break;
 			}
@@ -2945,8 +3090,8 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				if (new_bonus->MitigateMeleeRune[SBIndex::MITIGATION_RUNE_PERCENT] < effect_value){
 					new_bonus->MitigateMeleeRune[SBIndex::MITIGATION_RUNE_PERCENT]                = effect_value;
 					new_bonus->MitigateMeleeRune[SBIndex::MITIGATION_RUNE_BUFFSLOT]               = buffslot;
-					new_bonus->MitigateMeleeRune[SBIndex::MITIGATION_RUNE_MAX_DMG_ABSORB_PER_HIT] = base2;
-					new_bonus->MitigateMeleeRune[SBIndex::MITIGATION_RUNE_MAX_HP_AMT]             = max;
+					new_bonus->MitigateMeleeRune[SBIndex::MITIGATION_RUNE_MAX_DMG_ABSORB_PER_HIT] = limit_value;
+					new_bonus->MitigateMeleeRune[SBIndex::MITIGATION_RUNE_MAX_HP_AMT]             = max_value;
 				}
 				break;
 			}
@@ -2957,7 +3102,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				if (new_bonus->MeleeThresholdGuard[SBIndex::THRESHOLDGUARD_MITIGATION_PERCENT] < effect_value){
 					new_bonus->MeleeThresholdGuard[SBIndex::THRESHOLDGUARD_MITIGATION_PERCENT]  = effect_value;
 					new_bonus->MeleeThresholdGuard[SBIndex::THRESHOLDGUARD_BUFFSLOT]           = buffslot;
-					new_bonus->MeleeThresholdGuard[SBIndex::THRESHOLDGUARD_MIN_DMG_TO_TRIGGER] = base2;
+					new_bonus->MeleeThresholdGuard[SBIndex::THRESHOLDGUARD_MIN_DMG_TO_TRIGGER] = limit_value;
 				}
 				break;
 			}
@@ -2967,29 +3112,37 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				if (new_bonus->SpellThresholdGuard[SBIndex::THRESHOLDGUARD_MITIGATION_PERCENT] < effect_value){
 					new_bonus->SpellThresholdGuard[SBIndex::THRESHOLDGUARD_MITIGATION_PERCENT]  = effect_value;
 					new_bonus->SpellThresholdGuard[SBIndex::THRESHOLDGUARD_BUFFSLOT]           = buffslot;
-					new_bonus->SpellThresholdGuard[SBIndex::THRESHOLDGUARD_MIN_DMG_TO_TRIGGER] = base2;
+					new_bonus->SpellThresholdGuard[SBIndex::THRESHOLDGUARD_MIN_DMG_TO_TRIGGER] = limit_value;
 				}
 				break;
 			}
 
 			case SE_MitigateSpellDamage:
 			{
+				if (WornType) {
+					new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_PERCENT] += effect_value;
+				}
+
 				if (new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_PERCENT] < effect_value){
 					new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_PERCENT]                = effect_value;
 					new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_BUFFSLOT]               = buffslot;
-					new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_MAX_DMG_ABSORB_PER_HIT] = base2;
-					new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_MAX_HP_AMT]             = max;
+					new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_MAX_DMG_ABSORB_PER_HIT] = limit_value;
+					new_bonus->MitigateSpellRune[SBIndex::MITIGATION_RUNE_MAX_HP_AMT]             = max_value;
 				}
 				break;
 			}
 
 			case SE_MitigateDotDamage:
 			{
+				if (WornType) {
+					new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_PERCENT] += effect_value;
+				}
+
 				if (new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_PERCENT] < effect_value){
 					new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_PERCENT]                = effect_value;
 					new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_BUFFSLOT]               = buffslot;
-					new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_MAX_DMG_ABSORB_PER_HIT] = base2;
-					new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_MAX_HP_AMT]             = max;
+					new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_MAX_DMG_ABSORB_PER_HIT] = limit_value;
+					new_bonus->MitigateDotRune[SBIndex::MITIGATION_RUNE_MAX_HP_AMT]             = max_value;
 				}
 				break;
 			}
@@ -3006,7 +3159,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if (new_bonus->EnduranceAbsorbPercentDamage[SBIndex::ENDURANCE_ABSORD_MITIGIATION] < effect_value) {
 					new_bonus->EnduranceAbsorbPercentDamage[SBIndex::ENDURANCE_ABSORD_MITIGIATION]  = effect_value;
-					new_bonus->EnduranceAbsorbPercentDamage[SBIndex::ENDURANCE_ABSORD_DRAIN_PER_HP] = base2;
+					new_bonus->EnduranceAbsorbPercentDamage[SBIndex::ENDURANCE_ABSORD_DRAIN_PER_HP] = limit_value;
 				}
 				break;
 			}
@@ -3122,7 +3275,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				break;
 
 			case SE_AddSingingMod:
-				switch (base2) {
+				switch (limit_value) {
 				case EQ::item::ItemTypeWindInstrument:
 					new_bonus->windMod += effect_value;
 					break;
@@ -3216,13 +3369,13 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				for(int e = 0; e < MAX_RESISTABLE_EFFECTS*2; e+=2)
 				{
-					if(new_bonus->SEResist[e+1] && (new_bonus->SEResist[e] == base2) && (new_bonus->SEResist[e+1] < effect_value)){
-						new_bonus->SEResist[e] = base2; //Spell Effect ID
+					if(new_bonus->SEResist[e+1] && (new_bonus->SEResist[e] == limit_value) && (new_bonus->SEResist[e+1] < effect_value)){
+						new_bonus->SEResist[e] = limit_value; //Spell Effect ID
 						new_bonus->SEResist[e+1] = effect_value; //Resist Chance
 						break;
 					}
 					else if (!new_bonus->SEResist[e+1]){
-						new_bonus->SEResist[e] = base2; //Spell Effect ID
+						new_bonus->SEResist[e] = limit_value; //Spell Effect ID
 						new_bonus->SEResist[e+1] = effect_value; //Resist Chance
 						break;
 					}
@@ -3245,7 +3398,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_GiveDoubleRiposte:
 			{
 				//Only allow for regular double riposte chance.
-				if(new_bonus->GiveDoubleRiposte[base2] == 0){
+				if(new_bonus->GiveDoubleRiposte[limit_value] == 0){
 					if(new_bonus->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] < effect_value)
 						new_bonus->GiveDoubleRiposte[SBIndex::DOUBLE_RIPOSTE_CHANCE] = effect_value;
 				}
@@ -3256,13 +3409,13 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if(new_bonus->SlayUndead[SBIndex::SLAYUNDEAD_DMG_MOD] < effect_value)
 					new_bonus->SlayUndead[SBIndex::SLAYUNDEAD_RATE_MOD] = effect_value; // Rate
-					new_bonus->SlayUndead[SBIndex::SLAYUNDEAD_DMG_MOD]  = base2; // Damage Modifier
+					new_bonus->SlayUndead[SBIndex::SLAYUNDEAD_DMG_MOD]  = limit_value; // Damage Modifier
 				break;
 			}
 
 			case SE_TriggerOnReqTarget:
 			case SE_TriggerOnReqCaster:
-				new_bonus->TriggerOnValueAmount = true;
+				new_bonus->TriggerOnCastRequirement = true;
 				break;
 
 			case SE_DivineAura:
@@ -3272,7 +3425,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_ImprovedTaunt:
 				if (new_bonus->ImprovedTaunt[SBIndex::IMPROVED_TAUNT_MAX_LVL] < effect_value) {
 					new_bonus->ImprovedTaunt[SBIndex::IMPROVED_TAUNT_MAX_LVL]   = effect_value;
-					new_bonus->ImprovedTaunt[SBIndex::IMPROVED_TAUNT_AGGRO_MOD] = base2;
+					new_bonus->ImprovedTaunt[SBIndex::IMPROVED_TAUNT_AGGRO_MOD] = limit_value;
 					new_bonus->ImprovedTaunt[SBIndex::IMPROVED_TAUNT_BUFFSLOT]  = buffslot;
 				}
 				break;
@@ -3283,7 +3436,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				break;
 
 			case SE_FrenziedDevastation:
-				new_bonus->FrenziedDevastation += base2;
+				new_bonus->FrenziedDevastation += limit_value;
 				break;
 
 			case SE_Root:
@@ -3391,9 +3544,9 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_HeadShot:
 			{
-				if(new_bonus->HeadShot[SBIndex::FINISHING_EFFECT_DMG] < base2){
+				if(new_bonus->HeadShot[SBIndex::FINISHING_EFFECT_DMG] < limit_value){
 					new_bonus->HeadShot[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = effect_value;
-					new_bonus->HeadShot[SBIndex::FINISHING_EFFECT_DMG]         = base2;
+					new_bonus->HeadShot[SBIndex::FINISHING_EFFECT_DMG]         = limit_value;
 				}
 				break;
 			}
@@ -3402,16 +3555,16 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if(new_bonus->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < effect_value) {
 					new_bonus->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = effect_value;
-					new_bonus->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = base2;
+					new_bonus->HSLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = limit_value;
 				}
 				break;
 			}
 
 			case SE_Assassinate:
 			{
-				if(new_bonus->Assassinate[SBIndex::FINISHING_EFFECT_DMG] < base2){
+				if(new_bonus->Assassinate[SBIndex::FINISHING_EFFECT_DMG] < limit_value){
 					new_bonus->Assassinate[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = effect_value;
-					new_bonus->Assassinate[SBIndex::FINISHING_EFFECT_DMG]         = base2;
+					new_bonus->Assassinate[SBIndex::FINISHING_EFFECT_DMG]         = limit_value;
 				}
 				break;
 			}
@@ -3420,7 +3573,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			{
 				if(new_bonus->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < effect_value) {
 					new_bonus->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = effect_value;
-					new_bonus->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = base2;
+					new_bonus->AssassinateLevel[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = limit_value;
 				}
 				break;
 			}
@@ -3428,19 +3581,18 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_FinishingBlow:
 			{
 				//base1 = chance, base2 = damage
-				if (new_bonus->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG] < base2){
+				if (new_bonus->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG] < limit_value){
 					new_bonus->FinishingBlow[SBIndex::FINISHING_EFFECT_PROC_CHANCE] = effect_value;
-					new_bonus->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG]         = base2;
+					new_bonus->FinishingBlow[SBIndex::FINISHING_EFFECT_DMG]         = limit_value;
 				}
 				break;
 			}
 
 			case SE_FinishingBlowLvl:
 			{
-				//base1 = level, base2 = ??? (Set to 200 in AA data, possible proc rate mod?)
 				if (new_bonus->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX] < effect_value){
-					new_bonus->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX]          = effect_value;
-					new_bonus->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = base2;
+					new_bonus->FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX]    = effect_value;
+					new_bonus->FinishingBlowLvl[SBIndex::FINISHING_BLOW_LEVEL_HP_RATIO] = limit_value;
 				}
 				break;
 			}
@@ -3463,29 +3615,36 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				break;
 			}
 
-			case SE_IllusionPersistence:
-				new_bonus->IllusionPersistence = true;
+			case SE_Illusion:
+				new_bonus->Illusion = spell_id;
 				break;
 
-			case SE_LimitToSkill:{
+			case SE_IllusionPersistence:
+				new_bonus->IllusionPersistence = effect_value;
+				break;
+
+			case SE_LimitToSkill: {
 				// Bad data or unsupported new skill
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (effect_value > EQ::skills::HIGHEST_SKILL) {
 					break;
+				}
 				if (effect_value <= EQ::skills::HIGHEST_SKILL){
 					new_bonus->LimitToSkill[effect_value] = true;
-				}
+					new_bonus->LimitToSkill[EQ::skills::HIGHEST_SKILL + 2] = true; //Used as a general exists check
+					}
 				break;
 			}
 
-			case SE_SkillProc:{
+			case SE_SkillProcAttempt:{
 
 				for(int e = 0; e < MAX_SKILL_PROCS; e++)
 				{
-					if(new_bonus->SkillProc[e] && new_bonus->SkillProc[e] == spell_id)
+					if (new_bonus->SkillProc[e] && new_bonus->SkillProc[e] == spell_id) {
 						break; //Do not use the same spell id more than once.
-
+					}
 					else if(!new_bonus->SkillProc[e]){
 						new_bonus->SkillProc[e] = spell_id;
+						HasSkillProcs();//This returns it correctly as debug
 						break;
 					}
 				}
@@ -3507,17 +3666,32 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				break;
 			}
 
+			case SE_SkillAttackProc: {
+				for (int i = 0; i < MAX_CAST_ON_SKILL_USE; i += 3) {
+					if (!new_bonus->SkillAttackProc[i + SBIndex::SKILLATK_PROC_SPELL_ID]) { // spell id
+						new_bonus->SkillAttackProc[i + SBIndex::SKILLATK_PROC_SPELL_ID] = max_value; // spell to proc
+						new_bonus->SkillAttackProc[i + SBIndex::SKILLATK_PROC_CHANCE] = effect_value; // Chance base 1000 = 100% proc rate
+						new_bonus->SkillAttackProc[i + SBIndex::SKILLATK_PROC_SKILL] = limit_value; // Skill to Proc Offr
+
+						if (limit_value < EQ::skills::HIGHEST_SKILL) {
+							new_bonus->HasSkillAttackProc[limit_value] = true; //check first before looking for any effects.
+						}
+						break;
+					}
+				}
+			}
+
 			case SE_PC_Pet_Rampage: {
 				new_bonus->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_CHANCE] += effect_value; //Chance to rampage
-				if (new_bonus->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < base2)
-					new_bonus->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = base2; //Damage modifer - take highest
+				if (new_bonus->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < limit_value)
+					new_bonus->PC_Pet_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = limit_value; //Damage modifer - take highest
 				break;
 			}
 
 			case SE_PC_Pet_AE_Rampage: {
 				new_bonus->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_CHANCE] += effect_value; //Chance to rampage
-				if (new_bonus->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < base2)
-					new_bonus->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = base2; //Damage modifer - take highest
+				if (new_bonus->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] < limit_value)
+					new_bonus->PC_Pet_AE_Rampage[SBIndex::PET_RAMPAGE_DMG_MOD] = limit_value; //Damage modifer - take highest
 				break;
 			}
 
@@ -3535,10 +3709,10 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_ReduceTradeskillFail:{
 
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
 
-				new_bonus->ReduceTradeskillFail[base2] += effect_value;
+				new_bonus->ReduceTradeskillFail[limit_value] += effect_value;
 				break;
 			}
 
@@ -3548,11 +3722,11 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				break;
 
 			case SE_RaiseSkillCap: {
-				if (base2 > EQ::skills::HIGHEST_SKILL)
+				if (limit_value > EQ::skills::HIGHEST_SKILL)
 					break;
 
-				if (new_bonus->RaiseSkillCap[base2] < effect_value)
-					new_bonus->RaiseSkillCap[base2] = effect_value;
+				if (new_bonus->RaiseSkillCap[limit_value] < effect_value)
+					new_bonus->RaiseSkillCap[limit_value] = effect_value;
 				break;
 			}
 
@@ -3592,48 +3766,48 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 			case SE_Damage_Taken_Position_Mod:
 			{
 				//Mitigate if damage taken from behind base2 = 0, from front base2 = 1
-				if (base2 < 0 || base2 > 2)
+				if (limit_value < 0 || limit_value > 2)
 					break;
 				if (AdditiveWornBonus)
-					new_bonus->Damage_Taken_Position_Mod[base2] += effect_value;
-				else if (effect_value < 0 && new_bonus->Damage_Taken_Position_Mod[base2] > effect_value)
-					new_bonus->Damage_Taken_Position_Mod[base2] = effect_value;
-				else if (effect_value > 0 && new_bonus->Damage_Taken_Position_Mod[base2] < effect_value)
-					new_bonus->Damage_Taken_Position_Mod[base2] = effect_value;
+					new_bonus->Damage_Taken_Position_Mod[limit_value] += effect_value;
+				else if (effect_value < 0 && new_bonus->Damage_Taken_Position_Mod[limit_value] > effect_value)
+					new_bonus->Damage_Taken_Position_Mod[limit_value] = effect_value;
+				else if (effect_value > 0 && new_bonus->Damage_Taken_Position_Mod[limit_value] < effect_value)
+					new_bonus->Damage_Taken_Position_Mod[limit_value] = effect_value;
 				break;
 			}
 
 			case SE_Melee_Damage_Position_Mod:
 			{
 				//Increase damage by percent from behind base2 = 0, from front base2 = 1
-				if (base2 < 0 || base2 > 2)
+				if (limit_value < 0 || limit_value > 2)
 					break;
 				if (AdditiveWornBonus)
-					new_bonus->Melee_Damage_Position_Mod[base2] += effect_value;
-				else if (effect_value < 0 && new_bonus->Melee_Damage_Position_Mod[base2] > effect_value)
-					new_bonus->Melee_Damage_Position_Mod[base2] = effect_value;
-				else if (effect_value > 0 && new_bonus->Melee_Damage_Position_Mod[base2] < effect_value)
-					new_bonus->Melee_Damage_Position_Mod[base2] = effect_value;
+					new_bonus->Melee_Damage_Position_Mod[limit_value] += effect_value;
+				else if (effect_value < 0 && new_bonus->Melee_Damage_Position_Mod[limit_value] > effect_value)
+					new_bonus->Melee_Damage_Position_Mod[limit_value] = effect_value;
+				else if (effect_value > 0 && new_bonus->Melee_Damage_Position_Mod[limit_value] < effect_value)
+					new_bonus->Melee_Damage_Position_Mod[limit_value] = effect_value;
 				break;
 			}
 
 			case SE_Damage_Taken_Position_Amt:
 			{
 				//Mitigate if damage taken from behind base2 = 0, from front base2 = 1
-				if (base2 < 0 || base2 > 2)
+				if (limit_value < 0 || limit_value > 2)
 					break;
 
-				new_bonus->Damage_Taken_Position_Amt[base2] += effect_value;
+				new_bonus->Damage_Taken_Position_Amt[limit_value] += effect_value;
 				break;
 			}
 
 			case SE_Melee_Damage_Position_Amt:
 			{
 				//Mitigate if damage taken from behind base2 = 0, from front base2 = 1
-				if (base2 < 0 || base2 > 2)
+				if (limit_value < 0 || limit_value > 2)
 					break;
 
-				new_bonus->Melee_Damage_Position_Amt[base2] += effect_value;
+				new_bonus->Melee_Damage_Position_Amt[limit_value] += effect_value;
 				break;
 			}
 
@@ -3691,12 +3865,12 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 			case SE_Weapon_Stance: {
 				if (IsValidSpell(effect_value)) { //base1 is the spell_id of buff
-					if (base2 <= WEAPON_STANCE_TYPE_MAX) { //0=2H, 1=Shield, 2=DW
-						if (IsValidSpell(new_bonus->WeaponStance[base2])) { //Check if we already a spell_id saved for this effect
-							if (spells[new_bonus->WeaponStance[base2]].rank < spells[effect_value].rank) { //If so, check if any new spellids with higher rank exist (live spells for this are ranked).
-								new_bonus->WeaponStance[base2] = effect_value; //Overwrite with new effect
+					if (limit_value <= WEAPON_STANCE_TYPE_MAX) { //0=2H, 1=Shield, 2=DW
+						if (IsValidSpell(new_bonus->WeaponStance[limit_value])) { //Check if we already a spell_id saved for this effect
+							if (spells[new_bonus->WeaponStance[limit_value]].rank < spells[effect_value].rank) { //If so, check if any new spellids with higher rank exist (live spells for this are ranked).
+								new_bonus->WeaponStance[limit_value] = effect_value; //Overwrite with new effect
 								SetWeaponStanceEnabled(true);
-								
+
 								if (WornType) {
 									weaponstance.itembonus_enabled = true;
 								}
@@ -3706,7 +3880,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 							}
 						}
 						else {
-							new_bonus->WeaponStance[base2] = effect_value; //If no prior effect exists, then apply
+							new_bonus->WeaponStance[limit_value] = effect_value; //If no prior effect exists, then apply
 							SetWeaponStanceEnabled(true);
 
 							if (WornType) {
@@ -3721,8 +3895,43 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 				break;
 			}
 
+			case SE_Invisibility:
+			case SE_Invisibility2:
+				effect_value = std::min({ effect_value, MAX_INVISIBILTY_LEVEL });
+				if (new_bonus->invisibility < effect_value)
+					new_bonus->invisibility = effect_value;
+				break;
+
+			case SE_InvisVsUndead:
+			case SE_InvisVsUndead2:
+				if (new_bonus->invisibility_verse_undead < effect_value)
+					new_bonus->invisibility_verse_undead = effect_value;
+				break;
+
+			case SE_InvisVsAnimals:
+			case SE_ImprovedInvisAnimals:
+				effect_value = std::min({ effect_value, MAX_INVISIBILTY_LEVEL });
+				if (new_bonus->invisibility_verse_animal < effect_value)
+					new_bonus->invisibility_verse_animal = effect_value;
+				break;
+
+			case SE_SeeInvis:
+				effect_value = std::min({ effect_value, MAX_INVISIBILTY_LEVEL });
+				if (new_bonus->SeeInvis < effect_value) {
+					new_bonus->SeeInvis = effect_value;
+				}
+				break;
+
 			case SE_ZoneSuspendMinion:
 				new_bonus->ZoneSuspendMinion = effect_value;
+				break;
+
+			case SE_CompleteHeal:
+				new_bonus->CompleteHealBuffBlocker = true;
+				break;
+
+			case SE_TrapCircumvention:
+				new_bonus->TrapCircumvention += effect_value;
 				break;
 
 			//Special custom cases for loading effects on to NPC from 'npc_spels_effects' table
@@ -3730,7 +3939,7 @@ void Mob::ApplySpellsBonuses(uint16 spell_id, uint8 casterlevel, StatBonuses *ne
 
 				//Non-Focused Effect to modify incoming spell damage by resist type.
 				case SE_FcSpellVulnerability:
-					ModVulnerability(base2, effect_value);
+					ModVulnerability(limit_value, effect_value);
 				break;
 			}
 		}
@@ -3777,7 +3986,7 @@ void NPC::CalcItemBonuses(StatBonuses *newbon)
 					newbon->DamageShield += cur->DamageShield;
 				}
 				if(cur->SpellShield > 0) {
-					newbon->SpellDamageShield += cur->SpellShield;
+					newbon->SpellShield += cur->SpellShield;
 				}
 				if(cur->Shielding > 0) {
 					newbon->MeleeMitigation += cur->Shielding;
@@ -3864,7 +4073,10 @@ bool Client::CalcItemScale(uint32 slot_x, uint32 slot_y) {
 		if(inst->IsScaling())
 		{
 			uint16 oldexp = inst->GetExp();
-			parse->EventItem(EVENT_SCALE_CALC, this, inst, nullptr, "", 0);
+
+			if (parse->ItemHasQuestSub(inst, EVENT_SCALE_CALC)) {
+				parse->EventItem(EVENT_SCALE_CALC, this, inst, nullptr, "", 0);
+			}
 
 			if (inst->GetExp() != oldexp) {	// if the scaling factor changed, rescale the item and update the client
 				inst->ScaleItem();
@@ -3883,7 +4095,10 @@ bool Client::CalcItemScale(uint32 slot_x, uint32 slot_y) {
 			if(a_inst->IsScaling())
 			{
 				uint16 oldexp = a_inst->GetExp();
-				parse->EventItem(EVENT_SCALE_CALC, this, a_inst, nullptr, "", 0);
+
+				if (parse->ItemHasQuestSub(a_inst, EVENT_SCALE_CALC)) {
+					parse->EventItem(EVENT_SCALE_CALC, this, a_inst, nullptr, "", 0);
+				}
 
 				if (a_inst->GetExp() != oldexp)
 				{
@@ -3951,9 +4166,14 @@ bool Client::DoItemEnterZone(uint32 slot_x, uint32 slot_y) {
 		{
 			uint16 oldexp = inst->GetExp();
 
-			parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, inst, nullptr, "", 0);
+			if (parse->ItemHasQuestSub(inst, EVENT_ITEM_ENTER_ZONE)) {
+				parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, inst, nullptr, "", 0);
+			}
+
 			if (i <= EQ::invslot::EQUIPMENT_END) {
-				parse->EventItem(EVENT_EQUIP_ITEM, this, inst, nullptr, "", i);
+				if (parse->ItemHasQuestSub(inst, EVENT_EQUIP_ITEM)) {
+					parse->EventItem(EVENT_EQUIP_ITEM, this, inst, nullptr, "", i);
+				}
 			}
 
 			if (inst->GetExp() != oldexp) {	// if the scaling factor changed, rescale the item and update the client
@@ -3963,10 +4183,14 @@ bool Client::DoItemEnterZone(uint32 slot_x, uint32 slot_y) {
 			}
 		} else {
 			if (i <= EQ::invslot::EQUIPMENT_END) {
-				parse->EventItem(EVENT_EQUIP_ITEM, this, inst, nullptr, "", i);
+				if (parse->ItemHasQuestSub(inst, EVENT_EQUIP_ITEM)) {
+					parse->EventItem(EVENT_EQUIP_ITEM, this, inst, nullptr, "", i);
+				}
 			}
 
-			parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, inst, nullptr, "", 0);
+			if (parse->ItemHasQuestSub(inst, EVENT_ITEM_ENTER_ZONE)) {
+				parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, inst, nullptr, "", 0);
+			}
 		}
 
 		//iterate all augments
@@ -3980,7 +4204,9 @@ bool Client::DoItemEnterZone(uint32 slot_x, uint32 slot_y) {
 			{
 				uint16 oldexp = a_inst->GetExp();
 
-				parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, a_inst, nullptr, "", 0);
+				if (parse->ItemHasQuestSub(a_inst, EVENT_ITEM_ENTER_ZONE)) {
+					parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, a_inst, nullptr, "", 0);
+				}
 
 				if (a_inst->GetExp() != oldexp)
 				{
@@ -3989,7 +4215,9 @@ bool Client::DoItemEnterZone(uint32 slot_x, uint32 slot_y) {
 					update_slot = true;
 				}
 			} else {
-				parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, a_inst, nullptr, "", 0);
+				if (parse->ItemHasQuestSub(a_inst, EVENT_ITEM_ENTER_ZONE)) {
+					parse->EventItem(EVENT_ITEM_ENTER_ZONE, this, a_inst, nullptr, "", 0);
+				}
 			}
 		}
 
@@ -4006,7 +4234,7 @@ uint8 Mob::IsFocusEffect(uint16 spell_id,int effect_index, bool AA,uint32 aa_eff
 	uint16 effect = 0;
 
 	if (!AA)
-		effect = spells[spell_id].effectid[effect_index];
+		effect = spells[spell_id].effect_id[effect_index];
 	else
 		effect = aa_effect;
 
@@ -4039,9 +4267,9 @@ uint8 Mob::IsFocusEffect(uint16 spell_id,int effect_index, bool AA,uint32 aa_eff
 		case SE_Fc_ResistIncoming:
 			focusFcResistIncoming;
 		case SE_Fc_Amplify_Mod:
-			focusFcResistIncoming;
+			focusFcAmplifyMod;
 		case SE_Fc_Amplify_Amt:
-			focusFcResistIncoming;
+			focusFcAmplifyAmt;
 		case SE_SpellHateMod:
 			return focusSpellHateMod;
 		case SE_ReduceReuseTimer:
@@ -4118,10 +4346,10 @@ void Mob::NegateSpellEffectBonuses(uint16 spell_id)
 		bool negate_aabonus = false;
 		bool negate_itembonus = false;
 
-		if (spells[spell_id].effectid[i] == SE_NegateSpellEffect) {
+		if (spells[spell_id].effect_id[i] == SE_NegateSpellEffect) {
 
 			//Set negate types
-			switch (spells[spell_id].base[i])
+			switch (spells[spell_id].base_value[i])
 			{
 				case NEGATE_SPA_ALL_BONUSES:
 					negate_spellbonus = true;
@@ -4160,7 +4388,7 @@ void Mob::NegateSpellEffectBonuses(uint16 spell_id)
 			//Negate focus effects
 			for (int e = 0; e < HIGHEST_FOCUS + 1; e++)
 			{
-				if (spellbonuses.FocusEffects[e] == spells[spell_id].base2[i])
+				if (spellbonuses.FocusEffects[e] == spells[spell_id].limit_value[i])
 				{
 					if (negate_spellbonus) { spellbonuses.FocusEffects[e] = effect_value; }
 					continue;
@@ -4168,7 +4396,7 @@ void Mob::NegateSpellEffectBonuses(uint16 spell_id)
 			}
 
 			//Negate bonuses
-			switch (spells[spell_id].base2[i])
+			switch (spells[spell_id].limit_value[i])
 			{
 				case SE_CurrentHP:
 					if (negate_spellbonus) { spellbonuses.HPRegen = effect_value; }
@@ -4427,9 +4655,9 @@ void Mob::NegateSpellEffectBonuses(uint16 spell_id)
 					break;
 
 				case SE_Reflect:
-					if (negate_spellbonus) { spellbonuses.reflect_chance = effect_value; }
-					if (negate_aabonus) { aabonuses.reflect_chance = effect_value; }
-					if (negate_itembonus) { itembonuses.reflect_chance = effect_value; }
+					if (negate_spellbonus) { spellbonuses.reflect[SBIndex::REFLECT_CHANCE] = effect_value; }
+					if (negate_aabonus) { aabonuses.reflect[SBIndex::REFLECT_CHANCE] = effect_value; }
+					if (negate_itembonus) { itembonuses.reflect[SBIndex::REFLECT_CHANCE] = effect_value; }
 					break;
 
 				case SE_Amplification:
@@ -5325,9 +5553,9 @@ void Mob::NegateSpellEffectBonuses(uint16 spell_id)
 					if (negate_spellbonus) { spellbonuses.FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX] = effect_value; }
 					if (negate_aabonus) { aabonuses.FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX] = effect_value; }
 					if (negate_itembonus) { itembonuses.FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_MAX] = effect_value; }
-					if (negate_spellbonus) { spellbonuses.FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = effect_value; }
-					if (negate_aabonus) { aabonuses.FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = effect_value; }
-					if (negate_itembonus) { itembonuses.FinishingBlowLvl[SBIndex::FINISHING_EFFECT_LEVEL_CHANCE_BONUS] = effect_value; }
+					if (negate_spellbonus) { spellbonuses.FinishingBlowLvl[SBIndex::FINISHING_BLOW_LEVEL_HP_RATIO] = effect_value; }
+					if (negate_aabonus) { aabonuses.FinishingBlowLvl[SBIndex::FINISHING_BLOW_LEVEL_HP_RATIO] = effect_value; }
+					if (negate_itembonus) { itembonuses.FinishingBlowLvl[SBIndex::FINISHING_BLOW_LEVEL_HP_RATIO] = effect_value; }
 					break;
 
 				case SE_Sanctuary:
@@ -5341,9 +5569,9 @@ void Mob::NegateSpellEffectBonuses(uint16 spell_id)
 					break;
 
 				case SE_IllusionPersistence:
-					if (negate_spellbonus) { spellbonuses.IllusionPersistence = false; }
-					if (negate_itembonus) { itembonuses.IllusionPersistence = false; }
-					if (negate_aabonus) { aabonuses.IllusionPersistence = false; }
+					if (negate_spellbonus) { spellbonuses.IllusionPersistence = effect_value; }
+					if (negate_itembonus) { itembonuses.IllusionPersistence = effect_value; }
+					if (negate_aabonus) { aabonuses.IllusionPersistence = effect_value; }
 					break;
 
 				case SE_Attack_Accuracy_Max_Percent:
@@ -5454,7 +5682,7 @@ void Mob::NegateSpellEffectBonuses(uint16 spell_id)
 					}
 				}
 
-				case SE_SkillProc: {
+				case SE_SkillProcAttempt: {
 					for (int e = 0; e < MAX_SKILL_PROCS; e++)
 					{
 						if (negate_spellbonus) { spellbonuses.SkillProc[e] = effect_value; }

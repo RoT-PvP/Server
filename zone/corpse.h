@@ -51,9 +51,12 @@ class Corpse : public Mob {
 	static Corpse* LoadCharacterCorpseEntity(uint32 in_dbid, uint32 in_charid, std::string in_charname, const glm::vec4& position, std::string time_of_death, bool rezzed, bool was_at_graveyard, uint32 guild_consent_id);
 
 	/* Corpse: General */
-	virtual bool	Death(Mob* killerMob, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill) { return true; }
-	virtual void	Damage(Mob* from, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false, eSpecialAttacks special = eSpecialAttacks::None) { return; }
-	virtual bool	Attack(Mob* other, int Hand = EQ::invslot::slotPrimary, bool FromRiposte = false, bool IsStrikethrough = true, bool IsFromSpell = false, ExtraAttackOptions *opts = nullptr) { return false; }
+	virtual bool	Death(Mob* killerMob, int64 damage, uint16 spell_id, EQ::skills::SkillType attack_skill) { return true; }
+	virtual void	Damage(Mob* from, int64 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable = true, int8 buffslot = -1, bool iBuffTic = false, eSpecialAttacks special = eSpecialAttacks::None) { return; }
+	bool			Attack(Mob* other, int Hand = EQ::invslot::slotPrimary, bool FromRiposte = false, bool IsStrikethrough = true,
+		bool IsFromSpell = false, ExtraAttackOptions *opts = nullptr) override { 
+		return false; 
+	}
 	virtual bool	HasRaid()			{ return false; }
 	virtual bool	HasGroup()			{ return false; }
 	virtual Raid*	GetRaid()			{ return 0; }
@@ -73,6 +76,7 @@ class Corpse : public Mob {
 	uint32			SetCharID(uint32 iCharID)	{ if (IsPlayerCorpse()) { return (char_id = iCharID); } return 0xFFFFFFFF; };
 	uint32			GetDecayTime()				{ if (!corpse_decay_timer.Enabled()) return 0xFFFFFFFF; else return corpse_decay_timer.GetRemainingTime(); }
 	uint32			GetRezTime()				{ if (!corpse_rez_timer.Enabled()) return 0; else return corpse_rez_timer.GetRemainingTime(); }
+	void            ResetDecayTimer();
 	void			SetDecayTimer(uint32 decay_time);
 	void			SetConsentGroupID(uint32 group_id) { if (IsPlayerCorpse()) { consented_group_id = group_id; } }
 	void			SetConsentRaidID(uint32 raid_id)   { if (IsPlayerCorpse()) { consented_raid_id = raid_id; } }
@@ -95,8 +99,9 @@ class Corpse : public Mob {
 	int32	GetPlayerKillItem() { return player_kill_item; }
 	void	RemoveItem(uint16 lootslot);
 	void	RemoveItem(ServerLootItem_Struct* item_data);
+	void	RemoveItemByID(uint32 item_id, int quantity = 1);
 	void	AddItem(uint32 itemnum, uint16 charges, int16 slot = 0, uint32 aug1 = 0, uint32 aug2 = 0, uint32 aug3 = 0, uint32 aug4 = 0, uint32 aug5 = 0, uint32 aug6 = 0, uint8 attuned = 0);
-	
+
 	/* Corpse: Coin */
 	void	SetCash(uint32 in_copper, uint32 in_silver, uint32 in_gold, uint32 in_platinum);
 	void	RemoveCash();
@@ -117,6 +122,7 @@ class Corpse : public Mob {
 	uint16	CountItem(uint32 item_id);
 	uint32	GetItemIDBySlot(uint16 loot_slot);
 	uint16	GetFirstSlotByItemID(uint32 item_id);
+	std::vector<int> GetLootList();
 	void	LootItem(Client* client, const EQApplicationPacket* app);
 	void	EndLoot(Client* client, const EQApplicationPacket* app);
 	void	MakeLootRequestPackets(Client* client, const EQApplicationPacket* app);

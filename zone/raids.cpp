@@ -16,7 +16,8 @@
 	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
-#include "../common/string_util.h"
+#include "../common/strings.h"
+#include "../common/events/player_event_logs.h"
 
 #include "client.h"
 #include "entity.h"
@@ -24,6 +25,7 @@
 #include "groups.h"
 #include "mob.h"
 #include "raids.h"
+#include "string_ids.h"
 
 #include "worldserver.h"
 
@@ -353,12 +355,26 @@ void Raid::UpdateRaidAAs()
 	SaveRaidLeaderAA();
 }
 
-bool Raid::IsGroupLeader(const char *who)
+bool Raid::IsGroupLeader(const char* name)
 {
-	for(int x = 0; x < MAX_RAID_MEMBERS; x++)
-	{
-		if(strcmp(who, members[x].membername) == 0){
-			return members[x].IsGroupLeader;
+	if (name) {
+		for (const auto &m: members) {
+			if (!strcmp(m.membername, name)) {
+				return m.IsGroupLeader;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool Raid::IsGroupLeader(Client *c)
+{
+	if (c) {
+		for (const auto &m: members) {
+			if (m.member == c) {
+				return true;
+			}
 		}
 	}
 
@@ -535,7 +551,7 @@ void Raid::CastGroupSpell(Mob* caster, uint16 spellid, uint32 gid)
 		if(members[x].member == caster) {
 			caster->SpellOnTarget(spellid, caster);
 #ifdef GROUP_BUFF_PETS
-			if(spells[spellid].targettype != ST_GroupNoPets && caster->GetPet() && caster->HasPetAffinity() && !caster->GetPet()->IsCharmed())
+			if(spells[spellid].target_type != ST_GroupNoPets && caster->GetPet() && caster->HasPetAffinity() && !caster->GetPet()->IsCharmed())
 				caster->SpellOnTarget(spellid, caster->GetPet());
 #endif
 		}
@@ -546,7 +562,7 @@ void Raid::CastGroupSpell(Mob* caster, uint16 spellid, uint32 gid)
 				if(distance <= range2){
 					caster->SpellOnTarget(spellid, members[x].member);
 #ifdef GROUP_BUFF_PETS
-					if(spells[spellid].targettype != ST_GroupNoPets && members[x].member->GetPet() && members[x].member->HasPetAffinity() && !members[x].member->GetPet()->IsCharmed())
+					if(spells[spellid].target_type != ST_GroupNoPets && members[x].member->GetPet() && members[x].member->HasPetAffinity() && !members[x].member->GetPet()->IsCharmed())
 						caster->SpellOnTarget(spellid, members[x].member->GetPet());
 #endif
 				}
@@ -736,129 +752,91 @@ void Raid::BalanceMana(int32 penalty, uint32 gid, float range, Mob* caster, int3
 void Raid::SplitMoney(uint32 gid, uint32 copper, uint32 silver, uint32 gold, uint32 platinum, Client *splitter)
 {
 	//avoid unneeded work
-	if (gid == RAID_GROUPLESS)
+	if (gid == RAID_GROUPLESS) {
 		return;
+	}
 
-	if(copper == 0 && silver == 0 && gold == 0 && platinum == 0)
+	if (
+		!copper &&
+		!silver &&
+		!gold &&
+		!platinum
+	) {
 		return;
+	}
 
-	uint32 i;
-	uint8 membercount = 0;
-	for (i = 0; i < MAX_RAID_MEMBERS; i++) {
-		if (members[i].member != nullptr && members[i].GroupNumber == gid) {
-			membercount++;
+	uint8 member_count = 0;
+	for (uint32 i = 0; i < MAX_RAID_MEMBERS; i++) {
+		if (members[i].member && members[i].GroupNumber == gid) {
+			member_count++;
 		}
 	}
 
-	if (membercount == 0)
+	if (!member_count) {
 		return;
+	}
 
-	uint32 mod;
-	//try to handle round off error a little better
-	if(membercount > 1) {
-		mod = platinum % membercount;
-		if((mod) > 0) {
-			platinum -= mod;
-			gold += 10 * mod;
+	uint32 modifier;
+	if (member_count > 1) {
+		modifier = platinum % member_count;
+
+		if (modifier) {
+			platinum -= modifier;
+			gold += 10 * modifier;
 		}
-		mod = gold % membercount;
-		if((mod) > 0) {
-			gold -= mod;
-			silver += 10 * mod;
+
+		modifier = gold % member_count;
+
+		if (modifier) {
+			gold -= modifier;
+			silver += 10 * modifier;
 		}
-		mod = silver % membercount;
-		if((mod) > 0) {
-			silver -= mod;
-			copper += 10 * mod;
-		}
-	}
 
-	//calculate the splits
-	//We can still round off copper pieces, but I dont care
-	uint32 sc;
-	uint32 cpsplit = copper / membercount;
-	sc = copper % membercount;
-	uint32 spsplit = silver / membercount;
-	uint32 gpsplit = gold / membercount;
-	uint32 ppsplit = platinum / membercount;
+		modifier = silver % member_count;
 
-	char buf[128];
-	buf[63] = '\0';
-	std::string msg = "You receive";
-	bool one = false;
-
-	if(ppsplit > 0) {
-		snprintf(buf, 63, " %u platinum", ppsplit);
-		msg += buf;
-		one = true;
-	}
-	if(gpsplit > 0) {
-		if(one)
-			msg += ",";
-		snprintf(buf, 63, " %u gold", gpsplit);
-		msg += buf;
-		one = true;
-	}
-	if(spsplit > 0) {
-		if(one)
-			msg += ",";
-		snprintf(buf, 63, " %u silver", spsplit);
-		msg += buf;
-		one = true;
-	}
-	if(cpsplit > 0) {
-		if(one)
-			msg += ",";
-		//this message is not 100% accurate for the splitter
-		//if they are receiving any roundoff
-		snprintf(buf, 63, " %u copper", cpsplit);
-		msg += buf;
-		one = true;
-	}
-	msg += " as your split";
-
-	for (i = 0; i < MAX_RAID_MEMBERS; i++) {
-		if (members[i].member != nullptr && members[i].GroupNumber == gid) { // If Group Member is Client
-			//I could not get MoneyOnCorpse to work, so we use this
-			members[i].member->AddMoneyToPP(cpsplit, spsplit, gpsplit, ppsplit, true);
-
-			members[i].member->Message(Chat::Green, msg.c_str());
+		if (modifier) {
+			silver -= modifier;
+			copper += 10 * modifier;
 		}
 	}
-}
 
-void Raid::GroupBardPulse(Mob* caster, uint16 spellid, uint32 gid){
-	uint32 z;
-	float range, distance;
+	auto copper_split = copper / member_count;
+	auto silver_split = silver / member_count;
+	auto gold_split = gold / member_count;
+	auto platinum_split = platinum / member_count;
 
-	if(!caster)
-		return;
+	for (uint32 i = 0; i < MAX_RAID_MEMBERS; i++) {
+		if (members[i].member && members[i].GroupNumber == gid) { // If Group Member is Client
+			members[i].member->AddMoneyToPP(
+				copper_split,
+				silver_split,
+				gold_split,
+				platinum_split,
+				true
+			);
 
-	range = caster->GetAOERange(spellid);
+			if (player_event_logs.IsEventEnabled(PlayerEvent::SPLIT_MONEY)) {
+				auto e = PlayerEvent::SplitMoneyEvent{
+					.copper = copper_split,
+					.silver = silver_split,
+					.gold = gold_split,
+					.platinum = platinum_split,
+					.player_money_balance = members[i].member->GetCarriedMoney(),
+				};
 
-	float range2 = range*range;
-
-	for(z=0; z < MAX_RAID_MEMBERS; z++) {
-		if(members[z].member == caster) {
-			caster->BardPulse(spellid, caster);
-#ifdef GROUP_BUFF_PETS
-			if(caster->GetPet() && caster->HasPetAffinity() && !caster->GetPet()->IsCharmed())
-				caster->BardPulse(spellid, caster->GetPet());
-#endif
-		}
-		else if(members[z].member != nullptr)
-		{
-			if(members[z].GroupNumber == gid){
-				distance = DistanceSquared(caster->GetPosition(), members[z].member->GetPosition());
-				if(distance <= range2) {
-					members[z].member->BardPulse(spellid, caster);
-#ifdef GROUP_BUFF_PETS
-					if(members[z].member->GetPet() && members[z].member->HasPetAffinity() && !members[z].member->GetPet()->IsCharmed())
-						members[z].member->GetPet()->BardPulse(spellid, caster);
-#endif
-				} else
-					LogSpells("Group bard pulse: [{}] is out of range [{}] at distance [{}] from [{}]", members[z].member->GetName(), range, distance, caster->GetName());
+				RecordPlayerEventLogWithClient(members[i].member, PlayerEvent::SPLIT_MONEY, e);
 			}
+
+			members[i].member->MessageString(
+				Chat::MoneySplit,
+				YOU_RECEIVE_AS_SPLIT,
+				Strings::Money(
+					platinum_split,
+					gold_split,
+					silver_split,
+					copper_split
+				).c_str()
+			);
 		}
 	}
 }
@@ -939,12 +917,29 @@ void Raid::RemoveRaidLooter(const char* looter)
 	safe_delete(pack);
 }
 
-bool Raid::IsRaidMember(const char *name){
-	for(int x = 0; x < MAX_RAID_MEMBERS; x++)
-	{
-		if(strcmp(name, members[x].membername) == 0)
-			return true;
+bool Raid::IsRaidMember(const char *name)
+{
+	if (name) {
+		for (const auto &m: members) {
+			if (!strcmp(m.membername, name)) {
+				return true;
+			}
+		}
 	}
+
+	return false;
+}
+
+bool Raid::IsRaidMember(Client* c)
+{
+	if (c) {
+		for (const auto &m: members) {
+			if (m.member == c) {
+				return true;
+			}
+		}
+	}
+
 	return false;
 }
 
@@ -1032,7 +1027,7 @@ void Raid::SendRaidAddAll(const char *who)
 			ram->_class = members[x]._class;
 			ram->level = members[x].level;
 			ram->isGroupLeader = members[x].IsGroupLeader;
-			this->QueuePacket(outapp);
+			QueuePacket(outapp);
 			safe_delete(outapp);
 			return;
 		}
@@ -1484,7 +1479,7 @@ void Raid::GetRaidDetails()
 void Raid::SaveRaidMOTD()
 {
 	std::string query = StringFormat("UPDATE raid_details SET motd = '%s' WHERE raidid = %lu",
-			EscapeString(motd).c_str(), (unsigned long)GetID());
+			Strings::Escape(motd).c_str(), (unsigned long)GetID());
 
 	auto results = database.QueryDatabase(query);
 }
@@ -1591,7 +1586,7 @@ void Raid::SendHPManaEndPacketsTo(Client *client)
 	if(!client)
 		return;
 
-	uint32 group_id = this->GetGroup(client);
+	uint32 group_id = GetGroup(client);
 
 	EQApplicationPacket hp_packet;
 	EQApplicationPacket outapp(OP_MobManaUpdate, sizeof(MobManaUpdate_Struct));
@@ -1631,7 +1626,7 @@ void Raid::SendHPManaEndPacketsFrom(Mob *mob)
 	uint32 group_id = 0;
 
 	if(mob->IsClient())
-		group_id = this->GetGroup(mob->CastToClient());
+		group_id = GetGroup(mob->CastToClient());
 
 	EQApplicationPacket hpapp;
 	EQApplicationPacket outapp(OP_MobManaUpdate, sizeof(MobManaUpdate_Struct));
@@ -1667,7 +1662,7 @@ void Raid::SendManaPacketFrom(Mob *mob)
 	uint32 group_id = 0;
 
 	if (mob->IsClient())
-		group_id = this->GetGroup(mob->CastToClient());
+		group_id = GetGroup(mob->CastToClient());
 
 	EQApplicationPacket outapp(OP_MobManaUpdate, sizeof(MobManaUpdate_Struct));
 
@@ -1694,7 +1689,7 @@ void Raid::SendEndurancePacketFrom(Mob *mob)
 	uint32 group_id = 0;
 
 	if (mob->IsClient())
-		group_id = this->GetGroup(mob->CastToClient());
+		group_id = GetGroup(mob->CastToClient());
 
 	EQApplicationPacket outapp(OP_MobManaUpdate, sizeof(MobManaUpdate_Struct));
 
@@ -1814,10 +1809,10 @@ void Raid::SetDirtyAutoHaters()
 void Raid::QueueClients(Mob *sender, const EQApplicationPacket *app, bool ack_required /*= true*/, bool ignore_sender /*= true*/, float distance /*= 0*/, bool group_only /*= true*/) {
 	if (sender && sender->IsClient()) {
 
-		uint32 group_id = this->GetGroup(sender->CastToClient());
+		uint32 group_id = GetGroup(sender->CastToClient());
 
 		/* If this is a group only packet and we're not in a group -- return */
-		if (!group_id == 0xFFFFFFFF && group_only)
+		if (group_id == 0xFFFFFFFF && group_only)
 			return;
 
 		for (uint32 i = 0; i < MAX_RAID_MEMBERS; i++) {

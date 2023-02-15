@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-	
+
 	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 
 	This program is free software; you can redistribute it and/or modify
@@ -22,6 +22,7 @@
 
 #include "eq_limits.h"
 #include "emu_versions.h"
+#include "bodytypes.h"
 
 #include <string.h>
 
@@ -31,10 +32,6 @@ namespace EQ
 {
 	using RoF2::IINVALID;
 	using RoF2::INULL;
-	
-	namespace inventory {
-		
-	} /*inventory*/
 
 	namespace invtype {
 		using namespace RoF2::invtype::enum_;
@@ -200,7 +197,7 @@ namespace EQ
 		using RoF2::constants::EXPANSIONS_MASK;
 
 		using RoF2::constants::CHARACTER_CREATION_LIMIT;
-		
+
 		const size_t SAY_LINK_OPENER_SIZE = 1;
 		using RoF2::constants::SAY_LINK_BODY_SIZE;
 		const size_t SAY_LINK_TEXT_SIZE = 256; // this may be varied until it breaks something (tested:374) - the others are constant
@@ -220,8 +217,185 @@ namespace EQ
 			stanceBurnAE
 		};
 
+		enum BotSpellIDs : int {
+			Warrior = 3001,
+			Cleric,
+			Paladin,
+			Ranger,
+			Shadowknight,
+			Druid,
+			Monk,
+			Bard,
+			Rogue,
+			Shaman,
+			Necromancer,
+			Wizard,
+			Magician,
+			Enchanter,
+			Beastlord,
+			Berserker
+		};
+
+		enum GravityBehavior : int8 {
+			Ground,
+			Flying,
+			Levitating,
+			Water,
+			Floating,
+			LevitateWhileRunning
+		};
+
+		enum EnvironmentalDamage : uint8 {
+			Lava = 250,
+			Drowning,
+			Falling,
+			Trap
+		};
+
+		enum StuckBehavior : uint8 {
+			RunToTarget,
+			WarpToTarget,
+			TakeNoAction,
+			EvadeCombat
+		};
+
+		enum SpawnAnimations : uint8 {
+			Standing,
+			Sitting,
+			Crouching,
+			Laying,
+			Looting
+		};
+
+		enum ObjectTypes : int {
+			SmallBag,
+			LargeBag,
+			Quiver,
+			BeltPouch,
+			WristPouch,
+			Backpack,
+			SmallChest,
+			LargeChest,
+			Bandolier,
+			Medicine,
+			Tinkering,
+			Lexicon,
+			PoisonMaking,
+			Quest,
+			MixingBowl,
+			Baking,
+			Tailoring,
+			Blacksmithing,
+			Fletching,
+			Brewing,
+			JewelryMaking,
+			Pottery,
+			Kiln,
+			KeyMaker,
+			ResearchWIZ,
+			ResearchMAG,
+			ResearchNEC,
+			ResearchENC,
+			Unknown,
+			ResearchPractice,
+			Alchemy,
+			HighElfForge,
+			DarkElfForge,
+			OgreForge,
+			DwarfForge,
+			GnomeForge,
+			BarbarianForge,
+			IksarForge,
+			HumanForgeOne,
+			HumanForgeTwo,
+			HalflingTailoringOne,
+			HalflingTailoringTwo,
+			EruditeTailoring,
+			WoodElfTailoring,
+			WoodElfFletching,
+			IksarPottery,
+			Fishing,
+			TrollForge,
+			WoodElfForge,
+			HalflingForge,
+			EruditeForge,
+			Merchant,
+			FroglokForge,
+			Augmenter,
+			Churn,
+			TransformationMold,
+			DetransformationMold,
+			Unattuner,
+			TradeskillBag,
+			CollectibleBag,
+			NoDeposit
+		};
+
+		enum WeatherTypes : uint8 {
+			None,
+			Raining,
+			Snowing
+		};
+
+		enum EmoteEventTypes : uint8 {
+			LeaveCombat,
+			EnterCombat,
+			OnDeath,
+			AfterDeath,
+			Hailed,
+			KilledPC,
+			KilledNPC,
+			OnSpawn,
+			OnDespawn
+		};
+
+		enum EmoteTypes : uint8 {
+			Emote,
+			Shout,
+			Proximity
+		};
+
 		const char *GetStanceName(StanceType stance_type);
 		int ConvertStanceTypeToIndex(StanceType stance_type);
+
+		extern const std::map<int, std::string>& GetLanguageMap();
+		std::string GetLanguageName(int language_id);
+
+		extern const std::map<uint32, std::string>& GetLDoNThemeMap();
+		std::string GetLDoNThemeName(uint32 theme_id);
+
+		extern const std::map<int8, std::string>& GetFlyModeMap();
+		std::string GetFlyModeName(int8 flymode_id);
+
+		extern const std::map<bodyType, std::string>& GetBodyTypeMap();
+		std::string GetBodyTypeName(bodyType bodytype_id);
+
+		extern const std::map<uint8, std::string>& GetAccountStatusMap();
+		std::string GetAccountStatusName(uint8 account_status);
+
+		extern const std::map<uint8, std::string>& GetConsiderLevelMap();
+		std::string GetConsiderLevelName(uint8 consider_level);
+
+		extern const std::map<uint8, std::string>& GetEnvironmentalDamageMap();
+		std::string GetEnvironmentalDamageName(uint8 damage_type);
+
+		extern const std::map<uint8, std::string>& GetStuckBehaviorMap();
+		std::string GetStuckBehaviorName(uint8 behavior_id);
+
+		extern const std::map<uint8, std::string>& GetSpawnAnimationMap();
+		std::string GetSpawnAnimationName(uint8 animation_id);
+
+		extern const std::map<int, std::string>& GetObjectTypeMap();
+		std::string GetObjectTypeName(int object_type);
+
+		extern const std::map<uint8, std::string>& GetWeatherTypeMap();
+		std::string GetWeatherTypeName(uint8 weather_type);
+
+		extern const std::map<uint8, std::string>& GetEmoteEventTypeMap();
+		std::string GetEmoteEventTypeName(uint8 emote_event_type);
+
+		extern const std::map<uint8, std::string>& GetEmoteTypeMap();
+		std::string GetEmoteTypeName(uint8 emote_type);
 
 		const int STANCE_TYPE_FIRST = stancePassive;
 		const int STANCE_TYPE_LAST = stanceBurnAE;
@@ -232,7 +406,7 @@ namespace EQ
 	namespace profile {
 		using RoF2::profile::BANDOLIERS_SIZE;
 		using RoF2::profile::BANDOLIER_ITEM_COUNT;
-		
+
 		using RoF2::profile::POTION_BELT_SIZE;
 
 		using RoF2::profile::SKILL_ARRAY_SIZE;
@@ -325,13 +499,98 @@ namespace EQ
 			Guild
 		};
 	}; // namespace consent
-
 } /*EQEmu*/
 
+enum ServerLockType : int {
+	List,
+	Lock,
+	Unlock
+};
+
+enum AccountStatus : uint8 {
+	Player = 0,
+	Steward = 10,
+	ApprenticeGuide = 20,
+	Guide = 50,
+	QuestTroupe = 80,
+	SeniorGuide = 81,
+	GMTester = 85,
+	EQSupport = 90,
+	GMStaff = 95,
+	GMAdmin = 100,
+	GMLeadAdmin = 150,
+	QuestMaster = 160,
+	GMAreas = 170,
+	GMCoder = 180,
+	GMMgmt = 200,
+	GMImpossible = 250,
+	Max = 255
+};
+
+enum Invisibility : uint8 {
+	Visible,
+	Invisible,
+	Special = 255
+};
+
+enum AugmentActions : int {
+	Insert,
+	Remove,
+	Swap,
+	Destroy
+};
+
+enum ConsiderLevel : uint8 {
+	Ally = 1,
+	Warmly,
+	Kindly,
+	Amiably,
+	Indifferently,
+	Apprehensively,
+	Dubiously,
+	Threateningly,
+	Scowls
+};
+
+enum TargetDescriptionType : uint8 {
+	LCSelf,
+	UCSelf,
+	LCYou,
+	UCYou,
+	LCYour,
+	UCYour
+};
+
+enum ReloadWorld : uint8 {
+	NoRepop = 0,
+	Repop,
+	ForceRepop
+};
+
+enum BucketComparison : uint8 {
+	BucketEqualTo = 0,
+	BucketNotEqualTo,
+	BucketGreaterThanOrEqualTo,
+	BucketLesserThanOrEqualTo,
+	BucketGreaterThan,
+	BucketLesserThan,
+	BucketIsAny,
+	BucketIsNotAny,
+	BucketIsBetween,
+	BucketIsNotBetween
+};
+
+enum class EntityFilterType {
+	All,
+	Bots,
+	Clients,
+	NPCs
+};
+
+enum class ApplySpellType {
+	Solo,
+	Group,
+	Raid
+};
+
 #endif /*COMMON_EMU_CONSTANTS_H*/
-
-/*	hack list to prevent circular references
-	
-	eq_limits.h:EQ::inventory::LookupEntry::InventoryTypeSize[n];
-
-*/

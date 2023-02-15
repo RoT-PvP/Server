@@ -8,12 +8,14 @@ class NPC;
 class Lua_Mob;
 class Lua_NPC;
 class Lua_Client;
+struct Lua_NPC_Loot_List;
 
 namespace luabind {
 	struct scope;
 }
 
 luabind::scope lua_register_npc();
+luabind::scope lua_register_npc_loot_list();
 
 class Lua_NPC : public Lua_Mob
 {
@@ -27,7 +29,7 @@ public:
 		return reinterpret_cast<NPC*>(GetLuaPtrData());
 	}
 
-	void Signal(int id);
+	void Signal(int signal_id);
 	int CheckNPCFactionAlly(int faction);
 	void AddItem(int item_id, int charges);
 	void AddItem(int item_id, int charges, bool equip);
@@ -63,7 +65,7 @@ public:
 	uint32 GetSp2();
 	int GetNPCFactionID();
 	int GetPrimaryFaction();
-	int GetNPCHate(Lua_Mob ent);
+	int64 GetNPCHate(Lua_Mob ent);
 	bool IsOnHatelist(Lua_Mob ent);
 	void SetNPCFactionID(int id);
 	uint32 GetMaxDMG();
@@ -78,7 +80,7 @@ public:
 	void StartSwarmTimer(uint32 duration);
 	void DoClassAttacks(Lua_Mob target);
 	int GetMaxWp();
-	void DisplayWaypointInfo(Lua_Client to);
+	void DisplayWaypointInfo(Lua_Client client);
 	void CalculateNewWaypoint();
 	void AssignWaypoints(int grid);
 	void SetWaypointPause();
@@ -88,6 +90,8 @@ public:
 	void PauseWandering(int pause_time);
 	void MoveTo(float x, float y, float z, float h, bool save);
 	void NextGuardPosition();
+	void SaveGuardSpot();
+	void SaveGuardSpot(bool clear);
 	void SaveGuardSpot(float x, float y, float z, float heading);
 	bool IsGuarding();
 	void AI_SetRoambox(float dist, float max_x, float min_x, float max_y, float min_y);
@@ -114,7 +118,7 @@ public:
 	int GetSwarmOwner();
 	int GetSwarmTarget();
 	void SetSwarmTarget(int target);
-	void ModifyNPCStat(const char *stat, const char *value);
+	void ModifyNPCStat(std::string stat, std::string value);
 	void AddAISpell(int priority, int spell_id, int type, int mana_cost, int recast_delay, int resist_adjust);
 	void AddAISpell(int priority, int spell_id, int type, int mana_cost, int recast_delay, int resist_adjust, int min_hp, int max_hp);
 	void RemoveAISpell(int spell_id);
@@ -136,9 +140,10 @@ public:
 	void SetSimpleRoamBox(float box_size, float move_distance);
 	void SetSimpleRoamBox(float box_size, float move_distance, int move_delay);
 	void RecalculateSkills();
-	void ScaleNPC(uint8 npc_level);
+	void ReloadSpells();
 	bool IsRaidTarget();
-	void ChangeLastName(const char *lastname);
+	bool IsRareSpawn();
+	void ChangeLastName(std::string last_name);
 	void ClearLastName();
 	bool HasItem(uint32 item_id);
 	uint16 CountItem(uint32 item_id);
@@ -146,6 +151,29 @@ public:
 	uint16 GetFirstSlotByItemID(uint32 item_id);
 	float GetHealScale();
 	float GetSpellScale();
+	Lua_NPC_Loot_List GetLootList(lua_State* L);
+	void AddAISpellEffect(int spell_effect_id, int base_value, int limit_value, int max_value);
+	void RemoveAISpellEffect(int spell_effect_id);
+	bool HasAISpellEffect(int spell_effect_id);
+	float GetNPCStat(std::string stat);
+	void SendPayload(int payload_id);
+	void SendPayload(int payload_id, std::string payload_value);
+	bool GetKeepsSoldItems();
+	void SetKeepsSoldItems(bool keeps_sold_items);
+	bool IsLDoNTrapped();
+	void SetLDoNTrapped(bool is_trapped);
+	uint8 GetLDoNTrapType();
+	void SetLDoNTrapType(uint8 trap_type);
+	uint16 GetLDoNTrapSpellID();
+	void SetLDoNTrapSpellID(uint16 spell_id);
+	bool IsLDoNLocked();
+	void SetLDoNLocked(bool is_locked);
+	uint16 GetLDoNLockedSkill();
+	void SetLDoNLockedSkill(uint16 skill_value);
+	bool IsLDoNTrapDetected();
+	void SetLDoNTrapDetected(bool is_detected);
+	void ScaleNPC(uint8 npc_level);
+	void ScaleNPC(uint8 npc_level, bool override_special_abilities);
 };
 
 #endif
