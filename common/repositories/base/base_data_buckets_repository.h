@@ -13,16 +13,15 @@
 #define EQEMU_BASE_DATA_BUCKETS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseDataBucketsRepository {
 public:
 	struct DataBuckets {
-		uint64_t    id;
+		int64       id;
 		std::string key;
 		std::string value;
-		uint32_t    expires;
+		int         expires;
 	};
 
 	static std::string PrimaryKey()
@@ -40,24 +39,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"key",
-			"value",
-			"expires",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +69,17 @@ public:
 
 	static DataBuckets NewEntity()
 	{
-		DataBuckets e{};
+		DataBuckets entry{};
 
-		e.id      = 0;
-		e.key     = "";
-		e.value   = "";
-		e.expires = 0;
+		entry.id      = 0;
+		entry.key     = "";
+		entry.value   = "";
+		entry.expires = 0;
 
-		return e;
+		return entry;
 	}
 
-	static DataBuckets GetDataBuckets(
+	static DataBuckets GetDataBucketsEntry(
 		const std::vector<DataBuckets> &data_bucketss,
 		int data_buckets_id
 	)
@@ -124,14 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			DataBuckets e{};
+			DataBuckets entry{};
 
-			e.id      = strtoull(row[0], nullptr, 10);
-			e.key     = row[1] ? row[1] : "";
-			e.value   = row[2] ? row[2] : "";
-			e.expires = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
+			entry.id      = strtoll(row[0], NULL, 10);
+			entry.key     = row[1] ? row[1] : "";
+			entry.value   = row[2] ? row[2] : "";
+			entry.expires = atoi(row[3]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,24 +140,24 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const DataBuckets &e
+		DataBuckets data_buckets_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.key) + "'");
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.value) + "'");
-		v.push_back(columns[3] + " = " + std::to_string(e.expires));
+		update_values.push_back(columns[1] + " = '" + EscapeString(data_buckets_entry.key) + "'");
+		update_values.push_back(columns[2] + " = '" + EscapeString(data_buckets_entry.value) + "'");
+		update_values.push_back(columns[3] + " = " + std::to_string(data_buckets_entry.expires));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				data_buckets_entry.id
 			)
 		);
 
@@ -182,59 +166,59 @@ public:
 
 	static DataBuckets InsertOne(
 		Database& db,
-		DataBuckets e
+		DataBuckets data_buckets_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.key) + "'");
-		v.push_back("'" + Strings::Escape(e.value) + "'");
-		v.push_back(std::to_string(e.expires));
+		insert_values.push_back(std::to_string(data_buckets_entry.id));
+		insert_values.push_back("'" + EscapeString(data_buckets_entry.key) + "'");
+		insert_values.push_back("'" + EscapeString(data_buckets_entry.value) + "'");
+		insert_values.push_back(std::to_string(data_buckets_entry.expires));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			data_buckets_entry.id = results.LastInsertedID();
+			return data_buckets_entry;
 		}
 
-		e = NewEntity();
+		data_buckets_entry = NewEntity();
 
-		return e;
+		return data_buckets_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<DataBuckets> &entries
+		std::vector<DataBuckets> data_buckets_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &data_buckets_entry: data_buckets_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.key) + "'");
-			v.push_back("'" + Strings::Escape(e.value) + "'");
-			v.push_back(std::to_string(e.expires));
+			insert_values.push_back(std::to_string(data_buckets_entry.id));
+			insert_values.push_back("'" + EscapeString(data_buckets_entry.key) + "'");
+			insert_values.push_back("'" + EscapeString(data_buckets_entry.value) + "'");
+			insert_values.push_back(std::to_string(data_buckets_entry.expires));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -255,20 +239,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			DataBuckets e{};
+			DataBuckets entry{};
 
-			e.id      = strtoull(row[0], nullptr, 10);
-			e.key     = row[1] ? row[1] : "";
-			e.value   = row[2] ? row[2] : "";
-			e.expires = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
+			entry.id      = strtoll(row[0], NULL, 10);
+			entry.key     = row[1] ? row[1] : "";
+			entry.value   = row[2] ? row[2] : "";
+			entry.expires = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<DataBuckets> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<DataBuckets> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<DataBuckets> all_entries;
 
@@ -283,20 +267,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			DataBuckets e{};
+			DataBuckets entry{};
 
-			e.id      = strtoull(row[0], nullptr, 10);
-			e.key     = row[1] ? row[1] : "";
-			e.value   = row[2] ? row[2] : "";
-			e.expires = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
+			entry.id      = strtoll(row[0], NULL, 10);
+			entry.key     = row[1] ? row[1] : "";
+			entry.value   = row[2] ? row[2] : "";
+			entry.expires = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -319,32 +303,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

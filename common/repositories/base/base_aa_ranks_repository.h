@@ -13,25 +13,24 @@
 #define EQEMU_BASE_AA_RANKS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseAaRanksRepository {
 public:
 	struct AaRanks {
-		uint32_t id;
-		int32_t  upper_hotkey_sid;
-		int32_t  lower_hotkey_sid;
-		int32_t  title_sid;
-		int32_t  desc_sid;
-		int32_t  cost;
-		int32_t  level_req;
-		int32_t  spell;
-		int32_t  spell_type;
-		int32_t  recast_time;
-		int32_t  expansion;
-		int32_t  prev_id;
-		int32_t  next_id;
+		int id;
+		int upper_hotkey_sid;
+		int lower_hotkey_sid;
+		int title_sid;
+		int desc_sid;
+		int cost;
+		int level_req;
+		int spell;
+		int spell_type;
+		int recast_time;
+		int expansion;
+		int prev_id;
+		int next_id;
 	};
 
 	static std::string PrimaryKey()
@@ -58,33 +57,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"upper_hotkey_sid",
-			"lower_hotkey_sid",
-			"title_sid",
-			"desc_sid",
-			"cost",
-			"level_req",
-			"spell",
-			"spell_type",
-			"recast_time",
-			"expansion",
-			"prev_id",
-			"next_id",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -96,7 +71,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -112,26 +87,26 @@ public:
 
 	static AaRanks NewEntity()
 	{
-		AaRanks e{};
+		AaRanks entry{};
 
-		e.id               = 0;
-		e.upper_hotkey_sid = -1;
-		e.lower_hotkey_sid = -1;
-		e.title_sid        = -1;
-		e.desc_sid         = -1;
-		e.cost             = 1;
-		e.level_req        = 51;
-		e.spell            = -1;
-		e.spell_type       = 0;
-		e.recast_time      = 0;
-		e.expansion        = 0;
-		e.prev_id          = -1;
-		e.next_id          = -1;
+		entry.id               = 0;
+		entry.upper_hotkey_sid = -1;
+		entry.lower_hotkey_sid = -1;
+		entry.title_sid        = -1;
+		entry.desc_sid         = -1;
+		entry.cost             = 1;
+		entry.level_req        = 51;
+		entry.spell            = -1;
+		entry.spell_type       = 0;
+		entry.recast_time      = 0;
+		entry.expansion        = 0;
+		entry.prev_id          = -1;
+		entry.next_id          = -1;
 
-		return e;
+		return entry;
 	}
 
-	static AaRanks GetAaRanks(
+	static AaRanks GetAaRanksEntry(
 		const std::vector<AaRanks> &aa_rankss,
 		int aa_ranks_id
 	)
@@ -160,23 +135,23 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			AaRanks e{};
+			AaRanks entry{};
 
-			e.id               = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.upper_hotkey_sid = static_cast<int32_t>(atoi(row[1]));
-			e.lower_hotkey_sid = static_cast<int32_t>(atoi(row[2]));
-			e.title_sid        = static_cast<int32_t>(atoi(row[3]));
-			e.desc_sid         = static_cast<int32_t>(atoi(row[4]));
-			e.cost             = static_cast<int32_t>(atoi(row[5]));
-			e.level_req        = static_cast<int32_t>(atoi(row[6]));
-			e.spell            = static_cast<int32_t>(atoi(row[7]));
-			e.spell_type       = static_cast<int32_t>(atoi(row[8]));
-			e.recast_time      = static_cast<int32_t>(atoi(row[9]));
-			e.expansion        = static_cast<int32_t>(atoi(row[10]));
-			e.prev_id          = static_cast<int32_t>(atoi(row[11]));
-			e.next_id          = static_cast<int32_t>(atoi(row[12]));
+			entry.id               = atoi(row[0]);
+			entry.upper_hotkey_sid = atoi(row[1]);
+			entry.lower_hotkey_sid = atoi(row[2]);
+			entry.title_sid        = atoi(row[3]);
+			entry.desc_sid         = atoi(row[4]);
+			entry.cost             = atoi(row[5]);
+			entry.level_req        = atoi(row[6]);
+			entry.spell            = atoi(row[7]);
+			entry.spell_type       = atoi(row[8]);
+			entry.recast_time      = atoi(row[9]);
+			entry.expansion        = atoi(row[10]);
+			entry.prev_id          = atoi(row[11]);
+			entry.next_id          = atoi(row[12]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -201,34 +176,34 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const AaRanks &e
+		AaRanks aa_ranks_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.id));
-		v.push_back(columns[1] + " = " + std::to_string(e.upper_hotkey_sid));
-		v.push_back(columns[2] + " = " + std::to_string(e.lower_hotkey_sid));
-		v.push_back(columns[3] + " = " + std::to_string(e.title_sid));
-		v.push_back(columns[4] + " = " + std::to_string(e.desc_sid));
-		v.push_back(columns[5] + " = " + std::to_string(e.cost));
-		v.push_back(columns[6] + " = " + std::to_string(e.level_req));
-		v.push_back(columns[7] + " = " + std::to_string(e.spell));
-		v.push_back(columns[8] + " = " + std::to_string(e.spell_type));
-		v.push_back(columns[9] + " = " + std::to_string(e.recast_time));
-		v.push_back(columns[10] + " = " + std::to_string(e.expansion));
-		v.push_back(columns[11] + " = " + std::to_string(e.prev_id));
-		v.push_back(columns[12] + " = " + std::to_string(e.next_id));
+		update_values.push_back(columns[0] + " = " + std::to_string(aa_ranks_entry.id));
+		update_values.push_back(columns[1] + " = " + std::to_string(aa_ranks_entry.upper_hotkey_sid));
+		update_values.push_back(columns[2] + " = " + std::to_string(aa_ranks_entry.lower_hotkey_sid));
+		update_values.push_back(columns[3] + " = " + std::to_string(aa_ranks_entry.title_sid));
+		update_values.push_back(columns[4] + " = " + std::to_string(aa_ranks_entry.desc_sid));
+		update_values.push_back(columns[5] + " = " + std::to_string(aa_ranks_entry.cost));
+		update_values.push_back(columns[6] + " = " + std::to_string(aa_ranks_entry.level_req));
+		update_values.push_back(columns[7] + " = " + std::to_string(aa_ranks_entry.spell));
+		update_values.push_back(columns[8] + " = " + std::to_string(aa_ranks_entry.spell_type));
+		update_values.push_back(columns[9] + " = " + std::to_string(aa_ranks_entry.recast_time));
+		update_values.push_back(columns[10] + " = " + std::to_string(aa_ranks_entry.expansion));
+		update_values.push_back(columns[11] + " = " + std::to_string(aa_ranks_entry.prev_id));
+		update_values.push_back(columns[12] + " = " + std::to_string(aa_ranks_entry.next_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				aa_ranks_entry.id
 			)
 		);
 
@@ -237,77 +212,77 @@ public:
 
 	static AaRanks InsertOne(
 		Database& db,
-		AaRanks e
+		AaRanks aa_ranks_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.upper_hotkey_sid));
-		v.push_back(std::to_string(e.lower_hotkey_sid));
-		v.push_back(std::to_string(e.title_sid));
-		v.push_back(std::to_string(e.desc_sid));
-		v.push_back(std::to_string(e.cost));
-		v.push_back(std::to_string(e.level_req));
-		v.push_back(std::to_string(e.spell));
-		v.push_back(std::to_string(e.spell_type));
-		v.push_back(std::to_string(e.recast_time));
-		v.push_back(std::to_string(e.expansion));
-		v.push_back(std::to_string(e.prev_id));
-		v.push_back(std::to_string(e.next_id));
+		insert_values.push_back(std::to_string(aa_ranks_entry.id));
+		insert_values.push_back(std::to_string(aa_ranks_entry.upper_hotkey_sid));
+		insert_values.push_back(std::to_string(aa_ranks_entry.lower_hotkey_sid));
+		insert_values.push_back(std::to_string(aa_ranks_entry.title_sid));
+		insert_values.push_back(std::to_string(aa_ranks_entry.desc_sid));
+		insert_values.push_back(std::to_string(aa_ranks_entry.cost));
+		insert_values.push_back(std::to_string(aa_ranks_entry.level_req));
+		insert_values.push_back(std::to_string(aa_ranks_entry.spell));
+		insert_values.push_back(std::to_string(aa_ranks_entry.spell_type));
+		insert_values.push_back(std::to_string(aa_ranks_entry.recast_time));
+		insert_values.push_back(std::to_string(aa_ranks_entry.expansion));
+		insert_values.push_back(std::to_string(aa_ranks_entry.prev_id));
+		insert_values.push_back(std::to_string(aa_ranks_entry.next_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			aa_ranks_entry.id = results.LastInsertedID();
+			return aa_ranks_entry;
 		}
 
-		e = NewEntity();
+		aa_ranks_entry = NewEntity();
 
-		return e;
+		return aa_ranks_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<AaRanks> &entries
+		std::vector<AaRanks> aa_ranks_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &aa_ranks_entry: aa_ranks_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.upper_hotkey_sid));
-			v.push_back(std::to_string(e.lower_hotkey_sid));
-			v.push_back(std::to_string(e.title_sid));
-			v.push_back(std::to_string(e.desc_sid));
-			v.push_back(std::to_string(e.cost));
-			v.push_back(std::to_string(e.level_req));
-			v.push_back(std::to_string(e.spell));
-			v.push_back(std::to_string(e.spell_type));
-			v.push_back(std::to_string(e.recast_time));
-			v.push_back(std::to_string(e.expansion));
-			v.push_back(std::to_string(e.prev_id));
-			v.push_back(std::to_string(e.next_id));
+			insert_values.push_back(std::to_string(aa_ranks_entry.id));
+			insert_values.push_back(std::to_string(aa_ranks_entry.upper_hotkey_sid));
+			insert_values.push_back(std::to_string(aa_ranks_entry.lower_hotkey_sid));
+			insert_values.push_back(std::to_string(aa_ranks_entry.title_sid));
+			insert_values.push_back(std::to_string(aa_ranks_entry.desc_sid));
+			insert_values.push_back(std::to_string(aa_ranks_entry.cost));
+			insert_values.push_back(std::to_string(aa_ranks_entry.level_req));
+			insert_values.push_back(std::to_string(aa_ranks_entry.spell));
+			insert_values.push_back(std::to_string(aa_ranks_entry.spell_type));
+			insert_values.push_back(std::to_string(aa_ranks_entry.recast_time));
+			insert_values.push_back(std::to_string(aa_ranks_entry.expansion));
+			insert_values.push_back(std::to_string(aa_ranks_entry.prev_id));
+			insert_values.push_back(std::to_string(aa_ranks_entry.next_id));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -328,29 +303,29 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			AaRanks e{};
+			AaRanks entry{};
 
-			e.id               = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.upper_hotkey_sid = static_cast<int32_t>(atoi(row[1]));
-			e.lower_hotkey_sid = static_cast<int32_t>(atoi(row[2]));
-			e.title_sid        = static_cast<int32_t>(atoi(row[3]));
-			e.desc_sid         = static_cast<int32_t>(atoi(row[4]));
-			e.cost             = static_cast<int32_t>(atoi(row[5]));
-			e.level_req        = static_cast<int32_t>(atoi(row[6]));
-			e.spell            = static_cast<int32_t>(atoi(row[7]));
-			e.spell_type       = static_cast<int32_t>(atoi(row[8]));
-			e.recast_time      = static_cast<int32_t>(atoi(row[9]));
-			e.expansion        = static_cast<int32_t>(atoi(row[10]));
-			e.prev_id          = static_cast<int32_t>(atoi(row[11]));
-			e.next_id          = static_cast<int32_t>(atoi(row[12]));
+			entry.id               = atoi(row[0]);
+			entry.upper_hotkey_sid = atoi(row[1]);
+			entry.lower_hotkey_sid = atoi(row[2]);
+			entry.title_sid        = atoi(row[3]);
+			entry.desc_sid         = atoi(row[4]);
+			entry.cost             = atoi(row[5]);
+			entry.level_req        = atoi(row[6]);
+			entry.spell            = atoi(row[7]);
+			entry.spell_type       = atoi(row[8]);
+			entry.recast_time      = atoi(row[9]);
+			entry.expansion        = atoi(row[10]);
+			entry.prev_id          = atoi(row[11]);
+			entry.next_id          = atoi(row[12]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<AaRanks> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<AaRanks> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<AaRanks> all_entries;
 
@@ -365,29 +340,29 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			AaRanks e{};
+			AaRanks entry{};
 
-			e.id               = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.upper_hotkey_sid = static_cast<int32_t>(atoi(row[1]));
-			e.lower_hotkey_sid = static_cast<int32_t>(atoi(row[2]));
-			e.title_sid        = static_cast<int32_t>(atoi(row[3]));
-			e.desc_sid         = static_cast<int32_t>(atoi(row[4]));
-			e.cost             = static_cast<int32_t>(atoi(row[5]));
-			e.level_req        = static_cast<int32_t>(atoi(row[6]));
-			e.spell            = static_cast<int32_t>(atoi(row[7]));
-			e.spell_type       = static_cast<int32_t>(atoi(row[8]));
-			e.recast_time      = static_cast<int32_t>(atoi(row[9]));
-			e.expansion        = static_cast<int32_t>(atoi(row[10]));
-			e.prev_id          = static_cast<int32_t>(atoi(row[11]));
-			e.next_id          = static_cast<int32_t>(atoi(row[12]));
+			entry.id               = atoi(row[0]);
+			entry.upper_hotkey_sid = atoi(row[1]);
+			entry.lower_hotkey_sid = atoi(row[2]);
+			entry.title_sid        = atoi(row[3]);
+			entry.desc_sid         = atoi(row[4]);
+			entry.cost             = atoi(row[5]);
+			entry.level_req        = atoi(row[6]);
+			entry.spell            = atoi(row[7]);
+			entry.spell_type       = atoi(row[8]);
+			entry.recast_time      = atoi(row[9]);
+			entry.expansion        = atoi(row[10]);
+			entry.prev_id          = atoi(row[11]);
+			entry.next_id          = atoi(row[12]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -410,32 +385,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

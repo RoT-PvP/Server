@@ -13,16 +13,15 @@
 #define EQEMU_BASE_RESPAWN_TIMES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseRespawnTimesRepository {
 public:
 	struct RespawnTimes {
-		int32_t id;
-		int32_t start;
-		int32_t duration;
-		int16_t instance_id;
+		int id;
+		int start;
+		int duration;
+		int instance_id;
 	};
 
 	static std::string PrimaryKey()
@@ -40,24 +39,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"start",
-			"duration",
-			"instance_id",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +69,17 @@ public:
 
 	static RespawnTimes NewEntity()
 	{
-		RespawnTimes e{};
+		RespawnTimes entry{};
 
-		e.id          = 0;
-		e.start       = 0;
-		e.duration    = 0;
-		e.instance_id = 0;
+		entry.id          = 0;
+		entry.start       = 0;
+		entry.duration    = 0;
+		entry.instance_id = 0;
 
-		return e;
+		return entry;
 	}
 
-	static RespawnTimes GetRespawnTimes(
+	static RespawnTimes GetRespawnTimesEntry(
 		const std::vector<RespawnTimes> &respawn_timess,
 		int respawn_times_id
 	)
@@ -124,14 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			RespawnTimes e{};
+			RespawnTimes entry{};
 
-			e.id          = static_cast<int32_t>(atoi(row[0]));
-			e.start       = static_cast<int32_t>(atoi(row[1]));
-			e.duration    = static_cast<int32_t>(atoi(row[2]));
-			e.instance_id = static_cast<int16_t>(atoi(row[3]));
+			entry.id          = atoi(row[0]);
+			entry.start       = atoi(row[1]);
+			entry.duration    = atoi(row[2]);
+			entry.instance_id = atoi(row[3]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,25 +140,25 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const RespawnTimes &e
+		RespawnTimes respawn_times_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.id));
-		v.push_back(columns[1] + " = " + std::to_string(e.start));
-		v.push_back(columns[2] + " = " + std::to_string(e.duration));
-		v.push_back(columns[3] + " = " + std::to_string(e.instance_id));
+		update_values.push_back(columns[0] + " = " + std::to_string(respawn_times_entry.id));
+		update_values.push_back(columns[1] + " = " + std::to_string(respawn_times_entry.start));
+		update_values.push_back(columns[2] + " = " + std::to_string(respawn_times_entry.duration));
+		update_values.push_back(columns[3] + " = " + std::to_string(respawn_times_entry.instance_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				respawn_times_entry.id
 			)
 		);
 
@@ -183,59 +167,59 @@ public:
 
 	static RespawnTimes InsertOne(
 		Database& db,
-		RespawnTimes e
+		RespawnTimes respawn_times_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.start));
-		v.push_back(std::to_string(e.duration));
-		v.push_back(std::to_string(e.instance_id));
+		insert_values.push_back(std::to_string(respawn_times_entry.id));
+		insert_values.push_back(std::to_string(respawn_times_entry.start));
+		insert_values.push_back(std::to_string(respawn_times_entry.duration));
+		insert_values.push_back(std::to_string(respawn_times_entry.instance_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			respawn_times_entry.id = results.LastInsertedID();
+			return respawn_times_entry;
 		}
 
-		e = NewEntity();
+		respawn_times_entry = NewEntity();
 
-		return e;
+		return respawn_times_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<RespawnTimes> &entries
+		std::vector<RespawnTimes> respawn_times_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &respawn_times_entry: respawn_times_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.start));
-			v.push_back(std::to_string(e.duration));
-			v.push_back(std::to_string(e.instance_id));
+			insert_values.push_back(std::to_string(respawn_times_entry.id));
+			insert_values.push_back(std::to_string(respawn_times_entry.start));
+			insert_values.push_back(std::to_string(respawn_times_entry.duration));
+			insert_values.push_back(std::to_string(respawn_times_entry.instance_id));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -256,20 +240,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			RespawnTimes e{};
+			RespawnTimes entry{};
 
-			e.id          = static_cast<int32_t>(atoi(row[0]));
-			e.start       = static_cast<int32_t>(atoi(row[1]));
-			e.duration    = static_cast<int32_t>(atoi(row[2]));
-			e.instance_id = static_cast<int16_t>(atoi(row[3]));
+			entry.id          = atoi(row[0]);
+			entry.start       = atoi(row[1]);
+			entry.duration    = atoi(row[2]);
+			entry.instance_id = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<RespawnTimes> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<RespawnTimes> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<RespawnTimes> all_entries;
 
@@ -284,20 +268,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			RespawnTimes e{};
+			RespawnTimes entry{};
 
-			e.id          = static_cast<int32_t>(atoi(row[0]));
-			e.start       = static_cast<int32_t>(atoi(row[1]));
-			e.duration    = static_cast<int32_t>(atoi(row[2]));
-			e.instance_id = static_cast<int16_t>(atoi(row[3]));
+			entry.id          = atoi(row[0]);
+			entry.start       = atoi(row[1]);
+			entry.duration    = atoi(row[2]);
+			entry.instance_id = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -320,32 +304,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

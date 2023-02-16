@@ -43,11 +43,7 @@ public:
 	bool DeleteItem(int slot_id);
 	bool DeleteItem(int slot_id, int quantity);
 	bool CheckNoDrop(int slot_id);
-	int CountAugmentEquippedByID(uint32 item_id);
-	int CountItemEquippedByID(uint32 item_id);
 	Lua_ItemInst PopItem(int slot_id);
-	bool HasAugmentEquippedByID(uint32 item_id);
-	bool HasItemEquippedByID(uint32 item_id);
 	int HasItem(int item_id);
 	int HasItem(int item_id, int quantity);
 	int HasItem(int item_id, int quantity, int where);
@@ -68,7 +64,6 @@ public:
 	bool CanItemFitInContainer(Lua_Item item, Lua_Item container);
 	bool SupportsContainers(int slot_id);
 	int GetSlotByItemInst(Lua_ItemInst inst);
-	luabind::object GetAugmentIDsBySlotID(lua_State* L, int16 slot_id);
 };
 
 #endif

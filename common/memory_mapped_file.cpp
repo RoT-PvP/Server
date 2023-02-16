@@ -33,9 +33,6 @@
 #include <sys/stat.h>
 #endif
 
-#include <filesystem>
-namespace fs = std::filesystem;
-
 namespace EQ {
 
 	struct MemoryMappedFile::Implementation {

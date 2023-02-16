@@ -13,17 +13,16 @@
 #define EQEMU_BASE_LDON_TRAP_TEMPLATES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseLdonTrapTemplatesRepository {
 public:
 	struct LdonTrapTemplates {
-		uint32_t id;
-		uint8_t  type;
-		uint16_t spell_id;
-		uint16_t skill;
-		uint8_t  locked;
+		int id;
+		int type;
+		int spell_id;
+		int skill;
+		int locked;
 	};
 
 	static std::string PrimaryKey()
@@ -42,25 +41,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"type",
-			"spell_id",
-			"skill",
-			"locked",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -72,7 +55,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -88,18 +71,18 @@ public:
 
 	static LdonTrapTemplates NewEntity()
 	{
-		LdonTrapTemplates e{};
+		LdonTrapTemplates entry{};
 
-		e.id       = 0;
-		e.type     = 1;
-		e.spell_id = 0;
-		e.skill    = 0;
-		e.locked   = 0;
+		entry.id       = 0;
+		entry.type     = 1;
+		entry.spell_id = 0;
+		entry.skill    = 0;
+		entry.locked   = 0;
 
-		return e;
+		return entry;
 	}
 
-	static LdonTrapTemplates GetLdonTrapTemplates(
+	static LdonTrapTemplates GetLdonTrapTemplatesEntry(
 		const std::vector<LdonTrapTemplates> &ldon_trap_templatess,
 		int ldon_trap_templates_id
 	)
@@ -128,15 +111,15 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			LdonTrapTemplates e{};
+			LdonTrapTemplates entry{};
 
-			e.id       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.type     = static_cast<uint8_t>(strtoul(row[1], nullptr, 10));
-			e.spell_id = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.skill    = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
-			e.locked   = static_cast<uint8_t>(strtoul(row[4], nullptr, 10));
+			entry.id       = atoi(row[0]);
+			entry.type     = atoi(row[1]);
+			entry.spell_id = atoi(row[2]);
+			entry.skill    = atoi(row[3]);
+			entry.locked   = atoi(row[4]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -161,26 +144,26 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const LdonTrapTemplates &e
+		LdonTrapTemplates ldon_trap_templates_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.id));
-		v.push_back(columns[1] + " = " + std::to_string(e.type));
-		v.push_back(columns[2] + " = " + std::to_string(e.spell_id));
-		v.push_back(columns[3] + " = " + std::to_string(e.skill));
-		v.push_back(columns[4] + " = " + std::to_string(e.locked));
+		update_values.push_back(columns[0] + " = " + std::to_string(ldon_trap_templates_entry.id));
+		update_values.push_back(columns[1] + " = " + std::to_string(ldon_trap_templates_entry.type));
+		update_values.push_back(columns[2] + " = " + std::to_string(ldon_trap_templates_entry.spell_id));
+		update_values.push_back(columns[3] + " = " + std::to_string(ldon_trap_templates_entry.skill));
+		update_values.push_back(columns[4] + " = " + std::to_string(ldon_trap_templates_entry.locked));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				ldon_trap_templates_entry.id
 			)
 		);
 
@@ -189,61 +172,61 @@ public:
 
 	static LdonTrapTemplates InsertOne(
 		Database& db,
-		LdonTrapTemplates e
+		LdonTrapTemplates ldon_trap_templates_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.type));
-		v.push_back(std::to_string(e.spell_id));
-		v.push_back(std::to_string(e.skill));
-		v.push_back(std::to_string(e.locked));
+		insert_values.push_back(std::to_string(ldon_trap_templates_entry.id));
+		insert_values.push_back(std::to_string(ldon_trap_templates_entry.type));
+		insert_values.push_back(std::to_string(ldon_trap_templates_entry.spell_id));
+		insert_values.push_back(std::to_string(ldon_trap_templates_entry.skill));
+		insert_values.push_back(std::to_string(ldon_trap_templates_entry.locked));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			ldon_trap_templates_entry.id = results.LastInsertedID();
+			return ldon_trap_templates_entry;
 		}
 
-		e = NewEntity();
+		ldon_trap_templates_entry = NewEntity();
 
-		return e;
+		return ldon_trap_templates_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<LdonTrapTemplates> &entries
+		std::vector<LdonTrapTemplates> ldon_trap_templates_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &ldon_trap_templates_entry: ldon_trap_templates_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.type));
-			v.push_back(std::to_string(e.spell_id));
-			v.push_back(std::to_string(e.skill));
-			v.push_back(std::to_string(e.locked));
+			insert_values.push_back(std::to_string(ldon_trap_templates_entry.id));
+			insert_values.push_back(std::to_string(ldon_trap_templates_entry.type));
+			insert_values.push_back(std::to_string(ldon_trap_templates_entry.spell_id));
+			insert_values.push_back(std::to_string(ldon_trap_templates_entry.skill));
+			insert_values.push_back(std::to_string(ldon_trap_templates_entry.locked));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -264,21 +247,21 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LdonTrapTemplates e{};
+			LdonTrapTemplates entry{};
 
-			e.id       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.type     = static_cast<uint8_t>(strtoul(row[1], nullptr, 10));
-			e.spell_id = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.skill    = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
-			e.locked   = static_cast<uint8_t>(strtoul(row[4], nullptr, 10));
+			entry.id       = atoi(row[0]);
+			entry.type     = atoi(row[1]);
+			entry.spell_id = atoi(row[2]);
+			entry.skill    = atoi(row[3]);
+			entry.locked   = atoi(row[4]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<LdonTrapTemplates> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<LdonTrapTemplates> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<LdonTrapTemplates> all_entries;
 
@@ -293,21 +276,21 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LdonTrapTemplates e{};
+			LdonTrapTemplates entry{};
 
-			e.id       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.type     = static_cast<uint8_t>(strtoul(row[1], nullptr, 10));
-			e.spell_id = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.skill    = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
-			e.locked   = static_cast<uint8_t>(strtoul(row[4], nullptr, 10));
+			entry.id       = atoi(row[0]);
+			entry.type     = atoi(row[1]);
+			entry.spell_id = atoi(row[2]);
+			entry.skill    = atoi(row[3]);
+			entry.locked   = atoi(row[4]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -330,32 +313,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

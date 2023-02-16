@@ -13,16 +13,15 @@
 #define EQEMU_BASE_DISCOVERED_ITEMS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseDiscoveredItemsRepository {
 public:
 	struct DiscoveredItems {
-		uint32_t    item_id;
+		int         item_id;
 		std::string char_name;
-		uint32_t    discovered_date;
-		int32_t     account_status;
+		int         discovered_date;
+		int         account_status;
 	};
 
 	static std::string PrimaryKey()
@@ -40,24 +39,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"item_id",
-			"char_name",
-			"discovered_date",
-			"account_status",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +69,17 @@ public:
 
 	static DiscoveredItems NewEntity()
 	{
-		DiscoveredItems e{};
+		DiscoveredItems entry{};
 
-		e.item_id         = 0;
-		e.char_name       = "";
-		e.discovered_date = 0;
-		e.account_status  = 0;
+		entry.item_id         = 0;
+		entry.char_name       = "";
+		entry.discovered_date = 0;
+		entry.account_status  = 0;
 
-		return e;
+		return entry;
 	}
 
-	static DiscoveredItems GetDiscoveredItems(
+	static DiscoveredItems GetDiscoveredItemsEntry(
 		const std::vector<DiscoveredItems> &discovered_itemss,
 		int discovered_items_id
 	)
@@ -124,14 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			DiscoveredItems e{};
+			DiscoveredItems entry{};
 
-			e.item_id         = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.char_name       = row[1] ? row[1] : "";
-			e.discovered_date = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.account_status  = static_cast<int32_t>(atoi(row[3]));
+			entry.item_id         = atoi(row[0]);
+			entry.char_name       = row[1] ? row[1] : "";
+			entry.discovered_date = atoi(row[2]);
+			entry.account_status  = atoi(row[3]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,25 +140,25 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const DiscoveredItems &e
+		DiscoveredItems discovered_items_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.item_id));
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.char_name) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.discovered_date));
-		v.push_back(columns[3] + " = " + std::to_string(e.account_status));
+		update_values.push_back(columns[0] + " = " + std::to_string(discovered_items_entry.item_id));
+		update_values.push_back(columns[1] + " = '" + EscapeString(discovered_items_entry.char_name) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(discovered_items_entry.discovered_date));
+		update_values.push_back(columns[3] + " = " + std::to_string(discovered_items_entry.account_status));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.item_id
+				discovered_items_entry.item_id
 			)
 		);
 
@@ -183,59 +167,59 @@ public:
 
 	static DiscoveredItems InsertOne(
 		Database& db,
-		DiscoveredItems e
+		DiscoveredItems discovered_items_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.item_id));
-		v.push_back("'" + Strings::Escape(e.char_name) + "'");
-		v.push_back(std::to_string(e.discovered_date));
-		v.push_back(std::to_string(e.account_status));
+		insert_values.push_back(std::to_string(discovered_items_entry.item_id));
+		insert_values.push_back("'" + EscapeString(discovered_items_entry.char_name) + "'");
+		insert_values.push_back(std::to_string(discovered_items_entry.discovered_date));
+		insert_values.push_back(std::to_string(discovered_items_entry.account_status));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.item_id = results.LastInsertedID();
-			return e;
+			discovered_items_entry.item_id = results.LastInsertedID();
+			return discovered_items_entry;
 		}
 
-		e = NewEntity();
+		discovered_items_entry = NewEntity();
 
-		return e;
+		return discovered_items_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<DiscoveredItems> &entries
+		std::vector<DiscoveredItems> discovered_items_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &discovered_items_entry: discovered_items_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.item_id));
-			v.push_back("'" + Strings::Escape(e.char_name) + "'");
-			v.push_back(std::to_string(e.discovered_date));
-			v.push_back(std::to_string(e.account_status));
+			insert_values.push_back(std::to_string(discovered_items_entry.item_id));
+			insert_values.push_back("'" + EscapeString(discovered_items_entry.char_name) + "'");
+			insert_values.push_back(std::to_string(discovered_items_entry.discovered_date));
+			insert_values.push_back(std::to_string(discovered_items_entry.account_status));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -256,20 +240,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			DiscoveredItems e{};
+			DiscoveredItems entry{};
 
-			e.item_id         = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.char_name       = row[1] ? row[1] : "";
-			e.discovered_date = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.account_status  = static_cast<int32_t>(atoi(row[3]));
+			entry.item_id         = atoi(row[0]);
+			entry.char_name       = row[1] ? row[1] : "";
+			entry.discovered_date = atoi(row[2]);
+			entry.account_status  = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<DiscoveredItems> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<DiscoveredItems> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<DiscoveredItems> all_entries;
 
@@ -284,20 +268,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			DiscoveredItems e{};
+			DiscoveredItems entry{};
 
-			e.item_id         = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.char_name       = row[1] ? row[1] : "";
-			e.discovered_date = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.account_status  = static_cast<int32_t>(atoi(row[3]));
+			entry.item_id         = atoi(row[0]);
+			entry.char_name       = row[1] ? row[1] : "";
+			entry.discovered_date = atoi(row[2]);
+			entry.account_status  = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -320,32 +304,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

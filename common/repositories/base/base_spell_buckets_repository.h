@@ -13,13 +13,12 @@
 #define EQEMU_BASE_SPELL_BUCKETS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseSpellBucketsRepository {
 public:
 	struct SpellBuckets {
-		uint64_t    spellid;
+		int64       spellid;
 		std::string key;
 		std::string value;
 	};
@@ -38,23 +37,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"spellid",
-			"key",
-			"value",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -66,7 +51,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -82,16 +67,16 @@ public:
 
 	static SpellBuckets NewEntity()
 	{
-		SpellBuckets e{};
+		SpellBuckets entry{};
 
-		e.spellid = 0;
-		e.key     = "";
-		e.value   = "";
+		entry.spellid = 0;
+		entry.key     = "";
+		entry.value   = "";
 
-		return e;
+		return entry;
 	}
 
-	static SpellBuckets GetSpellBuckets(
+	static SpellBuckets GetSpellBucketsEntry(
 		const std::vector<SpellBuckets> &spell_bucketss,
 		int spell_buckets_id
 	)
@@ -120,13 +105,13 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			SpellBuckets e{};
+			SpellBuckets entry{};
 
-			e.spellid = strtoull(row[0], nullptr, 10);
-			e.key     = row[1] ? row[1] : "";
-			e.value   = row[2] ? row[2] : "";
+			entry.spellid = strtoll(row[0], NULL, 10);
+			entry.key     = row[1] ? row[1] : "";
+			entry.value   = row[2] ? row[2] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -151,24 +136,24 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const SpellBuckets &e
+		SpellBuckets spell_buckets_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.spellid));
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.key) + "'");
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.value) + "'");
+		update_values.push_back(columns[0] + " = " + std::to_string(spell_buckets_entry.spellid));
+		update_values.push_back(columns[1] + " = '" + EscapeString(spell_buckets_entry.key) + "'");
+		update_values.push_back(columns[2] + " = '" + EscapeString(spell_buckets_entry.value) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.spellid
+				spell_buckets_entry.spellid
 			)
 		);
 
@@ -177,57 +162,57 @@ public:
 
 	static SpellBuckets InsertOne(
 		Database& db,
-		SpellBuckets e
+		SpellBuckets spell_buckets_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.spellid));
-		v.push_back("'" + Strings::Escape(e.key) + "'");
-		v.push_back("'" + Strings::Escape(e.value) + "'");
+		insert_values.push_back(std::to_string(spell_buckets_entry.spellid));
+		insert_values.push_back("'" + EscapeString(spell_buckets_entry.key) + "'");
+		insert_values.push_back("'" + EscapeString(spell_buckets_entry.value) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.spellid = results.LastInsertedID();
-			return e;
+			spell_buckets_entry.spellid = results.LastInsertedID();
+			return spell_buckets_entry;
 		}
 
-		e = NewEntity();
+		spell_buckets_entry = NewEntity();
 
-		return e;
+		return spell_buckets_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<SpellBuckets> &entries
+		std::vector<SpellBuckets> spell_buckets_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &spell_buckets_entry: spell_buckets_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.spellid));
-			v.push_back("'" + Strings::Escape(e.key) + "'");
-			v.push_back("'" + Strings::Escape(e.value) + "'");
+			insert_values.push_back(std::to_string(spell_buckets_entry.spellid));
+			insert_values.push_back("'" + EscapeString(spell_buckets_entry.key) + "'");
+			insert_values.push_back("'" + EscapeString(spell_buckets_entry.value) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -248,19 +233,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			SpellBuckets e{};
+			SpellBuckets entry{};
 
-			e.spellid = strtoull(row[0], nullptr, 10);
-			e.key     = row[1] ? row[1] : "";
-			e.value   = row[2] ? row[2] : "";
+			entry.spellid = strtoll(row[0], NULL, 10);
+			entry.key     = row[1] ? row[1] : "";
+			entry.value   = row[2] ? row[2] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<SpellBuckets> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<SpellBuckets> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<SpellBuckets> all_entries;
 
@@ -275,19 +260,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			SpellBuckets e{};
+			SpellBuckets entry{};
 
-			e.spellid = strtoull(row[0], nullptr, 10);
-			e.key     = row[1] ? row[1] : "";
-			e.value   = row[2] ? row[2] : "";
+			entry.spellid = strtoll(row[0], NULL, 10);
+			entry.key     = row[1] ? row[1] : "";
+			entry.value   = row[2] ? row[2] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -310,32 +295,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

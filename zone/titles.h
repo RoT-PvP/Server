@@ -25,20 +25,20 @@ class EQApplicationPacket;
 
 struct TitleEntry
 {
-	int title_id;
-	int skill_id;
-	int min_skill_value;
-	int max_skill_value;
-	int min_aa_points;
-	int max_aa_points;
-	int class_id;
-	int gender_id;
-	int character_id;
-	int status;
-	int item_id;
-	std::string prefix;
-	std::string suffix;
-	int titleset;
+	int TitleID;
+	int SkillID;
+	int MinSkillValue;
+	int MaxSkillValue;
+	int MinAAPoints;
+	int MaxAAPoints;
+	int Class;
+	int Gender;
+	int CharID;
+	int Status;
+	int ItemID;
+	std::string Prefix;
+	std::string Suffix;
+	int TitleSet;
 };
 
 class TitleManager
@@ -48,19 +48,18 @@ public:
 
 	bool LoadTitles();
 
-	EQApplicationPacket *MakeTitlesPacket(Client *client);
-	std::string GetPrefix(int title_id);
-	std::string GetSuffix(int title_id);
-	int NumberOfAvailableTitles(Client *client);
-	bool IsClientEligibleForTitle(Client *client, TitleEntry title);
-	bool IsNewAATitleAvailable(int aa_points, int class_id);
-	bool IsNewTradeSkillTitleAvailable(int skill_id, int skill_value);
-	void CreateNewPlayerTitle(Client *client, std::string title);
-	void CreateNewPlayerSuffix(Client *client, std::string suffix);
-	bool HasTitle(Client* client, uint32 title_id);
+	EQApplicationPacket *MakeTitlesPacket(Client *c);
+	std::string GetPrefix(int TitleID);
+	std::string GetSuffix(int TitleID);
+	int NumberOfAvailableTitles(Client *c);
+	bool IsClientEligibleForTitle(Client *c, std::vector<TitleEntry>::iterator Title);
+	bool IsNewAATitleAvailable(int AAPoints, int Class);
+	bool IsNewTradeSkillTitleAvailable(int SkillID, int SkillValue);
+	void CreateNewPlayerTitle(Client *c, const char *Title);
+	void CreateNewPlayerSuffix(Client *c, const char *Suffix);
 
 protected:
-	std::vector<TitleEntry> titles;
+	std::vector<TitleEntry> Titles;
 };
 
 extern TitleManager title_manager;

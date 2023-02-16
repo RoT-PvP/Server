@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-
+	
 	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 
 	This program is free software; you can redistribute it and/or modify
@@ -28,12 +28,10 @@
 
 #include "../eq_packet_structs.h"
 #include "../misc_functions.h"
-#include "../strings.h"
+#include "../string_util.h"
 #include "../item_instance.h"
 #include "sod_structs.h"
 #include "../rulesys.h"
-#include "../path_manager.h"
-#include "../races.h"
 
 #include <iostream>
 #include <sstream>
@@ -71,7 +69,12 @@ namespace SoD
 	{
 		//create our opcode manager if we havent already
 		if (opcodes == nullptr) {
-			std::string opfile = fmt::format("{}/patch_{}.conf", path.GetPatchPath(), name);
+			//TODO: get this file name from the config file
+			auto Config = EQEmuConfig::get();
+			std::string opfile = Config->PatchDir;
+			opfile += "patch_";
+			opfile += name;
+			opfile += ".conf";
 			//load up the opcode manager.
 			//TODO: figure out how to support shared memory with multiple patches...
 			opcodes = new RegularOpcodeManager();
@@ -112,7 +115,12 @@ namespace SoD
 		//we need to go to every stream and replace it's manager.
 
 		if (opcodes != nullptr) {
-			std::string opfile = fmt::format("{}/patch_{}.conf", path.GetPatchPath(), name);
+			//TODO: get this file name from the config file
+			auto Config = EQEmuConfig::get();
+			std::string opfile = Config->PatchDir;
+			opfile += "patch_";
+			opfile += name;
+			opfile += ".conf";
 			if (!opcodes->ReloadOpcodes(opfile.c_str())) {
 				LogNetcode("[OPCODES] Error reloading opcodes file [{}] for patch [{}]", opfile.c_str(), name);
 				return;
@@ -399,7 +407,7 @@ namespace SoD
 
 		in->size = ob.size();
 		in->pBuffer = ob.detach();
-
+		
 		delete[] __emu_buffer;
 
 		dest->FastQueuePacket(&in, ack_req);
@@ -458,7 +466,7 @@ namespace SoD
 
 	ENCODE(OP_DeleteCharge)
 	{
-		Log(Logs::Detail, Logs::Netcode, "SoD::ENCODE(OP_DeleteCharge)");
+		Log(Logs::Moderate, Logs::Netcode, "SoD::ENCODE(OP_DeleteCharge)");
 
 		ENCODE_FORWARD(OP_MoveItem);
 	}
@@ -497,6 +505,30 @@ namespace SoD
 		__packet->size = buf.size();
 		__packet->pBuffer = new unsigned char[__packet->size];
 		memcpy(__packet->pBuffer, buf.buffer(), __packet->size);
+
+		FINISH_ENCODE();
+	}
+
+	ENCODE(OP_DzCompass)
+	{
+		SETUP_VAR_ENCODE(DynamicZoneCompass_Struct);
+		ALLOC_VAR_ENCODE(structs::DynamicZoneCompass_Struct,
+			sizeof(structs::DynamicZoneCompass_Struct) +
+			sizeof(structs::DynamicZoneCompassEntry_Struct) * emu->count
+		);
+
+		OUT(client_id);
+		OUT(count);
+
+		for (uint32 i = 0; i < emu->count; ++i)
+		{
+			OUT(entries[i].dz_zone_id);
+			OUT(entries[i].dz_instance_id);
+			OUT(entries[i].dz_type);
+			OUT(entries[i].x);
+			OUT(entries[i].y);
+			OUT(entries[i].z);
+		}
 
 		FINISH_ENCODE();
 	}
@@ -1057,7 +1089,7 @@ namespace SoD
 
 		//store away the emu struct
 		uchar* __emu_buffer = in->pBuffer;
-
+		
 		EQ::InternalSerializedItem_Struct* int_struct = (EQ::InternalSerializedItem_Struct*)(&__emu_buffer[4]);
 
 		EQ::OutBuffer ob;
@@ -1074,7 +1106,7 @@ namespace SoD
 
 		in->size = ob.size();
 		in->pBuffer = ob.detach();
-
+		
 		delete[] __emu_buffer;
 
 		dest->FastQueuePacket(&in, ack_req);
@@ -1128,12 +1160,26 @@ namespace SoD
 		ENCODE_LENGTH_EXACT(LootingItem_Struct);
 		SETUP_DIRECT_ENCODE(LootingItem_Struct, structs::LootingItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "SoD::ENCODE(OP_LootItem)");
+		Log(Logs::Moderate, Logs::Netcode, "SoD::ENCODE(OP_LootItem)");
 
 		OUT(lootee);
 		OUT(looter);
 		eq->slot_id = ServerToSoDCorpseSlot(emu->slot_id);
 		OUT(auto_loot);
+
+		FINISH_ENCODE();
+	}
+
+	ENCODE(OP_ManaChange)
+	{
+		ENCODE_LENGTH_EXACT(ManaChange_Struct);
+		SETUP_DIRECT_ENCODE(ManaChange_Struct, structs::ManaChange_Struct);
+
+		OUT(new_mana);
+		OUT(stamina);
+		OUT(spell_id);
+		OUT(keepcasting);
+		eq->slot = -1; // this is spell gem slot. It's -1 in normal operation
 
 		FINISH_ENCODE();
 	}
@@ -1277,7 +1323,7 @@ namespace SoD
 		ENCODE_LENGTH_EXACT(MoveItem_Struct);
 		SETUP_DIRECT_ENCODE(MoveItem_Struct, structs::MoveItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "SoD::ENCODE(OP_MoveItem)");
+		Log(Logs::Moderate, Logs::Netcode, "SoD::ENCODE(OP_MoveItem)");
 
 		eq->from_slot = ServerToSoDSlot(emu->from_slot);
 		eq->to_slot = ServerToSoDSlot(emu->to_slot);
@@ -1333,17 +1379,17 @@ namespace SoD
 		OUT_str(zone_short_name2);
 		OUT(zone_id);
 		OUT(zone_instance);
-		OUT(suspend_buffs);
-		OUT(fast_regen_hp);
-		OUT(fast_regen_mana);
-		OUT(fast_regen_endurance);
+		OUT(SuspendBuffs);
+		OUT(FastRegenHP);
+		OUT(FastRegenMana);
+		OUT(FastRegenEndurance);
 		OUT(underworld_teleport_index);
 
 		/*fill in some unknowns with observed values, hopefully it will help */
 		eq->unknown800 = -1;
 		eq->unknown844 = 600;
-		OUT(lava_damage);
-		OUT(min_lava_damage);
+		eq->unknown880 = 50;
+		eq->unknown884 = 10;
 		eq->unknown888 = 1;
 		eq->unknown889 = 0;
 		eq->unknown890 = 1;
@@ -1353,8 +1399,8 @@ namespace SoD
 		eq->fall_damage = 0;	// 0 = Fall Damage on, 1 = Fall Damage off
 		eq->unknown895 = 0;
 		eq->unknown908 = 2;
-		eq->unknown912  = 2;
-		eq->fog_density = emu->fog_density;
+		eq->unknown912 = 2;
+		eq->FogDensity = emu->fog_density;
 
 		FINISH_ENCODE();
 	}
@@ -1828,8 +1874,8 @@ namespace SoD
 
 		for(auto i = 0; i < eq->total_abilities; ++i) {
 			eq->abilities[i].skill_id = inapp->ReadUInt32();
-			eq->abilities[i].base_value = inapp->ReadUInt32();
-			eq->abilities[i].limit_value = inapp->ReadUInt32();
+			eq->abilities[i].base1 = inapp->ReadUInt32();
+			eq->abilities[i].base2 = inapp->ReadUInt32();
 			eq->abilities[i].slot = inapp->ReadUInt32();
 		}
 
@@ -2467,9 +2513,7 @@ namespace SoD
 			}
 
 			float SpawnSize = emu->size;
-			if (!((emu->NPC == 0) || (emu->race <= RACE_GNOME_12) || (emu->race == RACE_IKSAR_128) ||
-					(emu->race == RACE_VAH_SHIR_130) || (emu->race == RACE_FROGLOK_330) || (emu->race == RACE_DRAKKIN_522))
-				)
+			if (!((emu->NPC == 0) || (emu->race <= 12) || (emu->race == 128) || (emu->race == 130) || (emu->race == 330) || (emu->race == 522)))
 			{
 				PacketSize -= (sizeof(structs::Texture_Struct) * EQ::textures::materialCount);
 
@@ -2666,9 +2710,7 @@ namespace SoD
 
 			Buffer += sizeof(structs::Spawn_Struct_Position);
 
-			if ((emu->NPC == 0) || (emu->race <= RACE_GNOME_12) || (emu->race == RACE_IKSAR_128) ||
-					(emu->race == RACE_VAH_SHIR_130) || (emu->race == RACE_FROGLOK_330) || (emu->race == RACE_DRAKKIN_522)
-				)
+			if ((emu->NPC == 0) || (emu->race <= 12) || (emu->race == 128) || (emu->race == 130) || (emu->race == 330) || (emu->race == 522))
 			{
 				for (k = EQ::textures::textureBegin; k < EQ::textures::materialCount; ++k)
 				{
@@ -2693,9 +2735,7 @@ namespace SoD
 			}
 
 
-			if ((emu->NPC == 0) || (emu->race <= RACE_GNOME_12) || (emu->race == RACE_IKSAR_128) ||
-					(emu->race == RACE_VAH_SHIR_130) || (emu->race == RACE_FROGLOK_330) || (emu->race == RACE_DRAKKIN_522)
-				)
+			if ((emu->NPC == 0) || (emu->race <= 12) || (emu->race == 128) || (emu->race == 130) || (emu->race == 330) || (emu->race == 522))
 			{
 				structs::Texture_Struct *Equipment = (structs::Texture_Struct *)Buffer;
 
@@ -3226,7 +3266,7 @@ namespace SoD
 		DECODE_LENGTH_EXACT(structs::LootingItem_Struct);
 		SETUP_DIRECT_DECODE(LootingItem_Struct, structs::LootingItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "SoD::DECODE(OP_LootItem)");
+		Log(Logs::Moderate, Logs::Netcode, "SoD::DECODE(OP_LootItem)");
 
 		IN(lootee);
 		IN(looter);
@@ -3241,7 +3281,7 @@ namespace SoD
 		DECODE_LENGTH_EXACT(structs::MoveItem_Struct);
 		SETUP_DIRECT_DECODE(MoveItem_Struct, structs::MoveItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "SoD::DECODE(OP_MoveItem)");
+		Log(Logs::Moderate, Logs::Netcode, "SoD::DECODE(OP_MoveItem)");
 
 		emu->from_slot = SoDToServerSlot(eq->from_slot);
 		emu->to_slot = SoDToServerSlot(eq->to_slot);
@@ -3512,7 +3552,7 @@ namespace SoD
 	void SerializeItem(EQ::OutBuffer& ob, const EQ::ItemInstance *inst, int16 slot_id_in, uint8 depth)
 	{
 		const EQ::ItemData *item = inst->GetUnscaledItem();
-
+		
 		SoD::structs::ItemSerializationHeader hdr;
 
 		hdr.stacksize = (inst->IsStackable() ? ((inst->GetCharges() > 254) ? 0xFFFFFFFF : inst->GetCharges()) : 1);
@@ -3823,7 +3863,7 @@ namespace SoD
 		iqbs.HealAmt = item->HealAmt;
 		iqbs.SpellDmg = item->SpellDmg;
 		iqbs.Clairvoyance = item->Clairvoyance;
-
+		
 		ob.write((const char*)&iqbs, sizeof(SoD::structs::ItemQuaternaryBodyStruct));
 
 		EQ::OutBuffer::pos_type count_pos = ob.tellp();
@@ -4035,7 +4075,7 @@ namespace SoD
 			return;
 		}
 
-		auto segments = Strings::Split(server_saylink, '\x12');
+		auto segments = SplitString(server_saylink, '\x12');
 
 		for (size_t segment_iter = 0; segment_iter < segments.size(); ++segment_iter) {
 			if (segment_iter & 1) {
@@ -4075,7 +4115,7 @@ namespace SoD
 			return;
 		}
 
-		auto segments = Strings::Split(sod_saylink, '\x12');
+		auto segments = SplitString(sod_saylink, '\x12');
 
 		for (size_t segment_iter = 0; segment_iter < segments.size(); ++segment_iter) {
 			if (segment_iter & 1) {

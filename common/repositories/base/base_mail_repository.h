@@ -13,20 +13,19 @@
 #define EQEMU_BASE_MAIL_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseMailRepository {
 public:
 	struct Mail {
-		uint32_t    msgid;
-		uint32_t    charid;
-		int32_t     timestamp;
+		int         msgid;
+		int         charid;
+		int         timestamp;
 		std::string from;
 		std::string subject;
 		std::string body;
 		std::string to;
-		int8_t      status;
+		int         status;
 	};
 
 	static std::string PrimaryKey()
@@ -48,28 +47,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"msgid",
-			"charid",
-			"timestamp",
-			"from",
-			"subject",
-			"body",
-			"to",
-			"status",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -81,7 +61,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -97,21 +77,21 @@ public:
 
 	static Mail NewEntity()
 	{
-		Mail e{};
+		Mail entry{};
 
-		e.msgid     = 0;
-		e.charid    = 0;
-		e.timestamp = 0;
-		e.from      = "";
-		e.subject   = "";
-		e.body      = "";
-		e.to        = "";
-		e.status    = 0;
+		entry.msgid     = 0;
+		entry.charid    = 0;
+		entry.timestamp = 0;
+		entry.from      = "";
+		entry.subject   = "";
+		entry.body      = "";
+		entry.to        = "";
+		entry.status    = 0;
 
-		return e;
+		return entry;
 	}
 
-	static Mail GetMail(
+	static Mail GetMailEntry(
 		const std::vector<Mail> &mails,
 		int mail_id
 	)
@@ -140,18 +120,18 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Mail e{};
+			Mail entry{};
 
-			e.msgid     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.charid    = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.timestamp = static_cast<int32_t>(atoi(row[2]));
-			e.from      = row[3] ? row[3] : "";
-			e.subject   = row[4] ? row[4] : "";
-			e.body      = row[5] ? row[5] : "";
-			e.to        = row[6] ? row[6] : "";
-			e.status    = static_cast<int8_t>(atoi(row[7]));
+			entry.msgid     = atoi(row[0]);
+			entry.charid    = atoi(row[1]);
+			entry.timestamp = atoi(row[2]);
+			entry.from      = row[3] ? row[3] : "";
+			entry.subject   = row[4] ? row[4] : "";
+			entry.body      = row[5] ? row[5] : "";
+			entry.to        = row[6] ? row[6] : "";
+			entry.status    = atoi(row[7]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -176,28 +156,28 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Mail &e
+		Mail mail_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.charid));
-		v.push_back(columns[2] + " = " + std::to_string(e.timestamp));
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.from) + "'");
-		v.push_back(columns[4] + " = '" + Strings::Escape(e.subject) + "'");
-		v.push_back(columns[5] + " = '" + Strings::Escape(e.body) + "'");
-		v.push_back(columns[6] + " = '" + Strings::Escape(e.to) + "'");
-		v.push_back(columns[7] + " = " + std::to_string(e.status));
+		update_values.push_back(columns[1] + " = " + std::to_string(mail_entry.charid));
+		update_values.push_back(columns[2] + " = " + std::to_string(mail_entry.timestamp));
+		update_values.push_back(columns[3] + " = '" + EscapeString(mail_entry.from) + "'");
+		update_values.push_back(columns[4] + " = '" + EscapeString(mail_entry.subject) + "'");
+		update_values.push_back(columns[5] + " = '" + EscapeString(mail_entry.body) + "'");
+		update_values.push_back(columns[6] + " = '" + EscapeString(mail_entry.to) + "'");
+		update_values.push_back(columns[7] + " = " + std::to_string(mail_entry.status));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.msgid
+				mail_entry.msgid
 			)
 		);
 
@@ -206,67 +186,67 @@ public:
 
 	static Mail InsertOne(
 		Database& db,
-		Mail e
+		Mail mail_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.msgid));
-		v.push_back(std::to_string(e.charid));
-		v.push_back(std::to_string(e.timestamp));
-		v.push_back("'" + Strings::Escape(e.from) + "'");
-		v.push_back("'" + Strings::Escape(e.subject) + "'");
-		v.push_back("'" + Strings::Escape(e.body) + "'");
-		v.push_back("'" + Strings::Escape(e.to) + "'");
-		v.push_back(std::to_string(e.status));
+		insert_values.push_back(std::to_string(mail_entry.msgid));
+		insert_values.push_back(std::to_string(mail_entry.charid));
+		insert_values.push_back(std::to_string(mail_entry.timestamp));
+		insert_values.push_back("'" + EscapeString(mail_entry.from) + "'");
+		insert_values.push_back("'" + EscapeString(mail_entry.subject) + "'");
+		insert_values.push_back("'" + EscapeString(mail_entry.body) + "'");
+		insert_values.push_back("'" + EscapeString(mail_entry.to) + "'");
+		insert_values.push_back(std::to_string(mail_entry.status));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.msgid = results.LastInsertedID();
-			return e;
+			mail_entry.msgid = results.LastInsertedID();
+			return mail_entry;
 		}
 
-		e = NewEntity();
+		mail_entry = NewEntity();
 
-		return e;
+		return mail_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Mail> &entries
+		std::vector<Mail> mail_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &mail_entry: mail_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.msgid));
-			v.push_back(std::to_string(e.charid));
-			v.push_back(std::to_string(e.timestamp));
-			v.push_back("'" + Strings::Escape(e.from) + "'");
-			v.push_back("'" + Strings::Escape(e.subject) + "'");
-			v.push_back("'" + Strings::Escape(e.body) + "'");
-			v.push_back("'" + Strings::Escape(e.to) + "'");
-			v.push_back(std::to_string(e.status));
+			insert_values.push_back(std::to_string(mail_entry.msgid));
+			insert_values.push_back(std::to_string(mail_entry.charid));
+			insert_values.push_back(std::to_string(mail_entry.timestamp));
+			insert_values.push_back("'" + EscapeString(mail_entry.from) + "'");
+			insert_values.push_back("'" + EscapeString(mail_entry.subject) + "'");
+			insert_values.push_back("'" + EscapeString(mail_entry.body) + "'");
+			insert_values.push_back("'" + EscapeString(mail_entry.to) + "'");
+			insert_values.push_back(std::to_string(mail_entry.status));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -287,24 +267,24 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Mail e{};
+			Mail entry{};
 
-			e.msgid     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.charid    = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.timestamp = static_cast<int32_t>(atoi(row[2]));
-			e.from      = row[3] ? row[3] : "";
-			e.subject   = row[4] ? row[4] : "";
-			e.body      = row[5] ? row[5] : "";
-			e.to        = row[6] ? row[6] : "";
-			e.status    = static_cast<int8_t>(atoi(row[7]));
+			entry.msgid     = atoi(row[0]);
+			entry.charid    = atoi(row[1]);
+			entry.timestamp = atoi(row[2]);
+			entry.from      = row[3] ? row[3] : "";
+			entry.subject   = row[4] ? row[4] : "";
+			entry.body      = row[5] ? row[5] : "";
+			entry.to        = row[6] ? row[6] : "";
+			entry.status    = atoi(row[7]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Mail> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Mail> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Mail> all_entries;
 
@@ -319,24 +299,24 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Mail e{};
+			Mail entry{};
 
-			e.msgid     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.charid    = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.timestamp = static_cast<int32_t>(atoi(row[2]));
-			e.from      = row[3] ? row[3] : "";
-			e.subject   = row[4] ? row[4] : "";
-			e.body      = row[5] ? row[5] : "";
-			e.to        = row[6] ? row[6] : "";
-			e.status    = static_cast<int8_t>(atoi(row[7]));
+			entry.msgid     = atoi(row[0]);
+			entry.charid    = atoi(row[1]);
+			entry.timestamp = atoi(row[2]);
+			entry.from      = row[3] ? row[3] : "";
+			entry.subject   = row[4] ? row[4] : "";
+			entry.body      = row[5] ? row[5] : "";
+			entry.to        = row[6] ? row[6] : "";
+			entry.status    = atoi(row[7]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -359,32 +339,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

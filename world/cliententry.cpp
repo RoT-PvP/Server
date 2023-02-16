@@ -20,18 +20,16 @@
 #include "clientlist.h"
 #include "login_server.h"
 #include "login_server_list.h"
-#include "shared_task_manager.h"
 #include "worlddb.h"
 #include "zoneserver.h"
 #include "world_config.h"
 #include "../common/guilds.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 
 extern uint32          numplayers;
 extern LoginServerList loginserverlist;
 extern ClientList      client_list;
 extern volatile bool   RunLoops;
-extern SharedTaskManager shared_task_manager;
 
 /**
  * @param in_id
@@ -58,7 +56,7 @@ ClientListEntry::ClientListEntry(
 	ClearVars(true);
 
 	LogDebug(
-		"in_id [{0}] in_loginserver_id [{1}] in_loginserver_name [{2}] in_login_name [{3}] in_login_key [{4}] "
+		"ClientListEntry in_id [{0}] in_loginserver_id [{1}] in_loginserver_name [{2}] in_login_name [{3}] in_login_key [{4}] "
 		" in_is_world_admin [{5}] ip [{6}] local [{7}]",
 		in_id,
 		in_loginserver_id,
@@ -133,7 +131,7 @@ void ClientListEntry::SetChar(uint32 iCharID, const char *iCharName)
 
 void ClientListEntry::SetOnline(ZoneServer *iZS, CLE_Status iOnline)
 {
-	if (iZS == Server()) {
+	if (iZS == this->Server()) {
 		SetOnline(iOnline);
 	}
 }
@@ -141,7 +139,7 @@ void ClientListEntry::SetOnline(ZoneServer *iZS, CLE_Status iOnline)
 void ClientListEntry::SetOnline(CLE_Status iOnline)
 {
 	LogClientLogin(
-		"Online status [{}] ({}) status [{}] ({})",
+		"ClientListEntry::SetOnline for [{}] ({}) = [{}] ({})",
 		AccountName(),
 		AccountID(),
 		CLEStatusString[CLE_Status::Online],
@@ -251,8 +249,6 @@ void ClientListEntry::LeavingZone(ZoneServer *iZS, CLE_Status iOnline)
 	}
 	SetOnline(iOnline);
 
-	shared_task_manager.RemoveActiveInvitationByCharacterID(CharID());
-
 	if (pzoneserver) {
 		pzoneserver->RemovePlayer();
 		LSUpdate(pzoneserver);
@@ -274,7 +270,7 @@ void ClientListEntry::ClearVars(bool iAll)
 
 		paccountid = 0;
 		memset(paccountname, 0, sizeof(paccountname));
-		padmin = AccountStatus::Player;
+		padmin = 0;
 	}
 	pzoneserver = 0;
 	pzone       = 0;
@@ -325,7 +321,7 @@ bool ClientListEntry::CheckStale()
 bool ClientListEntry::CheckAuth(uint32 loginserver_account_id, const char *key_password)
 {
 	LogDebug(
-		"ls_account_id [{0}] key_password [{1}] plskey [{2}]",
+		"ClientListEntry::CheckAuth ls_account_id [{0}] key_password [{1}] plskey [{2}]",
 		loginserver_account_id,
 		key_password,
 		plskey
@@ -333,7 +329,7 @@ bool ClientListEntry::CheckAuth(uint32 loginserver_account_id, const char *key_p
 	if (pLSID == loginserver_account_id && strncmp(plskey, key_password, 10) == 0) {
 
 		LogDebug(
-			"ls_account_id [{0}] key_password [{1}] plskey [{2}] lsid [{3}] paccountid [{4}]",
+			"ClientListEntry::CheckAuth ls_account_id [{0}] key_password [{1}] plskey [{2}] lsid [{3}] paccountid [{4}]",
 			loginserver_account_id,
 			key_password,
 			plskey,
@@ -365,7 +361,7 @@ bool ClientListEntry::CheckAuth(uint32 loginserver_account_id, const char *key_p
 		}
 		std::string lsworldadmin;
 		if (database.GetVariable("honorlsworldadmin", lsworldadmin)) {
-			if (atoi(lsworldadmin.c_str()) == 1 && pworldadmin != 0 && (padmin < pworldadmin || padmin == AccountStatus::Player)) {
+			if (atoi(lsworldadmin.c_str()) == 1 && pworldadmin != 0 && (padmin < pworldadmin || padmin == 0)) {
 				padmin = pworldadmin;
 			}
 		}

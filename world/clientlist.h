@@ -57,12 +57,12 @@ public:
 	ClientListEntry* FindCLEByCharacterID(uint32 iCharID);
 	ClientListEntry* FindCLEByLSID(uint32 iLSID);
 	ClientListEntry* GetCLE(uint32 iID);
-	void	GetCLEIP(uint32 in_ip);
+	void	GetCLEIP(uint32 iIP);
 	uint32	GetCLEIPCount(uint32 iLSAccountID);
-	void	DisconnectByIP(uint32 in_ip);
+	void	DisconnectByIP(uint32 iIP);
 	void	CLCheckStale();
 	void	CLEKeepAlive(uint32 numupdates, uint32* wid);
-	void	CLEAdd(uint32 iLSID, const char* iLoginServerName, const char* iLoginName, const char* iLoginKey, int16 iWorldAdmin = AccountStatus::Player, uint32 ip = 0, uint8 local=0);
+	void	CLEAdd(uint32 iLSID, const char* iLoginServerName, const char* iLoginName, const char* iLoginKey, int16 iWorldAdmin = 0, uint32 ip = 0, uint8 local=0);
 	void	UpdateClientGuild(uint32 char_id, uint32 guild_id);
 	void	RemoveCLEByLSID(uint32 iLSID);
 	bool    IsAccountInGame(uint32 iLSID);
@@ -71,13 +71,6 @@ public:
 	void GetClients(const char *zone_name, std::vector<ClientListEntry *> &into);
 
 	void GetClientList(Json::Value &response);
-
-	void SendCharacterMessage(uint32_t character_id, int chat_type, const std::string& message);
-	void SendCharacterMessage(const std::string& character_name, int chat_type, const std::string& message);
-	void SendCharacterMessage(ClientListEntry* character, int chat_type, const std::string& message);
-	void SendCharacterMessageID(uint32_t character_id, int chat_type, int eqstr_id, std::initializer_list<std::string> args = {});
-	void SendCharacterMessageID(const std::string& character_name, int chat_type, int eqstr_id, std::initializer_list<std::string> args = {});
-	void SendCharacterMessageID(ClientListEntry* character, int chat_type, int eqstr_id, std::initializer_list<std::string> args = {});
 
 private:
 	void OnTick(EQ::Timer *t);

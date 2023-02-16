@@ -27,7 +27,9 @@
 #include "client.h"
 #include "mob.h"
 
-#include "bot.h"
+#ifdef BOTS
+	#include "bot.h"
+#endif
 
 #include <algorithm>
 
@@ -162,7 +164,7 @@ int32 Client::LevelRegen()
 	int level = GetLevel();
 	bool bonus = GetPlayerRaceBit(GetBaseRace()) & RuleI(Character, BaseHPRegenBonusRaces);
 	uint8 multiplier1 = bonus ? 2 : 1;
-	int64 hp = 0;
+	int32 hp = 0;
 	//these calculations should match up with the info from Monkly Business, which was last updated ~05/2008: http://www.monkly-business.net/index.php?pageid=abilities
 	if (level < 51) {
 		if (sitting) {
@@ -231,14 +233,14 @@ int32 Client::LevelRegen()
 	return hp;
 }
 
-int64 Client::CalcHPRegen(bool bCombat)
+int32 Client::CalcHPRegen(bool bCombat)
 {
-	int64 item_regen = itembonuses.HPRegen; // worn spells and +regen, already capped
+	int item_regen = itembonuses.HPRegen; // worn spells and +regen, already capped
 	item_regen += GetHeroicSTA() / 20;
 
 	item_regen += aabonuses.HPRegen;
 
-	int64 base = 0;
+	int base = 0;
 	auto base_data = database.GetBaseData(GetLevel(), GetClass());
 	if (base_data)
 		base = static_cast<int>(base_data->hp_regen);
@@ -299,27 +301,22 @@ int64 Client::CalcHPRegen(bool bCombat)
 	//		base = fast_regen;
 	//}
 
-	int64 regen = base + item_regen + spellbonuses.HPRegen; // TODO: client does this in buff tick
+	int regen = base + item_regen + spellbonuses.HPRegen; // TODO: client does this in buff tick
 	return (regen * RuleI(Character, HPRegenMultiplier) / 100);
 }
 
-int64 Client::CalcHPRegenCap()
+int32 Client::CalcHPRegenCap()
 {
-	int64 cap = RuleI(Character, ItemHealthRegenCap);
-	if (GetLevel() > 60) {
-		cap = std::max(cap, static_cast<int64>(GetLevel() - 30)); // if the rule is set greater than normal I guess
-	}
-
-	if (GetLevel() > 65) {
+	int cap = RuleI(Character, ItemHealthRegenCap);
+	if (GetLevel() > 60)
+		cap = std::max(cap, GetLevel() - 30); // if the rule is set greater than normal I guess
+	if (GetLevel() > 65)
 		cap += GetLevel() - 65;
-	}
-
 	cap += aabonuses.ItemHPRegenCap + spellbonuses.ItemHPRegenCap + itembonuses.ItemHPRegenCap;
-
 	return (cap * RuleI(Character, HPRegenMultiplier) / 100);
 }
 
-int64 Client::CalcMaxHP()
+int32 Client::CalcMaxHP()
 {
 	float nd = 10000;
 	max_hp = (CalcBaseHP() + itembonuses.HP);
@@ -335,10 +332,11 @@ int64 Client::CalcMaxHP()
 	if (current_hp > max_hp) {
 		current_hp = max_hp;
 	}
-	int64 hp_perc_cap = spellbonuses.HPPercCap[SBIndex::RESOURCE_PERCENT_CAP];
+	int hp_perc_cap = spellbonuses.HPPercCap[SBIndex::RESOURCE_PERCENT_CAP];
 	if (hp_perc_cap) {
-		int64 curHP_cap = (max_hp * hp_perc_cap) / 100;
+		int curHP_cap = (max_hp * hp_perc_cap) / 100;
 		if (current_hp > curHP_cap || (spellbonuses.HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP] && current_hp > spellbonuses.HPPercCap[SBIndex::RESOURCE_AMOUNT_CAP])) {
+
 			current_hp = curHP_cap;
 		}
 	}
@@ -483,7 +481,7 @@ uint32 Mob::GetClassLevelFactor()
 	return multiplier;
 }
 
-int64 Client::CalcBaseHP()
+int32 Client::CalcBaseHP()
 {
 	if (ClientVersion() >= EQ::versions::ClientVersion::SoF && RuleB(Character, SoDClientUseSoDHPManaEnd)) {
 		int stats = GetSTA();
@@ -513,7 +511,7 @@ int64 Client::CalcBaseHP()
 }
 
 // This is for calculating Base HPs + STA bonus for SoD or later clients.
-uint64 Client::GetClassHPFactor()
+uint32 Client::GetClassHPFactor()
 {
 	int factor;
 	// Note: Base HP factor under level 41 is equal to factor / 12, and from level 41 to 80 is factor / 6.
@@ -570,7 +568,7 @@ int32 Client::GetRawItemAC()
 	return Total;
 }
 
-int64 Client::CalcMaxMana()
+int32 Client::CalcMaxMana()
 {
 	switch (GetCasterClass()) {
 		case 'I':
@@ -601,18 +599,18 @@ int64 Client::CalcMaxMana()
 			current_mana = curMana_cap;
 		}
 	}
-	LogSpells("for [{}] returning [{}]", GetName(), max_mana);
+	LogSpells("Client::CalcMaxMana() called for [{}] - returning [{}]", GetName(), max_mana);
 	return max_mana;
 }
 
-int64 Client::CalcBaseMana()
+int32 Client::CalcBaseMana()
 {
 	int ConvertedWisInt = 0;
 	int MindLesserFactor, MindFactor;
 	int WisInt = 0;
-	int64 base_mana = 0;
+	int base_mana = 0;
 	int wisint_mana = 0;
-	int64 max_m = 0;
+	int32 max_m = 0;
 	switch (GetCasterClass()) {
 		case 'I':
 			WisInt = GetINT();
@@ -694,7 +692,7 @@ int64 Client::CalcBaseMana()
 	return max_m;
 }
 
-int64 Client::CalcBaseManaRegen()
+int32 Client::CalcBaseManaRegen()
 {
 	uint8 clevel = GetLevel();
 	int32 regen = 0;
@@ -712,7 +710,7 @@ int64 Client::CalcBaseManaRegen()
 	return regen;
 }
 
-int64 Client::CalcManaRegen(bool bCombat)
+int32 Client::CalcManaRegen(bool bCombat)
 {
 	int regen = 0;
 	auto level = GetLevel();
@@ -773,7 +771,7 @@ int64 Client::CalcManaRegen(bool bCombat)
 
 	if (!bCombat && CanFastRegen() && (IsSitting() || CanMedOnHorse())) {
 		auto max_mana = GetMaxMana();
-		int fast_regen = 6 * (max_mana / zone->newzone_data.fast_regen_mana);
+		int fast_regen = 6 * (max_mana / zone->newzone_data.FastRegenMana);
 		if (regen < fast_regen) // weird, but what the client is doing
 			regen = fast_regen;
 	}
@@ -782,9 +780,9 @@ int64 Client::CalcManaRegen(bool bCombat)
 	return (regen * RuleI(Character, ManaRegenMultiplier) / 100);
 }
 
-int64 Client::CalcManaRegenCap()
+int32 Client::CalcManaRegenCap()
 {
-	int64 cap = RuleI(Character, ItemManaRegenCap) + aabonuses.ItemManaRegenCap + itembonuses.ItemManaRegenCap + spellbonuses.ItemManaRegenCap;
+	int32 cap = RuleI(Character, ItemManaRegenCap) + aabonuses.ItemManaRegenCap + itembonuses.ItemManaRegenCap + spellbonuses.ItemManaRegenCap;
 	return (cap * RuleI(Character, ManaRegenMultiplier) / 100);
 }
 
@@ -1035,14 +1033,14 @@ int Client::CalcHaste()
 		h += spellbonuses.hastetype2 > 10 ? 10 : spellbonuses.hastetype2;
 	}
 	// 26+ no cap, 1-25 10
-	if (level > 25 || RuleB(Character, IgnoreLevelBasedHasteCaps)) { // 26+
+	if (level > 25) { // 26+
 		h += itembonuses.haste;
 	}
 	else {   // 1-25
 		h += itembonuses.haste > 10 ? 10 : itembonuses.haste;
 	}
 	// 60+ 100, 51-59 85, 1-50 level+25
-	if (level > 59 || RuleB(Character, IgnoreLevelBasedHasteCaps)) { // 60+
+	if (level > 59) { // 60+
 		cap = RuleI(Character, HasteCap);
 	}
 	else if (level > 50) {  // 51-59
@@ -1051,11 +1049,12 @@ int Client::CalcHaste()
 	else {   // 1-50
 		cap = level + 25;
 	}
+	cap = mod_client_haste_cap(cap);
 	if (h > cap) {
 		h = cap;
 	}
 	// 51+ 25 (despite there being higher spells...), 1-50 10
-	if (level > 50 || RuleB(Character, IgnoreLevelBasedHasteCaps)) { // 51+
+	if (level > 50) { // 51+
 		cap = RuleI(Character, Hastev3Cap);
 		if (spellbonuses.hastetype3 > cap) {
 			h += cap;
@@ -1067,6 +1066,7 @@ int Client::CalcHaste()
 		h += spellbonuses.hastetype3 > 10 ? 10 : spellbonuses.hastetype3;
 	}
 	h += ExtraHaste;	//GM granted haste.
+	h = mod_client_haste(h);
 	Haste = 100 + h;
 	return Haste;
 }
@@ -1512,30 +1512,22 @@ int32 Client::CalcATK()
 	return (ATK);
 }
 
-uint32 Mob::GetInstrumentMod(uint16 spell_id)
+uint32 Mob::GetInstrumentMod(uint16 spell_id) const
 {
-	if (GetClass() != BARD) {
-		//Other classes can get a base effects mod using SPA 413
-		if (HasBaseEffectFocus()) {
-			return (10 + (GetFocusEffect(focusFcBaseEffects, spell_id) / 10));//TODO: change action->instrument mod to float to support < 10% focus values
-		}
+	if (GetClass() != BARD || spells[spell_id].IsDisciplineBuff) // Puretone is Singing but doesn't get any mod
 		return 10;
-	}
-
-	//AA's click effects that use instrument/singing skills don't apply modifiers (Confirmed on live 11/24/21 ~Kayen)
-	if (casting_spell_aa_id) {
-		return 10;
-	}
 
 	uint32 effectmod = 10;
 	int effectmodcap = 0;
+	bool nocap = false;
 	if (RuleB(Character, UseSpellFileSongCap)) {
-		effectmodcap = spells[spell_id].song_cap / 10;
-		if (effectmodcap) {
-			effectmodcap += 10; //Actual calculated cap is 100 greater than songcap value.
-		}
-	}
-	else {
+		effectmodcap = spells[spell_id].songcap / 10;
+		// this looks a bit weird, but easiest way I could think to keep both systems working
+		if (effectmodcap == 0)
+			nocap = true;
+		else
+			effectmodcap += 10;
+	} else {
 		effectmodcap = RuleI(Character, BaseInstrumentSoftCap);
 	}
 	// this should never use spell modifiers...
@@ -1544,39 +1536,6 @@ uint32 Mob::GetInstrumentMod(uint16 spell_id)
 	// item mods are in 10ths of percent increases
 	// clickies (Symphony of Battle) that have a song skill don't get AA bonus for some reason
 	// but clickies that are songs (selo's on Composers Greaves) do get AA mod as well
-
-	/*Mechanics: updated 10/19/21 ~Kayen
-		Bard Spell Effects
-
-		Mod uses the highest bonus from either of these for each instrument
-		SPA 179 SE_AllInstrumentMod is used for instrument spellbonus.______Mod. This applies to ALL instrument mods (Puretones Discipline)
-		SPA 260 SE_AddSingingMod is used for instrument spellbonus.______Mod. This applies to indiviual instrument mods. (Instrument mastery AA)
-			-Example usage: From AA a value of 4 = 40%
-
-		SPA 118 SE_Amplification is a stackable singing mod, on live it exists as both spell and AA bonus (stackable)
-			- Live Behavior: Amplifcation can be modified by singing mods and amplification itself, thus on the second cast of Amplification you will recieve
-			  the mod from the first cast, this continues until you reach the song mod cap.
-
-		SPA 261 SE_SongModCap raises song focus cap (No longer used on live)
-		SPA 270 SE_BardSongRange increase range of beneficial bard songs (Sionachie's Crescendo)
-
-		SPA 413 SE_FcBaseEffects focus effect that replaced item instrument mods
-
-		Issues 10-15-21:
-		Bonuses are not applied, unless song is stopped and restarted due to pulse keeping it continues. -> Need to recode songs to recast when duration ends.
-
-		Formula Live Bards:
-		mod = (10 + (aabonus.____Mod [SPA 260 AA Instrument Mastery]) + (SE_FcBaseEffect[SPA 413])/10 + (spellbonus.______Mod [SPA 179 Puretone Disc]) + (Amplication [SPA 118])/10
-
-		TODO: Spell Table Fields that need to be implemented
-		Field 225	//float base_effects_focus_slope;  // -- BASE_EFFECTS_FOCUS_SLOPE
-		Field 226	//float base_effects_focus_offset; // -- BASE_EFFECTS_FOCUS_OFFSET (35161	Ruaabri's Reckless Renewal -120)
-		Based on description possibly works as a way to quickly balance instrument mods to a song.
-		Using a standard slope formula: y = mx + b
-		modified_base_value = (base_effects_focus_slope x effectmod)(base_value) + (base_effects_focus_offset)
-		Will need to confirm on live before implementing.
-	*/
-
 	switch (spells[spell_id].skill) {
 	case EQ::skills::SkillPercussionInstruments:
 		if (itembonuses.percussionMod == 0 && spellbonuses.percussionMod == 0)
@@ -1634,36 +1593,20 @@ uint32 Mob::GetInstrumentMod(uint16 spell_id)
 		else
 			effectmod = spellbonuses.singingMod;
 		if (IsBardSong(spell_id))
-			effectmod += aabonuses.singingMod + (spellbonuses.Amplification + itembonuses.Amplification + aabonuses.Amplification); //SPA 118 SE_Amplification
+			effectmod += aabonuses.singingMod + spellbonuses.Amplification;
 		break;
 	default:
 		effectmod = 10;
 		return effectmod;
 	}
-
-	if (HasBaseEffectFocus()) {
-		effectmod += (GetFocusEffect(focusFcBaseEffects, spell_id) / 10);
-	}
-
-	if (effectmod < 10) {
+	if (!RuleB(Character, UseSpellFileSongCap))
+		effectmodcap += aabonuses.songModCap + spellbonuses.songModCap + itembonuses.songModCap;
+	if (effectmod < 10)
 		effectmod = 10;
-	}
+	if (!nocap && effectmod > effectmodcap) // if the cap is calculated to be 0 using new rules, no cap.
+		effectmod = effectmodcap;
 
-	if (effectmodcap) {
-
-		effectmodcap += aabonuses.songModCap + spellbonuses.songModCap + itembonuses.songModCap; //SPA 261 SE_SongModCap (not used on live)
-
-		//Incase a negative modifier is used.
-		if (effectmodcap <= 0) {
-			effectmodcap = 10;
-		}
-
-		if (effectmod > effectmodcap) { // if the cap is calculated to be 0 using new rules, no cap.
-			effectmod = effectmodcap;
-		}
-	}
-
-	LogSpells("Name [{}] spell [{}] mod [{}] modcap [{}]\n", GetName(), spell_id, effectmod, effectmodcap);
+	LogSpells("[{}]::GetInstrumentMod() spell=[{}] mod=[{}] modcap=[{}]\n", GetName(), spell_id, effectmod, effectmodcap);
 
 	return effectmod;
 }
@@ -1686,9 +1629,9 @@ void Client::CalcMaxEndurance()
 	}
 }
 
-int64 Client::CalcBaseEndurance()
+int32 Client::CalcBaseEndurance()
 {
-	int64 base_end = 0;
+	int32 base_end = 0;
 	if (ClientVersion() >= EQ::versions::ClientVersion::SoF && RuleB(Character, SoDClientUseSoDHPManaEnd)) {
 		double heroic_stats = (GetHeroicSTR() + GetHeroicSTA() + GetHeroicDEX() + GetHeroicAGI()) / 4.0f;
 		double stats = (GetSTR() + GetSTA() + GetDEX() + GetAGI()) / 4.0f;
@@ -1723,7 +1666,7 @@ int64 Client::CalcBaseEndurance()
 				HalfBonus800plus = int( (Stats - 800) / 16 );
 			}
 		}
-		int64 bonus_sum = BonusUpto800 + Bonus400to800 + HalfBonus400to800 + Bonus800plus + HalfBonus800plus;
+		int bonus_sum = BonusUpto800 + Bonus400to800 + HalfBonus400to800 + Bonus800plus + HalfBonus800plus;
 		base_end = LevelBase;
 		//take all of the sums from above, then multiply by level*0.075
 		base_end += ( bonus_sum * 3 * GetLevel() ) / 40;
@@ -1731,9 +1674,9 @@ int64 Client::CalcBaseEndurance()
 	return base_end;
 }
 
-int64 Client::CalcEnduranceRegen(bool bCombat)
+int32 Client::CalcEnduranceRegen(bool bCombat)
 {
-	int64 base = 0;
+	int base = 0;
 	if (!IsStarved()) {
 		auto base_data = database.GetBaseData(GetLevel(), GetClass());
 		if (base_data) {
@@ -1798,10 +1741,10 @@ int64 Client::CalcEnduranceRegen(bool bCombat)
 
 	auto aa_regen = aabonuses.EnduranceRegen;
 
-	int64 regen = base;
+	int regen = base;
 	if (!bCombat && CanFastRegen() && (IsSitting() || CanMedOnHorse())) {
 		auto max_end = GetMaxEndurance();
-		int fast_regen = 6 * (max_end / zone->newzone_data.fast_regen_endurance);
+		int fast_regen = 6 * (max_end / zone->newzone_data.FastRegenEndurance);
 		if (aa_regen < fast_regen) // weird, but what the client is doing
 			aa_regen = fast_regen;
 	}
@@ -1812,9 +1755,9 @@ int64 Client::CalcEnduranceRegen(bool bCombat)
 	return (regen * RuleI(Character, EnduranceRegenMultiplier) / 100);
 }
 
-int64 Client::CalcEnduranceRegenCap()
+int32 Client::CalcEnduranceRegenCap()
 {
-	int64 cap = RuleI(Character, ItemEnduranceRegenCap) + aabonuses.ItemEnduranceRegenCap + itembonuses.ItemEnduranceRegenCap + spellbonuses.ItemEnduranceRegenCap;
+	int cap = RuleI(Character, ItemEnduranceRegenCap) + aabonuses.ItemEnduranceRegenCap + itembonuses.ItemEnduranceRegenCap + spellbonuses.ItemEnduranceRegenCap;
 	return (cap * RuleI(Character, EnduranceRegenMultiplier) / 100);
 }
 

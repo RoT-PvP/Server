@@ -1,4 +1,25 @@
 /**
+ * EQEmulator: Everquest Server Emulator
+ * Copyright (C) 2001-2020 EQEmulator Development Team (https://github.com/EQEmu/Server)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY except by those people which sell it, which
+ * are required to give you total support for your newly bought product;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ *
+ */
+
+/**
  * This repository was automatically generated and is NOT to be modified directly.
  * Any repository modifications are meant to be made to
  * the repository extending the base. Any modifications to base repositories are to
@@ -9,7 +30,7 @@
 #define EQEMU_BASE_VARIABLES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
+#include "../../string_util.h"
 
 class BaseVariablesRepository {
 public:
@@ -37,7 +58,7 @@ public:
 
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string InsertColumnsRaw()
@@ -52,7 +73,7 @@ public:
 			insert_columns.push_back(column);
 		}
 
-		return std::string(Strings::Implode(", ", insert_columns));
+		return std::string(implode(", ", insert_columns));
 	}
 
 	static std::string TableName()
@@ -155,16 +176,16 @@ public:
 
 		auto columns = Columns();
 
-		update_values.push_back(columns[0] + " = '" + Strings::Escape(variables_entry.varname) + "'");
-		update_values.push_back(columns[1] + " = '" + Strings::Escape(variables_entry.value) + "'");
-		update_values.push_back(columns[2] + " = '" + Strings::Escape(variables_entry.information) + "'");
-		update_values.push_back(columns[3] + " = '" + Strings::Escape(variables_entry.ts) + "'");
+		update_values.push_back(columns[0] + " = '" + EscapeString(variables_entry.varname) + "'");
+		update_values.push_back(columns[1] + " = '" + EscapeString(variables_entry.value) + "'");
+		update_values.push_back(columns[2] + " = '" + EscapeString(variables_entry.information) + "'");
+		update_values.push_back(columns[3] + " = '" + EscapeString(variables_entry.ts) + "'");
 
 		auto results = database.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", update_values),
+				implode(", ", update_values),
 				PrimaryKey(),
 				variables_entry.varname
 			)
@@ -179,16 +200,16 @@ public:
 	{
 		std::vector<std::string> insert_values;
 
-		insert_values.push_back("'" + Strings::Escape(variables_entry.varname) + "'");
-		insert_values.push_back("'" + Strings::Escape(variables_entry.value) + "'");
-		insert_values.push_back("'" + Strings::Escape(variables_entry.information) + "'");
-		insert_values.push_back("'" + Strings::Escape(variables_entry.ts) + "'");
+		insert_values.push_back("'" + EscapeString(variables_entry.varname) + "'");
+		insert_values.push_back("'" + EscapeString(variables_entry.value) + "'");
+		insert_values.push_back("'" + EscapeString(variables_entry.information) + "'");
+		insert_values.push_back("'" + EscapeString(variables_entry.ts) + "'");
 
 		auto results = database.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", insert_values)
+				implode(",", insert_values)
 			)
 		);
 
@@ -211,12 +232,12 @@ public:
 		for (auto &variables_entry: variables_entries) {
 			std::vector<std::string> insert_values;
 
-			insert_values.push_back("'" + Strings::Escape(variables_entry.varname) + "'");
-			insert_values.push_back("'" + Strings::Escape(variables_entry.value) + "'");
-			insert_values.push_back("'" + Strings::Escape(variables_entry.information) + "'");
-			insert_values.push_back("'" + Strings::Escape(variables_entry.ts) + "'");
+			insert_values.push_back("'" + EscapeString(variables_entry.varname) + "'");
+			insert_values.push_back("'" + EscapeString(variables_entry.value) + "'");
+			insert_values.push_back("'" + EscapeString(variables_entry.information) + "'");
+			insert_values.push_back("'" + EscapeString(variables_entry.ts) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", insert_values) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
 		std::vector<std::string> insert_values;
@@ -225,7 +246,7 @@ public:
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 

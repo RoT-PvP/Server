@@ -16,6 +16,8 @@
 	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
+#ifdef BOTS
+
 #include "bot.h"
 
 #define SAFE_HP_RATIO_CLOTH 95.0f
@@ -120,7 +122,7 @@ bool HealRotation::RemoveMemberFromPool(Bot* hr_member)
 {
 	if (!hr_member)
 		return true;
-
+	
 	for (auto member_iter : m_member_pool) {
 		if (member_iter != hr_member)
 			continue;
@@ -143,7 +145,7 @@ bool HealRotation::RemoveTargetFromPool(Mob* hr_target)
 	for (auto target_iter : m_target_pool) {
 		if (target_iter != hr_target)
 			continue;
-
+		
 		if (m_hot_target == hr_target) {
 			m_hot_target = nullptr;
 			m_hot_active = false;
@@ -166,9 +168,9 @@ bool HealRotation::ClearMemberPool()
 	m_cycle_pool.clear();
 	m_casting_target_poke = false;
 	m_active_heal_target = false;
-
+	
 	if (!ClearTargetPool())
-		LogError("failed to clear m_target_pool (size: [{}])", m_target_pool.size());
+		LogError("HealRotation::ClearTargetPool() failed to clear m_target_pool (size: [{}])", m_target_pool.size());
 
 	auto clear_list = const_cast<const std::list<Bot*>&>(m_member_pool);
 	for (auto member_iter : clear_list)
@@ -182,7 +184,7 @@ bool HealRotation::ClearTargetPool()
 	m_hot_target = nullptr;
 	m_hot_active = false;
 	m_is_active = false;
-
+	
 	auto clear_list = const_cast<const std::list<Mob*>&>(m_target_pool);
 	for (auto target_iter : clear_list)
 		target_iter->LeaveHealRotationTargetPool();
@@ -249,7 +251,7 @@ Bot* HealRotation::CastingMember()
 {
 	if (!m_is_active && !m_hot_active)
 		return nullptr;
-
+	
 	if (m_cycle_pool.empty()) {
 		cycle_refresh();
 
@@ -264,7 +266,7 @@ bool HealRotation::PokeCastingTarget()
 {
 	if (m_hot_target && m_hot_active)
 		return true;
-
+	
 	if (!m_is_active)
 		return false;
 
@@ -293,7 +295,7 @@ Mob* HealRotation::CastingTarget()
 {
 	if (m_hot_target && m_hot_active)
 		return m_hot_target;
-
+	
 	if (!m_is_active)
 		return nullptr;
 	if (!m_active_heal_target)
@@ -547,7 +549,7 @@ void HealRotation::ResetArmorTypeHPLimits()
 	m_safe_hp_ratio[ARMOR_TYPE_LEATHER] = SAFE_HP_RATIO_LEATHER;
 	m_safe_hp_ratio[ARMOR_TYPE_CHAIN] = SAFE_HP_RATIO_CHAIN;
 	m_safe_hp_ratio[ARMOR_TYPE_PLATE] = SAFE_HP_RATIO_PLATE;
-
+	
 	m_critical_hp_ratio[ARMOR_TYPE_UNKNOWN] = CRITICAL_HP_RATIO_BASE;
 	m_critical_hp_ratio[ARMOR_TYPE_CLOTH] = CRITICAL_HP_RATIO_CLOTH;
 	m_critical_hp_ratio[ARMOR_TYPE_LEATHER] = CRITICAL_HP_RATIO_LEATHER;
@@ -559,7 +561,7 @@ bool HealRotation::valid_state()
 {
 	m_member_pool.remove(nullptr);
 	m_member_pool.remove_if([](Mob* l) {return (!IsHealRotationMemberClass(l->GetClass())); });
-
+	
 	cycle_refresh();
 
 	if (m_member_pool.empty() && !m_consumed) { // Consumes HealRotation at this point
@@ -576,7 +578,7 @@ void HealRotation::cycle_refresh()
 	m_cycle_pool.clear();
 	if (m_member_pool.empty())
 		return;
-
+	
 	m_cycle_pool = m_member_pool;
 
 	m_is_active = true;
@@ -652,7 +654,7 @@ void HealRotation::bias_targets()
 		m_active_heal_target = false;
 		return;
 	}
-
+	
 	// attempt to clear invalid target pool entries
 	m_target_pool.remove(nullptr);
 	m_target_pool.remove_if([](Mob* l) {
@@ -796,7 +798,7 @@ void HealRotation::bias_targets()
 		});
 		if (healable_target(true, true))
 			break;
-
+		
 		sort_type = 106;
 		m_target_pool.sort([](Mob* l, Mob* r) {
 			if (GT_ALIVE(l, r))
@@ -958,3 +960,5 @@ bool IsHealRotationTargetMobType(Mob* target_mob)
 
 	return true;
 }
+
+#endif // BOTS

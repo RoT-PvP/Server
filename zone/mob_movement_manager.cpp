@@ -138,7 +138,7 @@ public:
 			return true;
 		}
 
-		//Send a movement packet when you start moving
+		//Send a movement packet when you start moving		
 		double current_time  = static_cast<double>(Timer::GetCurrentTime()) / 1000.0;
 		int    current_speed = 0;
 
@@ -1053,13 +1053,6 @@ void MobMovementManager::FillCommandStruct(
 	position_update->delta_z       = FloatToEQ13(delta_z);
 	position_update->delta_heading = FloatToEQ10(delta_heading);
 	position_update->animation     = (mob->IsBot() ? (int) ((float) anim / 1.785714f) : anim);
-
-	if (RuleB(Map, MobPathingVisualDebug)) {
-		mob->DrawDebugCoordinateNode(
-			fmt::format("{} position update", mob->GetCleanName()),
-			mob->GetPosition()
-		);
-	}
 }
 
 /**
@@ -1082,7 +1075,7 @@ void MobMovementManager::UpdatePath(Mob *who, float x, float y, float z, MobMove
 		return;
 	}
 
-	if (who->GetIsBoat()) {
+	if (who->IsBoat()) {
 		UpdatePathBoat(who, x, y, z, mob_movement_mode);
 	}
 	else if (who->IsUnderwaterOnly()) {
@@ -1100,7 +1093,7 @@ void MobMovementManager::UpdatePath(Mob *who, float x, float y, float z, MobMove
 		}
 	// Below for npcs that can traverse land or water so they don't sink
 	else if (who->GetFlyMode() == GravityBehavior::Water &&
-			 zone->watermap->InLiquid(who->GetPosition()) &&
+			 zone->watermap->InLiquid(who->GetPosition()) && 
 			 zone->watermap->InLiquid(glm::vec3(x, y, z)) &&
 			 zone->zonemap->CheckLoS(who->GetPosition(), glm::vec3(x, y, z))) {
 		auto iter = _impl->Entries.find(who);

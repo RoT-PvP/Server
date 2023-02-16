@@ -18,22 +18,14 @@
  *
  */
 
-#ifndef EQEMU_VERSION_H
-#define EQEMU_VERSION_H
+#ifndef _EQEMU_VERSION_H
+#define _EQEMU_VERSION_H
 
+#define LOGIN_VERSION "0.8.0"
 #define EQEMU_PROTOCOL_VERSION "0.3.10"
 
-// Build variables
-// these get injected during the build pipeline
-#define CURRENT_VERSION "22.3.0-dev" // always append -dev to the current version for custom-builds
-#define LOGIN_VERSION "0.8.0"
-#define COMPILE_DATE    __DATE__
-#define COMPILE_TIME    __TIME__
-#ifndef WIN32
-#define LAST_MODIFIED    __TIME__
-#else
-#define LAST_MODIFIED	__TIMESTAMP__
-#endif
+#define CURRENT_VERSION "2.0"
+
 
 /**
  * Every time a Database SQL is added to Github increment CURRENT_BINARY_DATABASE_VERSION
@@ -42,8 +34,21 @@
  * Manifest: https://github.com/EQEmu/Server/blob/master/utils/sql/db_update_manifest.txt
  */
 
-#define CURRENT_BINARY_DATABASE_VERSION 9220
-#define CURRENT_BINARY_BOTS_DATABASE_VERSION 9037
+#define CURRENT_BINARY_DATABASE_VERSION 9168
+
+#ifdef BOTS
+	#define CURRENT_BINARY_BOTS_DATABASE_VERSION 9028
+#else
+	#define CURRENT_BINARY_BOTS_DATABASE_VERSION 0 // must be 0
+#endif
+
+#define COMPILE_DATE	__DATE__
+#define COMPILE_TIME	__TIME__
+#ifndef WIN32
+	#define LAST_MODIFIED	__TIME__
+#else
+	#define LAST_MODIFIED	__TIMESTAMP__
+#endif
 
 #endif
 

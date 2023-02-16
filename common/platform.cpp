@@ -22,31 +22,26 @@
 
 EQEmuExePlatform exe_platform = ExePlatformNone;
 
-void RegisterExecutablePlatform(EQEmuExePlatform p)
-{
+void RegisterExecutablePlatform(EQEmuExePlatform p) {
 	exe_platform = p;
 }
 
-const EQEmuExePlatform &GetExecutablePlatform()
-{
+const EQEmuExePlatform& GetExecutablePlatform() {
 	return exe_platform;
 }
 
-int GetExecutablePlatformInt()
-{
+/**
+ * @return
+ */
+int GetExecutablePlatformInt(){
 	return exe_platform;
 }
 
-bool IsWorld()
-{
-	return exe_platform == EQEmuExePlatform::ExePlatformWorld;
-}
-
-bool IsQueryServ()
-{
-	return exe_platform == EQEmuExePlatform::ExePlatformQueryServ;
-}
-
+/**
+ * Returns platform name by string
+ *
+ * @return
+ */
 std::string GetPlatformName()
 {
 	switch (GetExecutablePlatformInt()) {
@@ -60,18 +55,18 @@ std::string GetPlatformName()
 			return "UCS";
 		case EQEmuExePlatform::ExePlatformLogin:
 			return "Login";
+		case EQEmuExePlatform::ExePlatformSocket_Server:
+			return "SocketServer";
 		case EQEmuExePlatform::ExePlatformSharedMemory:
-			return "SharedMem";
+			return "SharedMemory";
 		case EQEmuExePlatform::ExePlatformClientImport:
-			return "Import";
+			return "ClientImport";
 		case EQEmuExePlatform::ExePlatformClientExport:
-			return "Export";
+			return "ClientExport";
 		case EQEmuExePlatform::ExePlatformLaunch:
 			return "Launch";
 		case EQEmuExePlatform::ExePlatformHC:
 			return "HC";
-		case EQEmuExePlatform::ExePlatformTests:
-			return "Tests";
 		default:
 			return "";
 	}

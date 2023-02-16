@@ -13,15 +13,14 @@
 #define EQEMU_BASE_NPC_SPELLS_EFFECTS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseNpcSpellsEffectsRepository {
 public:
 	struct NpcSpellsEffects {
-		uint32_t    id;
+		int         id;
 		std::string name;
-		uint32_t    parent_list;
+		int         parent_list;
 	};
 
 	static std::string PrimaryKey()
@@ -38,23 +37,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"name",
-			"parent_list",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -66,7 +51,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -82,16 +67,16 @@ public:
 
 	static NpcSpellsEffects NewEntity()
 	{
-		NpcSpellsEffects e{};
+		NpcSpellsEffects entry{};
 
-		e.id          = 0;
-		e.name        = "";
-		e.parent_list = 0;
+		entry.id          = 0;
+		entry.name        = "";
+		entry.parent_list = 0;
 
-		return e;
+		return entry;
 	}
 
-	static NpcSpellsEffects GetNpcSpellsEffects(
+	static NpcSpellsEffects GetNpcSpellsEffectsEntry(
 		const std::vector<NpcSpellsEffects> &npc_spells_effectss,
 		int npc_spells_effects_id
 	)
@@ -120,13 +105,13 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			NpcSpellsEffects e{};
+			NpcSpellsEffects entry{};
 
-			e.id          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.name        = row[1] ? row[1] : "";
-			e.parent_list = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
+			entry.id          = atoi(row[0]);
+			entry.name        = row[1] ? row[1] : "";
+			entry.parent_list = atoi(row[2]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -151,23 +136,23 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const NpcSpellsEffects &e
+		NpcSpellsEffects npc_spells_effects_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.name) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.parent_list));
+		update_values.push_back(columns[1] + " = '" + EscapeString(npc_spells_effects_entry.name) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(npc_spells_effects_entry.parent_list));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				npc_spells_effects_entry.id
 			)
 		);
 
@@ -176,57 +161,57 @@ public:
 
 	static NpcSpellsEffects InsertOne(
 		Database& db,
-		NpcSpellsEffects e
+		NpcSpellsEffects npc_spells_effects_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.name) + "'");
-		v.push_back(std::to_string(e.parent_list));
+		insert_values.push_back(std::to_string(npc_spells_effects_entry.id));
+		insert_values.push_back("'" + EscapeString(npc_spells_effects_entry.name) + "'");
+		insert_values.push_back(std::to_string(npc_spells_effects_entry.parent_list));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			npc_spells_effects_entry.id = results.LastInsertedID();
+			return npc_spells_effects_entry;
 		}
 
-		e = NewEntity();
+		npc_spells_effects_entry = NewEntity();
 
-		return e;
+		return npc_spells_effects_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<NpcSpellsEffects> &entries
+		std::vector<NpcSpellsEffects> npc_spells_effects_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &npc_spells_effects_entry: npc_spells_effects_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.name) + "'");
-			v.push_back(std::to_string(e.parent_list));
+			insert_values.push_back(std::to_string(npc_spells_effects_entry.id));
+			insert_values.push_back("'" + EscapeString(npc_spells_effects_entry.name) + "'");
+			insert_values.push_back(std::to_string(npc_spells_effects_entry.parent_list));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -247,19 +232,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			NpcSpellsEffects e{};
+			NpcSpellsEffects entry{};
 
-			e.id          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.name        = row[1] ? row[1] : "";
-			e.parent_list = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
+			entry.id          = atoi(row[0]);
+			entry.name        = row[1] ? row[1] : "";
+			entry.parent_list = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<NpcSpellsEffects> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<NpcSpellsEffects> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<NpcSpellsEffects> all_entries;
 
@@ -274,19 +259,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			NpcSpellsEffects e{};
+			NpcSpellsEffects entry{};
 
-			e.id          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.name        = row[1] ? row[1] : "";
-			e.parent_list = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
+			entry.id          = atoi(row[0]);
+			entry.name        = row[1] ? row[1] : "";
+			entry.parent_list = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -309,32 +294,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

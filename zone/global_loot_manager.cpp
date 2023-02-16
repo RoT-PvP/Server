@@ -23,59 +23,15 @@ std::vector<int> GlobalLootManager::GetGlobalLootTables(NPC *mob) const
 
 void GlobalLootManager::ShowZoneGlobalLoot(Client *to) const
 {
-	int table_number = 1;
-
-	for (auto &e : m_entries) {
-		to->Message(
-			Chat::White,
-			fmt::format(
-				"Table {} | Name: {}",
-				table_number,
-				e.GetDescription()
-			).c_str()
-		);
-
-		to->Message(
-			Chat::White,
-			fmt::format(
-				"Table {} | Global Table ID: {} Loot Table ID: {}",
-				table_number,
-				e.GetID(),
-				e.GetLootTableID()
-			).c_str()
-		);
-
-		table_number++;
-	}
+	for (auto &e : m_entries)
+		to->Message(Chat::White, " %s : %d table %d", e.GetDescription().c_str(), e.GetID(), e.GetLootTableID());
 }
 
 void GlobalLootManager::ShowNPCGlobalLoot(Client *to, NPC *who) const
 {
-	int table_number = 1;
-
 	for (auto &e : m_entries) {
-		if (e.PassesRules(who)) {
-			to->Message(
-				Chat::White,
-				fmt::format(
-					"Table {} | Name: {}",
-					table_number,
-					e.GetDescription()
-				).c_str()
-			);
-
-			to->Message(
-				Chat::White,
-				fmt::format(
-					"Table {} | Global Table ID: {} Loot Table ID: {}",
-					table_number,
-					e.GetID(),
-					e.GetLootTableID()
-				).c_str()
-			);
-
-			table_number++;
-		}
+		if (e.PassesRules(who))
+			to->Message(Chat::White, " %s : %d table %d", e.GetDescription().c_str(), e.GetID(), e.GetLootTableID());
 	}
 }
 

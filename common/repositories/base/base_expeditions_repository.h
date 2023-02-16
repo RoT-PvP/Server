@@ -13,16 +13,20 @@
 #define EQEMU_BASE_EXPEDITIONS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseExpeditionsRepository {
 public:
 	struct Expeditions {
-		uint32_t id;
-		uint32_t dynamic_zone_id;
-		uint8_t  add_replay_on_join;
-		uint8_t  is_locked;
+		int         id;
+		std::string uuid;
+		int         dynamic_zone_id;
+		std::string expedition_name;
+		int         leader_id;
+		int         min_players;
+		int         max_players;
+		int         add_replay_on_join;
+		int         is_locked;
 	};
 
 	static std::string PrimaryKey()
@@ -34,17 +38,12 @@ public:
 	{
 		return {
 			"id",
+			"uuid",
 			"dynamic_zone_id",
-			"add_replay_on_join",
-			"is_locked",
-		};
-	}
-
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"dynamic_zone_id",
+			"expedition_name",
+			"leader_id",
+			"min_players",
+			"max_players",
 			"add_replay_on_join",
 			"is_locked",
 		};
@@ -52,12 +51,7 @@ public:
 
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +63,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +79,22 @@ public:
 
 	static Expeditions NewEntity()
 	{
-		Expeditions e{};
+		Expeditions entry{};
 
-		e.id                 = 0;
-		e.dynamic_zone_id    = 0;
-		e.add_replay_on_join = 1;
-		e.is_locked          = 0;
+		entry.id                 = 0;
+		entry.uuid               = "";
+		entry.dynamic_zone_id    = 0;
+		entry.expedition_name    = "";
+		entry.leader_id          = 0;
+		entry.min_players        = 0;
+		entry.max_players        = 0;
+		entry.add_replay_on_join = 1;
+		entry.is_locked          = 0;
 
-		return e;
+		return entry;
 	}
 
-	static Expeditions GetExpeditions(
+	static Expeditions GetExpeditionsEntry(
 		const std::vector<Expeditions> &expeditionss,
 		int expeditions_id
 	)
@@ -124,14 +123,19 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Expeditions e{};
+			Expeditions entry{};
 
-			e.id                 = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.dynamic_zone_id    = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.add_replay_on_join = static_cast<uint8_t>(strtoul(row[2], nullptr, 10));
-			e.is_locked          = static_cast<uint8_t>(strtoul(row[3], nullptr, 10));
+			entry.id                 = atoi(row[0]);
+			entry.uuid               = row[1] ? row[1] : "";
+			entry.dynamic_zone_id    = atoi(row[2]);
+			entry.expedition_name    = row[3] ? row[3] : "";
+			entry.leader_id          = atoi(row[4]);
+			entry.min_players        = atoi(row[5]);
+			entry.max_players        = atoi(row[6]);
+			entry.add_replay_on_join = atoi(row[7]);
+			entry.is_locked          = atoi(row[8]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,24 +160,29 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Expeditions &e
+		Expeditions expeditions_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.dynamic_zone_id));
-		v.push_back(columns[2] + " = " + std::to_string(e.add_replay_on_join));
-		v.push_back(columns[3] + " = " + std::to_string(e.is_locked));
+		update_values.push_back(columns[1] + " = '" + EscapeString(expeditions_entry.uuid) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(expeditions_entry.dynamic_zone_id));
+		update_values.push_back(columns[3] + " = '" + EscapeString(expeditions_entry.expedition_name) + "'");
+		update_values.push_back(columns[4] + " = " + std::to_string(expeditions_entry.leader_id));
+		update_values.push_back(columns[5] + " = " + std::to_string(expeditions_entry.min_players));
+		update_values.push_back(columns[6] + " = " + std::to_string(expeditions_entry.max_players));
+		update_values.push_back(columns[7] + " = " + std::to_string(expeditions_entry.add_replay_on_join));
+		update_values.push_back(columns[8] + " = " + std::to_string(expeditions_entry.is_locked));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				expeditions_entry.id
 			)
 		);
 
@@ -182,59 +191,69 @@ public:
 
 	static Expeditions InsertOne(
 		Database& db,
-		Expeditions e
+		Expeditions expeditions_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.dynamic_zone_id));
-		v.push_back(std::to_string(e.add_replay_on_join));
-		v.push_back(std::to_string(e.is_locked));
+		insert_values.push_back(std::to_string(expeditions_entry.id));
+		insert_values.push_back("'" + EscapeString(expeditions_entry.uuid) + "'");
+		insert_values.push_back(std::to_string(expeditions_entry.dynamic_zone_id));
+		insert_values.push_back("'" + EscapeString(expeditions_entry.expedition_name) + "'");
+		insert_values.push_back(std::to_string(expeditions_entry.leader_id));
+		insert_values.push_back(std::to_string(expeditions_entry.min_players));
+		insert_values.push_back(std::to_string(expeditions_entry.max_players));
+		insert_values.push_back(std::to_string(expeditions_entry.add_replay_on_join));
+		insert_values.push_back(std::to_string(expeditions_entry.is_locked));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			expeditions_entry.id = results.LastInsertedID();
+			return expeditions_entry;
 		}
 
-		e = NewEntity();
+		expeditions_entry = NewEntity();
 
-		return e;
+		return expeditions_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Expeditions> &entries
+		std::vector<Expeditions> expeditions_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &expeditions_entry: expeditions_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.dynamic_zone_id));
-			v.push_back(std::to_string(e.add_replay_on_join));
-			v.push_back(std::to_string(e.is_locked));
+			insert_values.push_back(std::to_string(expeditions_entry.id));
+			insert_values.push_back("'" + EscapeString(expeditions_entry.uuid) + "'");
+			insert_values.push_back(std::to_string(expeditions_entry.dynamic_zone_id));
+			insert_values.push_back("'" + EscapeString(expeditions_entry.expedition_name) + "'");
+			insert_values.push_back(std::to_string(expeditions_entry.leader_id));
+			insert_values.push_back(std::to_string(expeditions_entry.min_players));
+			insert_values.push_back(std::to_string(expeditions_entry.max_players));
+			insert_values.push_back(std::to_string(expeditions_entry.add_replay_on_join));
+			insert_values.push_back(std::to_string(expeditions_entry.is_locked));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -255,20 +274,25 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Expeditions e{};
+			Expeditions entry{};
 
-			e.id                 = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.dynamic_zone_id    = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.add_replay_on_join = static_cast<uint8_t>(strtoul(row[2], nullptr, 10));
-			e.is_locked          = static_cast<uint8_t>(strtoul(row[3], nullptr, 10));
+			entry.id                 = atoi(row[0]);
+			entry.uuid               = row[1] ? row[1] : "";
+			entry.dynamic_zone_id    = atoi(row[2]);
+			entry.expedition_name    = row[3] ? row[3] : "";
+			entry.leader_id          = atoi(row[4]);
+			entry.min_players        = atoi(row[5]);
+			entry.max_players        = atoi(row[6]);
+			entry.add_replay_on_join = atoi(row[7]);
+			entry.is_locked          = atoi(row[8]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Expeditions> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Expeditions> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Expeditions> all_entries;
 
@@ -283,20 +307,25 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Expeditions e{};
+			Expeditions entry{};
 
-			e.id                 = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.dynamic_zone_id    = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.add_replay_on_join = static_cast<uint8_t>(strtoul(row[2], nullptr, 10));
-			e.is_locked          = static_cast<uint8_t>(strtoul(row[3], nullptr, 10));
+			entry.id                 = atoi(row[0]);
+			entry.uuid               = row[1] ? row[1] : "";
+			entry.dynamic_zone_id    = atoi(row[2]);
+			entry.expedition_name    = row[3] ? row[3] : "";
+			entry.leader_id          = atoi(row[4]);
+			entry.min_players        = atoi(row[5]);
+			entry.max_players        = atoi(row[6]);
+			entry.add_replay_on_join = atoi(row[7]);
+			entry.is_locked          = atoi(row[8]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -319,32 +348,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

@@ -13,16 +13,15 @@
 #define EQEMU_BASE_CHARACTER_ALTERNATE_ABILITIES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharacterAlternateAbilitiesRepository {
 public:
 	struct CharacterAlternateAbilities {
-		uint32_t id;
-		uint16_t aa_id;
-		uint16_t aa_value;
-		uint16_t charges;
+		int id;
+		int aa_id;
+		int aa_value;
+		int charges;
 	};
 
 	static std::string PrimaryKey()
@@ -40,24 +39,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"aa_id",
-			"aa_value",
-			"charges",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +69,17 @@ public:
 
 	static CharacterAlternateAbilities NewEntity()
 	{
-		CharacterAlternateAbilities e{};
+		CharacterAlternateAbilities entry{};
 
-		e.id       = 0;
-		e.aa_id    = 0;
-		e.aa_value = 0;
-		e.charges  = 0;
+		entry.id       = 0;
+		entry.aa_id    = 0;
+		entry.aa_value = 0;
+		entry.charges  = 0;
 
-		return e;
+		return entry;
 	}
 
-	static CharacterAlternateAbilities GetCharacterAlternateAbilities(
+	static CharacterAlternateAbilities GetCharacterAlternateAbilitiesEntry(
 		const std::vector<CharacterAlternateAbilities> &character_alternate_abilitiess,
 		int character_alternate_abilities_id
 	)
@@ -124,14 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharacterAlternateAbilities e{};
+			CharacterAlternateAbilities entry{};
 
-			e.id       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.aa_id    = static_cast<uint16_t>(strtoul(row[1], nullptr, 10));
-			e.aa_value = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.charges  = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
+			entry.id       = atoi(row[0]);
+			entry.aa_id    = atoi(row[1]);
+			entry.aa_value = atoi(row[2]);
+			entry.charges  = atoi(row[3]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,25 +140,25 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharacterAlternateAbilities &e
+		CharacterAlternateAbilities character_alternate_abilities_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.id));
-		v.push_back(columns[1] + " = " + std::to_string(e.aa_id));
-		v.push_back(columns[2] + " = " + std::to_string(e.aa_value));
-		v.push_back(columns[3] + " = " + std::to_string(e.charges));
+		update_values.push_back(columns[0] + " = " + std::to_string(character_alternate_abilities_entry.id));
+		update_values.push_back(columns[1] + " = " + std::to_string(character_alternate_abilities_entry.aa_id));
+		update_values.push_back(columns[2] + " = " + std::to_string(character_alternate_abilities_entry.aa_value));
+		update_values.push_back(columns[3] + " = " + std::to_string(character_alternate_abilities_entry.charges));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				character_alternate_abilities_entry.id
 			)
 		);
 
@@ -183,59 +167,59 @@ public:
 
 	static CharacterAlternateAbilities InsertOne(
 		Database& db,
-		CharacterAlternateAbilities e
+		CharacterAlternateAbilities character_alternate_abilities_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.aa_id));
-		v.push_back(std::to_string(e.aa_value));
-		v.push_back(std::to_string(e.charges));
+		insert_values.push_back(std::to_string(character_alternate_abilities_entry.id));
+		insert_values.push_back(std::to_string(character_alternate_abilities_entry.aa_id));
+		insert_values.push_back(std::to_string(character_alternate_abilities_entry.aa_value));
+		insert_values.push_back(std::to_string(character_alternate_abilities_entry.charges));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			character_alternate_abilities_entry.id = results.LastInsertedID();
+			return character_alternate_abilities_entry;
 		}
 
-		e = NewEntity();
+		character_alternate_abilities_entry = NewEntity();
 
-		return e;
+		return character_alternate_abilities_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharacterAlternateAbilities> &entries
+		std::vector<CharacterAlternateAbilities> character_alternate_abilities_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &character_alternate_abilities_entry: character_alternate_abilities_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.aa_id));
-			v.push_back(std::to_string(e.aa_value));
-			v.push_back(std::to_string(e.charges));
+			insert_values.push_back(std::to_string(character_alternate_abilities_entry.id));
+			insert_values.push_back(std::to_string(character_alternate_abilities_entry.aa_id));
+			insert_values.push_back(std::to_string(character_alternate_abilities_entry.aa_value));
+			insert_values.push_back(std::to_string(character_alternate_abilities_entry.charges));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -256,20 +240,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterAlternateAbilities e{};
+			CharacterAlternateAbilities entry{};
 
-			e.id       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.aa_id    = static_cast<uint16_t>(strtoul(row[1], nullptr, 10));
-			e.aa_value = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.charges  = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
+			entry.id       = atoi(row[0]);
+			entry.aa_id    = atoi(row[1]);
+			entry.aa_value = atoi(row[2]);
+			entry.charges  = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharacterAlternateAbilities> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharacterAlternateAbilities> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharacterAlternateAbilities> all_entries;
 
@@ -284,20 +268,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterAlternateAbilities e{};
+			CharacterAlternateAbilities entry{};
 
-			e.id       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.aa_id    = static_cast<uint16_t>(strtoul(row[1], nullptr, 10));
-			e.aa_value = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.charges  = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
+			entry.id       = atoi(row[0]);
+			entry.aa_id    = atoi(row[1]);
+			entry.aa_value = atoi(row[2]);
+			entry.charges  = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -320,32 +304,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

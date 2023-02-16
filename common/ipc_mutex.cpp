@@ -30,7 +30,6 @@
 #include "types.h"
 #include "eqemu_exception.h"
 #include "eqemu_config.h"
-#include "path_manager.h"
 
 namespace EQ {
 	struct IPCMutex::Implementation {
@@ -41,11 +40,12 @@ namespace EQ {
 #endif
 	};
 
-	IPCMutex::IPCMutex(const std::string& name) : locked_(false) {
+	IPCMutex::IPCMutex(std::string name) : locked_(false) {
 		imp_ = new Implementation;
 #ifdef _WINDOWS
 		auto Config = EQEmuConfig::get();
-		std::string final_name = fmt::format("{}/EQEmuMutex_{}", Config->SharedMemDir, name);
+		std::string final_name = Config->SharedMemDir + "EQEmuMutex_";
+		final_name += name;
 
 		imp_->mut_ = CreateMutex(nullptr,
 			FALSE,
@@ -55,7 +55,9 @@ namespace EQ {
 			EQ_EXCEPT("IPC Mutex", "Could not create mutex.");
 		}
 #else
-		std::string final_name = fmt::format("{}/{}.lock", path.GetSharedMemoryPath(), name);
+		auto Config = EQEmuConfig::get();
+		std::string final_name = Config->SharedMemDir + name;
+		final_name += ".lock";
 
 #ifdef __DARWIN
 #if __DARWIN_C_LEVEL < 200809L

@@ -30,13 +30,13 @@ void ZoneReload::HotReloadQuests()
 	parse->ReloadQuests(RuleB(HotReload, QuestsResetTimersWithReload));
 
 	if (RuleB(HotReload, QuestsRepopWithReload)) {
-		zone->Repop();
+		zone->Repop(0);
 	}
-
+	
 	zone->SetQuestHotReloadQueued(false);
 
 	LogHotReload(
-		"Reloading [{}] repop [{}] reset_timers [{}] repop_when_not_in_combat [{}] Time [{:.4f}]",
+		"[Quests] Reloading [{}] repop [{}] reset_timers [{}] repop_when_not_in_combat [{}] Time [{:.4f}]",
 		zone->GetShortName(),
 		(RuleB(HotReload, QuestsRepopWithReload) ? "true" : "false"),
 		(RuleB(HotReload, QuestsResetTimersWithReload) ? "true" : "false"),

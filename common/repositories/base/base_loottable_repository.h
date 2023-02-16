@@ -13,20 +13,19 @@
 #define EQEMU_BASE_LOOTTABLE_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseLoottableRepository {
 public:
 	struct Loottable {
-		uint32_t    id;
+		int         id;
 		std::string name;
-		uint32_t    mincash;
-		uint32_t    maxcash;
-		uint32_t    avgcoin;
-		int8_t      done;
-		int8_t      min_expansion;
-		int8_t      max_expansion;
+		int         mincash;
+		int         maxcash;
+		int         avgcoin;
+		int         done;
+		int         min_expansion;
+		int         max_expansion;
 		std::string content_flags;
 		std::string content_flags_disabled;
 	};
@@ -52,30 +51,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"name",
-			"mincash",
-			"maxcash",
-			"avgcoin",
-			"done",
-			"min_expansion",
-			"max_expansion",
-			"content_flags",
-			"content_flags_disabled",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -87,7 +65,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -103,23 +81,23 @@ public:
 
 	static Loottable NewEntity()
 	{
-		Loottable e{};
+		Loottable entry{};
 
-		e.id                     = 0;
-		e.name                   = "";
-		e.mincash                = 0;
-		e.maxcash                = 0;
-		e.avgcoin                = 0;
-		e.done                   = 0;
-		e.min_expansion          = -1;
-		e.max_expansion          = -1;
-		e.content_flags          = "";
-		e.content_flags_disabled = "";
+		entry.id                     = 0;
+		entry.name                   = "";
+		entry.mincash                = 0;
+		entry.maxcash                = 0;
+		entry.avgcoin                = 0;
+		entry.done                   = 0;
+		entry.min_expansion          = 0;
+		entry.max_expansion          = 0;
+		entry.content_flags          = "";
+		entry.content_flags_disabled = "";
 
-		return e;
+		return entry;
 	}
 
-	static Loottable GetLoottable(
+	static Loottable GetLoottableEntry(
 		const std::vector<Loottable> &loottables,
 		int loottable_id
 	)
@@ -148,20 +126,20 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Loottable e{};
+			Loottable entry{};
 
-			e.id                     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.name                   = row[1] ? row[1] : "";
-			e.mincash                = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.maxcash                = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.avgcoin                = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.done                   = static_cast<int8_t>(atoi(row[5]));
-			e.min_expansion          = static_cast<int8_t>(atoi(row[6]));
-			e.max_expansion          = static_cast<int8_t>(atoi(row[7]));
-			e.content_flags          = row[8] ? row[8] : "";
-			e.content_flags_disabled = row[9] ? row[9] : "";
+			entry.id                     = atoi(row[0]);
+			entry.name                   = row[1] ? row[1] : "";
+			entry.mincash                = atoi(row[2]);
+			entry.maxcash                = atoi(row[3]);
+			entry.avgcoin                = atoi(row[4]);
+			entry.done                   = atoi(row[5]);
+			entry.min_expansion          = atoi(row[6]);
+			entry.max_expansion          = atoi(row[7]);
+			entry.content_flags          = row[8] ? row[8] : "";
+			entry.content_flags_disabled = row[9] ? row[9] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -186,30 +164,30 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Loottable &e
+		Loottable loottable_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.name) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.mincash));
-		v.push_back(columns[3] + " = " + std::to_string(e.maxcash));
-		v.push_back(columns[4] + " = " + std::to_string(e.avgcoin));
-		v.push_back(columns[5] + " = " + std::to_string(e.done));
-		v.push_back(columns[6] + " = " + std::to_string(e.min_expansion));
-		v.push_back(columns[7] + " = " + std::to_string(e.max_expansion));
-		v.push_back(columns[8] + " = '" + Strings::Escape(e.content_flags) + "'");
-		v.push_back(columns[9] + " = '" + Strings::Escape(e.content_flags_disabled) + "'");
+		update_values.push_back(columns[1] + " = '" + EscapeString(loottable_entry.name) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(loottable_entry.mincash));
+		update_values.push_back(columns[3] + " = " + std::to_string(loottable_entry.maxcash));
+		update_values.push_back(columns[4] + " = " + std::to_string(loottable_entry.avgcoin));
+		update_values.push_back(columns[5] + " = " + std::to_string(loottable_entry.done));
+		update_values.push_back(columns[6] + " = " + std::to_string(loottable_entry.min_expansion));
+		update_values.push_back(columns[7] + " = " + std::to_string(loottable_entry.max_expansion));
+		update_values.push_back(columns[8] + " = '" + EscapeString(loottable_entry.content_flags) + "'");
+		update_values.push_back(columns[9] + " = '" + EscapeString(loottable_entry.content_flags_disabled) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				loottable_entry.id
 			)
 		);
 
@@ -218,71 +196,71 @@ public:
 
 	static Loottable InsertOne(
 		Database& db,
-		Loottable e
+		Loottable loottable_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.name) + "'");
-		v.push_back(std::to_string(e.mincash));
-		v.push_back(std::to_string(e.maxcash));
-		v.push_back(std::to_string(e.avgcoin));
-		v.push_back(std::to_string(e.done));
-		v.push_back(std::to_string(e.min_expansion));
-		v.push_back(std::to_string(e.max_expansion));
-		v.push_back("'" + Strings::Escape(e.content_flags) + "'");
-		v.push_back("'" + Strings::Escape(e.content_flags_disabled) + "'");
+		insert_values.push_back(std::to_string(loottable_entry.id));
+		insert_values.push_back("'" + EscapeString(loottable_entry.name) + "'");
+		insert_values.push_back(std::to_string(loottable_entry.mincash));
+		insert_values.push_back(std::to_string(loottable_entry.maxcash));
+		insert_values.push_back(std::to_string(loottable_entry.avgcoin));
+		insert_values.push_back(std::to_string(loottable_entry.done));
+		insert_values.push_back(std::to_string(loottable_entry.min_expansion));
+		insert_values.push_back(std::to_string(loottable_entry.max_expansion));
+		insert_values.push_back("'" + EscapeString(loottable_entry.content_flags) + "'");
+		insert_values.push_back("'" + EscapeString(loottable_entry.content_flags_disabled) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			loottable_entry.id = results.LastInsertedID();
+			return loottable_entry;
 		}
 
-		e = NewEntity();
+		loottable_entry = NewEntity();
 
-		return e;
+		return loottable_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Loottable> &entries
+		std::vector<Loottable> loottable_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &loottable_entry: loottable_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.name) + "'");
-			v.push_back(std::to_string(e.mincash));
-			v.push_back(std::to_string(e.maxcash));
-			v.push_back(std::to_string(e.avgcoin));
-			v.push_back(std::to_string(e.done));
-			v.push_back(std::to_string(e.min_expansion));
-			v.push_back(std::to_string(e.max_expansion));
-			v.push_back("'" + Strings::Escape(e.content_flags) + "'");
-			v.push_back("'" + Strings::Escape(e.content_flags_disabled) + "'");
+			insert_values.push_back(std::to_string(loottable_entry.id));
+			insert_values.push_back("'" + EscapeString(loottable_entry.name) + "'");
+			insert_values.push_back(std::to_string(loottable_entry.mincash));
+			insert_values.push_back(std::to_string(loottable_entry.maxcash));
+			insert_values.push_back(std::to_string(loottable_entry.avgcoin));
+			insert_values.push_back(std::to_string(loottable_entry.done));
+			insert_values.push_back(std::to_string(loottable_entry.min_expansion));
+			insert_values.push_back(std::to_string(loottable_entry.max_expansion));
+			insert_values.push_back("'" + EscapeString(loottable_entry.content_flags) + "'");
+			insert_values.push_back("'" + EscapeString(loottable_entry.content_flags_disabled) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -303,26 +281,26 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Loottable e{};
+			Loottable entry{};
 
-			e.id                     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.name                   = row[1] ? row[1] : "";
-			e.mincash                = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.maxcash                = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.avgcoin                = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.done                   = static_cast<int8_t>(atoi(row[5]));
-			e.min_expansion          = static_cast<int8_t>(atoi(row[6]));
-			e.max_expansion          = static_cast<int8_t>(atoi(row[7]));
-			e.content_flags          = row[8] ? row[8] : "";
-			e.content_flags_disabled = row[9] ? row[9] : "";
+			entry.id                     = atoi(row[0]);
+			entry.name                   = row[1] ? row[1] : "";
+			entry.mincash                = atoi(row[2]);
+			entry.maxcash                = atoi(row[3]);
+			entry.avgcoin                = atoi(row[4]);
+			entry.done                   = atoi(row[5]);
+			entry.min_expansion          = atoi(row[6]);
+			entry.max_expansion          = atoi(row[7]);
+			entry.content_flags          = row[8] ? row[8] : "";
+			entry.content_flags_disabled = row[9] ? row[9] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Loottable> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Loottable> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Loottable> all_entries;
 
@@ -337,26 +315,26 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Loottable e{};
+			Loottable entry{};
 
-			e.id                     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.name                   = row[1] ? row[1] : "";
-			e.mincash                = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.maxcash                = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.avgcoin                = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.done                   = static_cast<int8_t>(atoi(row[5]));
-			e.min_expansion          = static_cast<int8_t>(atoi(row[6]));
-			e.max_expansion          = static_cast<int8_t>(atoi(row[7]));
-			e.content_flags          = row[8] ? row[8] : "";
-			e.content_flags_disabled = row[9] ? row[9] : "";
+			entry.id                     = atoi(row[0]);
+			entry.name                   = row[1] ? row[1] : "";
+			entry.mincash                = atoi(row[2]);
+			entry.maxcash                = atoi(row[3]);
+			entry.avgcoin                = atoi(row[4]);
+			entry.done                   = atoi(row[5]);
+			entry.min_expansion          = atoi(row[6]);
+			entry.max_expansion          = atoi(row[7]);
+			entry.content_flags          = row[8] ? row[8] : "";
+			entry.content_flags_disabled = row[9] ? row[9] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -379,32 +357,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

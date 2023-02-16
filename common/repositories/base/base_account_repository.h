@@ -13,36 +13,30 @@
 #define EQEMU_BASE_ACCOUNT_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseAccountRepository {
 public:
 	struct Account {
-		int32_t     id;
+		int         id;
 		std::string name;
 		std::string charname;
-		uint32_t    sharedplat;
+		int         sharedplat;
 		std::string password;
-		int32_t     status;
+		int         status;
 		std::string ls_id;
-		uint32_t    lsaccount_id;
-		uint8_t     gmspeed;
-		int8_t      invulnerable;
-		int8_t      flymode;
-		int8_t      ignore_tells;
-		uint8_t     revoked;
-		uint32_t    karma;
+		int         lsaccount_id;
+		int         gmspeed;
+		int         revoked;
+		int         karma;
 		std::string minilogin_ip;
-		int8_t      hideme;
-		uint8_t     rulesflag;
-		time_t      suspendeduntil;
-		uint32_t    time_creation;
+		int         hideme;
+		int         rulesflag;
+		std::string suspendeduntil;
+		int         time_creation;
+		int         expansion;
 		std::string ban_reason;
 		std::string suspend_reason;
-		std::string crc_eqgame;
-		std::string crc_skillcaps;
-		std::string crc_basedata;
 	};
 
 	static std::string PrimaryKey()
@@ -62,9 +56,6 @@ public:
 			"ls_id",
 			"lsaccount_id",
 			"gmspeed",
-			"invulnerable",
-			"flymode",
-			"ignore_tells",
 			"revoked",
 			"karma",
 			"minilogin_ip",
@@ -72,52 +63,15 @@ public:
 			"rulesflag",
 			"suspendeduntil",
 			"time_creation",
+			"expansion",
 			"ban_reason",
 			"suspend_reason",
-			"crc_eqgame",
-			"crc_skillcaps",
-			"crc_basedata",
-		};
-	}
-
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"name",
-			"charname",
-			"sharedplat",
-			"password",
-			"status",
-			"ls_id",
-			"lsaccount_id",
-			"gmspeed",
-			"invulnerable",
-			"flymode",
-			"ignore_tells",
-			"revoked",
-			"karma",
-			"minilogin_ip",
-			"hideme",
-			"rulesflag",
-			"UNIX_TIMESTAMP(suspendeduntil)",
-			"time_creation",
-			"ban_reason",
-			"suspend_reason",
-			"crc_eqgame",
-			"crc_skillcaps",
-			"crc_basedata",
 		};
 	}
 
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -129,7 +83,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -145,37 +99,32 @@ public:
 
 	static Account NewEntity()
 	{
-		Account e{};
+		Account entry{};
 
-		e.id             = 0;
-		e.name           = "";
-		e.charname       = "";
-		e.sharedplat     = 0;
-		e.password       = "";
-		e.status         = 0;
-		e.ls_id          = "eqemu";
-		e.lsaccount_id   = 0;
-		e.gmspeed        = 0;
-		e.invulnerable   = 0;
-		e.flymode        = 0;
-		e.ignore_tells   = 0;
-		e.revoked        = 0;
-		e.karma          = 0;
-		e.minilogin_ip   = "";
-		e.hideme         = 0;
-		e.rulesflag      = 0;
-		e.suspendeduntil = 0;
-		e.time_creation  = 0;
-		e.ban_reason     = "";
-		e.suspend_reason = "";
-		e.crc_eqgame     = "";
-		e.crc_skillcaps  = "";
-		e.crc_basedata   = "";
+		entry.id             = 0;
+		entry.name           = "";
+		entry.charname       = "";
+		entry.sharedplat     = 0;
+		entry.password       = "";
+		entry.status         = 0;
+		entry.ls_id          = "eqemu";
+		entry.lsaccount_id   = 0;
+		entry.gmspeed        = 0;
+		entry.revoked        = 0;
+		entry.karma          = 0;
+		entry.minilogin_ip   = "";
+		entry.hideme         = 0;
+		entry.rulesflag      = 0;
+		entry.suspendeduntil = "0000-00-00 00:00:00";
+		entry.time_creation  = 0;
+		entry.expansion      = 0;
+		entry.ban_reason     = "";
+		entry.suspend_reason = "";
 
-		return e;
+		return entry;
 	}
 
-	static Account GetAccount(
+	static Account GetAccountEntry(
 		const std::vector<Account> &accounts,
 		int account_id
 	)
@@ -204,34 +153,29 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Account e{};
+			Account entry{};
 
-			e.id             = static_cast<int32_t>(atoi(row[0]));
-			e.name           = row[1] ? row[1] : "";
-			e.charname       = row[2] ? row[2] : "";
-			e.sharedplat     = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.password       = row[4] ? row[4] : "";
-			e.status         = static_cast<int32_t>(atoi(row[5]));
-			e.ls_id          = row[6] ? row[6] : "";
-			e.lsaccount_id   = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.gmspeed        = static_cast<uint8_t>(strtoul(row[8], nullptr, 10));
-			e.invulnerable   = static_cast<int8_t>(atoi(row[9]));
-			e.flymode        = static_cast<int8_t>(atoi(row[10]));
-			e.ignore_tells   = static_cast<int8_t>(atoi(row[11]));
-			e.revoked        = static_cast<uint8_t>(strtoul(row[12], nullptr, 10));
-			e.karma          = static_cast<uint32_t>(strtoul(row[13], nullptr, 10));
-			e.minilogin_ip   = row[14] ? row[14] : "";
-			e.hideme         = static_cast<int8_t>(atoi(row[15]));
-			e.rulesflag      = static_cast<uint8_t>(strtoul(row[16], nullptr, 10));
-			e.suspendeduntil = strtoll(row[17] ? row[17] : "-1", nullptr, 10);
-			e.time_creation  = static_cast<uint32_t>(strtoul(row[18], nullptr, 10));
-			e.ban_reason     = row[19] ? row[19] : "";
-			e.suspend_reason = row[20] ? row[20] : "";
-			e.crc_eqgame     = row[21] ? row[21] : "";
-			e.crc_skillcaps  = row[22] ? row[22] : "";
-			e.crc_basedata   = row[23] ? row[23] : "";
+			entry.id             = atoi(row[0]);
+			entry.name           = row[1] ? row[1] : "";
+			entry.charname       = row[2] ? row[2] : "";
+			entry.sharedplat     = atoi(row[3]);
+			entry.password       = row[4] ? row[4] : "";
+			entry.status         = atoi(row[5]);
+			entry.ls_id          = row[6] ? row[6] : "";
+			entry.lsaccount_id   = atoi(row[7]);
+			entry.gmspeed        = atoi(row[8]);
+			entry.revoked        = atoi(row[9]);
+			entry.karma          = atoi(row[10]);
+			entry.minilogin_ip   = row[11] ? row[11] : "";
+			entry.hideme         = atoi(row[12]);
+			entry.rulesflag      = atoi(row[13]);
+			entry.suspendeduntil = row[14] ? row[14] : "";
+			entry.time_creation  = atoi(row[15]);
+			entry.expansion      = atoi(row[16]);
+			entry.ban_reason     = row[17] ? row[17] : "";
+			entry.suspend_reason = row[18] ? row[18] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -256,44 +200,39 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Account &e
+		Account account_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.name) + "'");
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.charname) + "'");
-		v.push_back(columns[3] + " = " + std::to_string(e.sharedplat));
-		v.push_back(columns[4] + " = '" + Strings::Escape(e.password) + "'");
-		v.push_back(columns[5] + " = " + std::to_string(e.status));
-		v.push_back(columns[6] + " = '" + Strings::Escape(e.ls_id) + "'");
-		v.push_back(columns[7] + " = " + std::to_string(e.lsaccount_id));
-		v.push_back(columns[8] + " = " + std::to_string(e.gmspeed));
-		v.push_back(columns[9] + " = " + std::to_string(e.invulnerable));
-		v.push_back(columns[10] + " = " + std::to_string(e.flymode));
-		v.push_back(columns[11] + " = " + std::to_string(e.ignore_tells));
-		v.push_back(columns[12] + " = " + std::to_string(e.revoked));
-		v.push_back(columns[13] + " = " + std::to_string(e.karma));
-		v.push_back(columns[14] + " = '" + Strings::Escape(e.minilogin_ip) + "'");
-		v.push_back(columns[15] + " = " + std::to_string(e.hideme));
-		v.push_back(columns[16] + " = " + std::to_string(e.rulesflag));
-		v.push_back(columns[17] + " = FROM_UNIXTIME(" + (e.suspendeduntil > 0 ? std::to_string(e.suspendeduntil) : "null") + ")");
-		v.push_back(columns[18] + " = " + std::to_string(e.time_creation));
-		v.push_back(columns[19] + " = '" + Strings::Escape(e.ban_reason) + "'");
-		v.push_back(columns[20] + " = '" + Strings::Escape(e.suspend_reason) + "'");
-		v.push_back(columns[21] + " = '" + Strings::Escape(e.crc_eqgame) + "'");
-		v.push_back(columns[22] + " = '" + Strings::Escape(e.crc_skillcaps) + "'");
-		v.push_back(columns[23] + " = '" + Strings::Escape(e.crc_basedata) + "'");
+		update_values.push_back(columns[1] + " = '" + EscapeString(account_entry.name) + "'");
+		update_values.push_back(columns[2] + " = '" + EscapeString(account_entry.charname) + "'");
+		update_values.push_back(columns[3] + " = " + std::to_string(account_entry.sharedplat));
+		update_values.push_back(columns[4] + " = '" + EscapeString(account_entry.password) + "'");
+		update_values.push_back(columns[5] + " = " + std::to_string(account_entry.status));
+		update_values.push_back(columns[6] + " = '" + EscapeString(account_entry.ls_id) + "'");
+		update_values.push_back(columns[7] + " = " + std::to_string(account_entry.lsaccount_id));
+		update_values.push_back(columns[8] + " = " + std::to_string(account_entry.gmspeed));
+		update_values.push_back(columns[9] + " = " + std::to_string(account_entry.revoked));
+		update_values.push_back(columns[10] + " = " + std::to_string(account_entry.karma));
+		update_values.push_back(columns[11] + " = '" + EscapeString(account_entry.minilogin_ip) + "'");
+		update_values.push_back(columns[12] + " = " + std::to_string(account_entry.hideme));
+		update_values.push_back(columns[13] + " = " + std::to_string(account_entry.rulesflag));
+		update_values.push_back(columns[14] + " = '" + EscapeString(account_entry.suspendeduntil) + "'");
+		update_values.push_back(columns[15] + " = " + std::to_string(account_entry.time_creation));
+		update_values.push_back(columns[16] + " = " + std::to_string(account_entry.expansion));
+		update_values.push_back(columns[17] + " = '" + EscapeString(account_entry.ban_reason) + "'");
+		update_values.push_back(columns[18] + " = '" + EscapeString(account_entry.suspend_reason) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				account_entry.id
 			)
 		);
 
@@ -302,99 +241,89 @@ public:
 
 	static Account InsertOne(
 		Database& db,
-		Account e
+		Account account_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.name) + "'");
-		v.push_back("'" + Strings::Escape(e.charname) + "'");
-		v.push_back(std::to_string(e.sharedplat));
-		v.push_back("'" + Strings::Escape(e.password) + "'");
-		v.push_back(std::to_string(e.status));
-		v.push_back("'" + Strings::Escape(e.ls_id) + "'");
-		v.push_back(std::to_string(e.lsaccount_id));
-		v.push_back(std::to_string(e.gmspeed));
-		v.push_back(std::to_string(e.invulnerable));
-		v.push_back(std::to_string(e.flymode));
-		v.push_back(std::to_string(e.ignore_tells));
-		v.push_back(std::to_string(e.revoked));
-		v.push_back(std::to_string(e.karma));
-		v.push_back("'" + Strings::Escape(e.minilogin_ip) + "'");
-		v.push_back(std::to_string(e.hideme));
-		v.push_back(std::to_string(e.rulesflag));
-		v.push_back("FROM_UNIXTIME(" + (e.suspendeduntil > 0 ? std::to_string(e.suspendeduntil) : "null") + ")");
-		v.push_back(std::to_string(e.time_creation));
-		v.push_back("'" + Strings::Escape(e.ban_reason) + "'");
-		v.push_back("'" + Strings::Escape(e.suspend_reason) + "'");
-		v.push_back("'" + Strings::Escape(e.crc_eqgame) + "'");
-		v.push_back("'" + Strings::Escape(e.crc_skillcaps) + "'");
-		v.push_back("'" + Strings::Escape(e.crc_basedata) + "'");
+		insert_values.push_back(std::to_string(account_entry.id));
+		insert_values.push_back("'" + EscapeString(account_entry.name) + "'");
+		insert_values.push_back("'" + EscapeString(account_entry.charname) + "'");
+		insert_values.push_back(std::to_string(account_entry.sharedplat));
+		insert_values.push_back("'" + EscapeString(account_entry.password) + "'");
+		insert_values.push_back(std::to_string(account_entry.status));
+		insert_values.push_back("'" + EscapeString(account_entry.ls_id) + "'");
+		insert_values.push_back(std::to_string(account_entry.lsaccount_id));
+		insert_values.push_back(std::to_string(account_entry.gmspeed));
+		insert_values.push_back(std::to_string(account_entry.revoked));
+		insert_values.push_back(std::to_string(account_entry.karma));
+		insert_values.push_back("'" + EscapeString(account_entry.minilogin_ip) + "'");
+		insert_values.push_back(std::to_string(account_entry.hideme));
+		insert_values.push_back(std::to_string(account_entry.rulesflag));
+		insert_values.push_back("'" + EscapeString(account_entry.suspendeduntil) + "'");
+		insert_values.push_back(std::to_string(account_entry.time_creation));
+		insert_values.push_back(std::to_string(account_entry.expansion));
+		insert_values.push_back("'" + EscapeString(account_entry.ban_reason) + "'");
+		insert_values.push_back("'" + EscapeString(account_entry.suspend_reason) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			account_entry.id = results.LastInsertedID();
+			return account_entry;
 		}
 
-		e = NewEntity();
+		account_entry = NewEntity();
 
-		return e;
+		return account_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Account> &entries
+		std::vector<Account> account_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &account_entry: account_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.name) + "'");
-			v.push_back("'" + Strings::Escape(e.charname) + "'");
-			v.push_back(std::to_string(e.sharedplat));
-			v.push_back("'" + Strings::Escape(e.password) + "'");
-			v.push_back(std::to_string(e.status));
-			v.push_back("'" + Strings::Escape(e.ls_id) + "'");
-			v.push_back(std::to_string(e.lsaccount_id));
-			v.push_back(std::to_string(e.gmspeed));
-			v.push_back(std::to_string(e.invulnerable));
-			v.push_back(std::to_string(e.flymode));
-			v.push_back(std::to_string(e.ignore_tells));
-			v.push_back(std::to_string(e.revoked));
-			v.push_back(std::to_string(e.karma));
-			v.push_back("'" + Strings::Escape(e.minilogin_ip) + "'");
-			v.push_back(std::to_string(e.hideme));
-			v.push_back(std::to_string(e.rulesflag));
-			v.push_back("FROM_UNIXTIME(" + (e.suspendeduntil > 0 ? std::to_string(e.suspendeduntil) : "null") + ")");
-			v.push_back(std::to_string(e.time_creation));
-			v.push_back("'" + Strings::Escape(e.ban_reason) + "'");
-			v.push_back("'" + Strings::Escape(e.suspend_reason) + "'");
-			v.push_back("'" + Strings::Escape(e.crc_eqgame) + "'");
-			v.push_back("'" + Strings::Escape(e.crc_skillcaps) + "'");
-			v.push_back("'" + Strings::Escape(e.crc_basedata) + "'");
+			insert_values.push_back(std::to_string(account_entry.id));
+			insert_values.push_back("'" + EscapeString(account_entry.name) + "'");
+			insert_values.push_back("'" + EscapeString(account_entry.charname) + "'");
+			insert_values.push_back(std::to_string(account_entry.sharedplat));
+			insert_values.push_back("'" + EscapeString(account_entry.password) + "'");
+			insert_values.push_back(std::to_string(account_entry.status));
+			insert_values.push_back("'" + EscapeString(account_entry.ls_id) + "'");
+			insert_values.push_back(std::to_string(account_entry.lsaccount_id));
+			insert_values.push_back(std::to_string(account_entry.gmspeed));
+			insert_values.push_back(std::to_string(account_entry.revoked));
+			insert_values.push_back(std::to_string(account_entry.karma));
+			insert_values.push_back("'" + EscapeString(account_entry.minilogin_ip) + "'");
+			insert_values.push_back(std::to_string(account_entry.hideme));
+			insert_values.push_back(std::to_string(account_entry.rulesflag));
+			insert_values.push_back("'" + EscapeString(account_entry.suspendeduntil) + "'");
+			insert_values.push_back(std::to_string(account_entry.time_creation));
+			insert_values.push_back(std::to_string(account_entry.expansion));
+			insert_values.push_back("'" + EscapeString(account_entry.ban_reason) + "'");
+			insert_values.push_back("'" + EscapeString(account_entry.suspend_reason) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -415,40 +344,35 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Account e{};
+			Account entry{};
 
-			e.id             = static_cast<int32_t>(atoi(row[0]));
-			e.name           = row[1] ? row[1] : "";
-			e.charname       = row[2] ? row[2] : "";
-			e.sharedplat     = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.password       = row[4] ? row[4] : "";
-			e.status         = static_cast<int32_t>(atoi(row[5]));
-			e.ls_id          = row[6] ? row[6] : "";
-			e.lsaccount_id   = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.gmspeed        = static_cast<uint8_t>(strtoul(row[8], nullptr, 10));
-			e.invulnerable   = static_cast<int8_t>(atoi(row[9]));
-			e.flymode        = static_cast<int8_t>(atoi(row[10]));
-			e.ignore_tells   = static_cast<int8_t>(atoi(row[11]));
-			e.revoked        = static_cast<uint8_t>(strtoul(row[12], nullptr, 10));
-			e.karma          = static_cast<uint32_t>(strtoul(row[13], nullptr, 10));
-			e.minilogin_ip   = row[14] ? row[14] : "";
-			e.hideme         = static_cast<int8_t>(atoi(row[15]));
-			e.rulesflag      = static_cast<uint8_t>(strtoul(row[16], nullptr, 10));
-			e.suspendeduntil = strtoll(row[17] ? row[17] : "-1", nullptr, 10);
-			e.time_creation  = static_cast<uint32_t>(strtoul(row[18], nullptr, 10));
-			e.ban_reason     = row[19] ? row[19] : "";
-			e.suspend_reason = row[20] ? row[20] : "";
-			e.crc_eqgame     = row[21] ? row[21] : "";
-			e.crc_skillcaps  = row[22] ? row[22] : "";
-			e.crc_basedata   = row[23] ? row[23] : "";
+			entry.id             = atoi(row[0]);
+			entry.name           = row[1] ? row[1] : "";
+			entry.charname       = row[2] ? row[2] : "";
+			entry.sharedplat     = atoi(row[3]);
+			entry.password       = row[4] ? row[4] : "";
+			entry.status         = atoi(row[5]);
+			entry.ls_id          = row[6] ? row[6] : "";
+			entry.lsaccount_id   = atoi(row[7]);
+			entry.gmspeed        = atoi(row[8]);
+			entry.revoked        = atoi(row[9]);
+			entry.karma          = atoi(row[10]);
+			entry.minilogin_ip   = row[11] ? row[11] : "";
+			entry.hideme         = atoi(row[12]);
+			entry.rulesflag      = atoi(row[13]);
+			entry.suspendeduntil = row[14] ? row[14] : "";
+			entry.time_creation  = atoi(row[15]);
+			entry.expansion      = atoi(row[16]);
+			entry.ban_reason     = row[17] ? row[17] : "";
+			entry.suspend_reason = row[18] ? row[18] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Account> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Account> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Account> all_entries;
 
@@ -463,40 +387,35 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Account e{};
+			Account entry{};
 
-			e.id             = static_cast<int32_t>(atoi(row[0]));
-			e.name           = row[1] ? row[1] : "";
-			e.charname       = row[2] ? row[2] : "";
-			e.sharedplat     = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.password       = row[4] ? row[4] : "";
-			e.status         = static_cast<int32_t>(atoi(row[5]));
-			e.ls_id          = row[6] ? row[6] : "";
-			e.lsaccount_id   = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.gmspeed        = static_cast<uint8_t>(strtoul(row[8], nullptr, 10));
-			e.invulnerable   = static_cast<int8_t>(atoi(row[9]));
-			e.flymode        = static_cast<int8_t>(atoi(row[10]));
-			e.ignore_tells   = static_cast<int8_t>(atoi(row[11]));
-			e.revoked        = static_cast<uint8_t>(strtoul(row[12], nullptr, 10));
-			e.karma          = static_cast<uint32_t>(strtoul(row[13], nullptr, 10));
-			e.minilogin_ip   = row[14] ? row[14] : "";
-			e.hideme         = static_cast<int8_t>(atoi(row[15]));
-			e.rulesflag      = static_cast<uint8_t>(strtoul(row[16], nullptr, 10));
-			e.suspendeduntil = strtoll(row[17] ? row[17] : "-1", nullptr, 10);
-			e.time_creation  = static_cast<uint32_t>(strtoul(row[18], nullptr, 10));
-			e.ban_reason     = row[19] ? row[19] : "";
-			e.suspend_reason = row[20] ? row[20] : "";
-			e.crc_eqgame     = row[21] ? row[21] : "";
-			e.crc_skillcaps  = row[22] ? row[22] : "";
-			e.crc_basedata   = row[23] ? row[23] : "";
+			entry.id             = atoi(row[0]);
+			entry.name           = row[1] ? row[1] : "";
+			entry.charname       = row[2] ? row[2] : "";
+			entry.sharedplat     = atoi(row[3]);
+			entry.password       = row[4] ? row[4] : "";
+			entry.status         = atoi(row[5]);
+			entry.ls_id          = row[6] ? row[6] : "";
+			entry.lsaccount_id   = atoi(row[7]);
+			entry.gmspeed        = atoi(row[8]);
+			entry.revoked        = atoi(row[9]);
+			entry.karma          = atoi(row[10]);
+			entry.minilogin_ip   = row[11] ? row[11] : "";
+			entry.hideme         = atoi(row[12]);
+			entry.rulesflag      = atoi(row[13]);
+			entry.suspendeduntil = row[14] ? row[14] : "";
+			entry.time_creation  = atoi(row[15]);
+			entry.expansion      = atoi(row[16]);
+			entry.ban_reason     = row[17] ? row[17] : "";
+			entry.suspend_reason = row[18] ? row[18] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -519,32 +438,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

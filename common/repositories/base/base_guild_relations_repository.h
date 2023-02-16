@@ -13,15 +13,14 @@
 #define EQEMU_BASE_GUILD_RELATIONS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseGuildRelationsRepository {
 public:
 	struct GuildRelations {
-		uint32_t guild1;
-		uint32_t guild2;
-		int8_t   relation;
+		int guild1;
+		int guild2;
+		int relation;
 	};
 
 	static std::string PrimaryKey()
@@ -38,23 +37,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"guild1",
-			"guild2",
-			"relation",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -66,7 +51,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -82,16 +67,16 @@ public:
 
 	static GuildRelations NewEntity()
 	{
-		GuildRelations e{};
+		GuildRelations entry{};
 
-		e.guild1   = 0;
-		e.guild2   = 0;
-		e.relation = 0;
+		entry.guild1   = 0;
+		entry.guild2   = 0;
+		entry.relation = 0;
 
-		return e;
+		return entry;
 	}
 
-	static GuildRelations GetGuildRelations(
+	static GuildRelations GetGuildRelationsEntry(
 		const std::vector<GuildRelations> &guild_relationss,
 		int guild_relations_id
 	)
@@ -120,13 +105,13 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			GuildRelations e{};
+			GuildRelations entry{};
 
-			e.guild1   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.guild2   = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.relation = static_cast<int8_t>(atoi(row[2]));
+			entry.guild1   = atoi(row[0]);
+			entry.guild2   = atoi(row[1]);
+			entry.relation = atoi(row[2]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -151,24 +136,24 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const GuildRelations &e
+		GuildRelations guild_relations_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.guild1));
-		v.push_back(columns[1] + " = " + std::to_string(e.guild2));
-		v.push_back(columns[2] + " = " + std::to_string(e.relation));
+		update_values.push_back(columns[0] + " = " + std::to_string(guild_relations_entry.guild1));
+		update_values.push_back(columns[1] + " = " + std::to_string(guild_relations_entry.guild2));
+		update_values.push_back(columns[2] + " = " + std::to_string(guild_relations_entry.relation));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.guild1
+				guild_relations_entry.guild1
 			)
 		);
 
@@ -177,57 +162,57 @@ public:
 
 	static GuildRelations InsertOne(
 		Database& db,
-		GuildRelations e
+		GuildRelations guild_relations_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.guild1));
-		v.push_back(std::to_string(e.guild2));
-		v.push_back(std::to_string(e.relation));
+		insert_values.push_back(std::to_string(guild_relations_entry.guild1));
+		insert_values.push_back(std::to_string(guild_relations_entry.guild2));
+		insert_values.push_back(std::to_string(guild_relations_entry.relation));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.guild1 = results.LastInsertedID();
-			return e;
+			guild_relations_entry.guild1 = results.LastInsertedID();
+			return guild_relations_entry;
 		}
 
-		e = NewEntity();
+		guild_relations_entry = NewEntity();
 
-		return e;
+		return guild_relations_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<GuildRelations> &entries
+		std::vector<GuildRelations> guild_relations_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &guild_relations_entry: guild_relations_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.guild1));
-			v.push_back(std::to_string(e.guild2));
-			v.push_back(std::to_string(e.relation));
+			insert_values.push_back(std::to_string(guild_relations_entry.guild1));
+			insert_values.push_back(std::to_string(guild_relations_entry.guild2));
+			insert_values.push_back(std::to_string(guild_relations_entry.relation));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -248,19 +233,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			GuildRelations e{};
+			GuildRelations entry{};
 
-			e.guild1   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.guild2   = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.relation = static_cast<int8_t>(atoi(row[2]));
+			entry.guild1   = atoi(row[0]);
+			entry.guild2   = atoi(row[1]);
+			entry.relation = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<GuildRelations> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<GuildRelations> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<GuildRelations> all_entries;
 
@@ -275,19 +260,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			GuildRelations e{};
+			GuildRelations entry{};
 
-			e.guild1   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.guild2   = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.relation = static_cast<int8_t>(atoi(row[2]));
+			entry.guild1   = atoi(row[0]);
+			entry.guild2   = atoi(row[1]);
+			entry.relation = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -310,32 +295,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

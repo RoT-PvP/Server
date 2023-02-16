@@ -45,13 +45,7 @@ void WorldEventScheduler::Process(ZSList *zs_list)
 			if (ValidateEventReadyToActivate(e)) {
 				if (e.event_type == ServerEvents::EVENT_TYPE_BROADCAST) {
 					LogScheduler("Sending broadcast [{}]", e.event_data.c_str());
-					zs_list->SendEmoteMessage(
-						0,
-						0,
-						AccountStatus::Player,
-						Chat::Yellow,
-						e.event_data.c_str()
-					);
+					zs_list->SendEmoteMessage(nullptr, 0, 0, 15, e.event_data.c_str());
 				}
 
 				if (e.event_type == ServerEvents::EVENT_TYPE_RELOAD_WORLD) {
@@ -59,7 +53,7 @@ void WorldEventScheduler::Process(ZSList *zs_list)
 
 					auto pack = new ServerPacket(ServerOP_ReloadWorld, sizeof(ReloadWorld_Struct));
 					auto *reload_world = (ReloadWorld_Struct *) pack->pBuffer;
-					reload_world->global_repop = ReloadWorld::Repop;
+					reload_world->Option = 1;
 					zs_list->SendPacket(pack);
 					safe_delete(pack);
 				}

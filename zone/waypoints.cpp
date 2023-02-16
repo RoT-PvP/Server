@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include "../common/features.h"
 #include "../common/rulesys.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 #include "../common/misc_functions.h"
 #include "../common/eqemu_logsys.h"
 
@@ -76,53 +76,26 @@ void NPC::AI_SetRoambox(
 	roambox_min_delay     = min_delay;
 }
 
-void NPC::DisplayWaypointInfo(Client *client) {
-	client->Message(
-		Chat::White,
-		fmt::format(
-			"Waypoint Info for {} ({}) | Grid: {} Waypoint: {} of {}",
-			GetCleanName(),
-			GetID(),
-			GetGrid(),
-			GetCurWp(),
-			GetMaxWp()
-		).c_str()
-	);
+void NPC::DisplayWaypointInfo(Client *c) {
 
-	client->Message(
-		Chat::White,
-		fmt::format(
-			"Waypoint Info for {} ({}) | Spawn Group: {} Spawn Point: {}",
-			GetCleanName(),
-			GetID(),
-			GetSpawnGroupId(),
-			GetSpawnPointID()
-		).c_str()
-	);
+	c->Message(Chat::White, "Mob is on grid %d, in spawn group %d, on waypoint %d/%d",
+			   GetGrid(),
+			   GetSpawnGroupId(),
+			   GetCurWp(),
+			   GetMaxWp());
 
 
-	for (const auto& current_waypoint : Waypoints) {
-		client->Message(
-			Chat::White,
-			fmt::format(
-				"Waypoint {}{} | XYZ: {:.2f}, {:.2f}, {:.2f} Heading: {:.2f}{}",
-				current_waypoint.index,
-				current_waypoint.centerpoint ? " (Center)" : "",
-				current_waypoint.x,
-				current_waypoint.y,
-				current_waypoint.z,
-				current_waypoint.heading,
-				(
-					current_waypoint.pause ?
-					fmt::format(
-						"{} ({})",
-						Strings::SecondsToTime(current_waypoint.pause),
-						current_waypoint.pause
-					) :
-					""
-				)
-			).c_str()
-		);
+	std::vector<wplist>::iterator cur, end;
+	cur = Waypoints.begin();
+	end = Waypoints.end();
+	for (; cur != end; ++cur) {
+		c->Message(Chat::White, "Waypoint %d: (%.2f,%.2f,%.2f,%.2f) pause %d",
+			cur->index,
+			cur->x,
+			cur->y,
+			cur->z,
+			cur->heading,
+			cur->pause);
 	}
 }
 
@@ -165,12 +138,11 @@ void NPC::ResumeWandering()
 
 		if (m_CurrentWayPoint.x == GetX() && m_CurrentWayPoint.y == GetY())
 		{	// are we we at a waypoint? if so, trigger event and start to next
+			char temp[100];
+			itoa(cur_wp, temp, 10);	//do this before updating to next waypoint
 			CalculateNewWaypoint();
 			SetAppearance(eaStanding, false);
-
-			if (parse->HasQuestSub(GetNPCTypeID(), EVENT_WAYPOINT_DEPART)) {
-				parse->EventNPC(EVENT_WAYPOINT_DEPART, this, nullptr, std::to_string(cur_wp), 0);
-			}
+			parse->EventNPC(EVENT_WAYPOINT_DEPART, this, nullptr, temp, 0);
 		}	// if not currently at a waypoint, we continue on to the one we were headed to before the stop
 	}
 	else
@@ -207,14 +179,14 @@ void NPC::MoveTo(const glm::vec4 &position, bool saveguardspot)
 	if (IsNPC() && GetGrid() != 0) {    // he is on a grid
 		if (GetGrid() < 0) {    // currently stopped by a quest command
 			SetGrid(0 - GetGrid());    // get him moving again
-			LogAIDetail("MoveTo during quest wandering. Canceling quest wandering and going back to grid [{}] when MoveTo is done", GetGrid());
+			LogAI("MoveTo during quest wandering. Canceling quest wandering and going back to grid [{}] when MoveTo is done", GetGrid());
 		}
 		AI_walking_timer->Disable();    // disable timer in case he is paused at a wp
 		if (cur_wp >= 0) {    // we've not already done a MoveTo()
 			save_wp = cur_wp;    // save the current waypoint
 			cur_wp  = EQ::WaypointStatus::QuestControlGrid;
 		}
-		LogAIDetail("MoveTo [{}], pausing regular grid wandering. Grid [{}], save_wp [{}]",
+		LogAI("MoveTo [{}], pausing regular grid wandering. Grid [{}], save_wp [{}]",
 			to_string(static_cast<glm::vec3>(position)).c_str(),
 			-GetGrid(),
 			save_wp);
@@ -223,7 +195,7 @@ void NPC::MoveTo(const glm::vec4 &position, bool saveguardspot)
 		roamer  = true;
 		save_wp = 0;
 		cur_wp  = EQ::WaypointStatus::QuestControlNoGrid;
-		LogAIDetail("MoveTo [{}] without a grid", to_string(static_cast<glm::vec3>(position)).c_str());
+		LogAI("MoveTo [{}] without a grid", to_string(static_cast<glm::vec3>(position)).c_str());
 	}
 
 	glm::vec3 dest(position);
@@ -239,9 +211,9 @@ void NPC::MoveTo(const glm::vec4 &position, bool saveguardspot)
 		}        //hack to make IsGuarding simpler
 
 		if (m_GuardPoint.w == -1)
-			m_GuardPoint.w = CalculateHeadingToTarget(position.x, position.y);
+			m_GuardPoint.w = this->CalculateHeadingToTarget(position.x, position.y);
 
-		LogAIDetail("Setting guard position to [{}]", to_string(static_cast<glm::vec3>(m_GuardPoint)).c_str());
+		LogAI("Setting guard position to [{}]", to_string(static_cast<glm::vec3>(m_GuardPoint)).c_str());
 	}
 
 	cur_wp_pause        = 0;
@@ -254,7 +226,7 @@ void NPC::MoveTo(const glm::vec4 &position, bool saveguardspot)
 void NPC::UpdateWaypoint(int wp_index)
 {
 	if (wp_index >= static_cast<int>(Waypoints.size())) {
-		LogAIDetail("Update to waypoint [{}] failed. Not found", wp_index);
+		LogAI("Update to waypoint [{}] failed. Not found", wp_index);
 		return;
 	}
 	std::vector<wplist>::iterator cur;
@@ -263,7 +235,7 @@ void NPC::UpdateWaypoint(int wp_index)
 
 	m_CurrentWayPoint = glm::vec4(cur->x, cur->y, cur->z, cur->heading);
 	cur_wp_pause = cur->pause;
-	LogAIDetail("Next waypoint [{}]: ({}, {}, {}, {})", wp_index, m_CurrentWayPoint.x, m_CurrentWayPoint.y, m_CurrentWayPoint.z, m_CurrentWayPoint.w);
+	LogAI("Next waypoint [{}]: ({}, {}, {}, {})", wp_index, m_CurrentWayPoint.x, m_CurrentWayPoint.y, m_CurrentWayPoint.z, m_CurrentWayPoint.w);
 
 }
 
@@ -559,27 +531,13 @@ void NPC::SetWaypointPause()
 	}
 }
 
-void NPC::SaveGuardSpot(bool ClearGuardSpot) {
-	if (ClearGuardSpot) {
-		LogAIDetail("Clearing guard order.");
-		m_GuardPoint = glm::vec4();
-	} else {
-		m_GuardPoint = m_Position;
-
-		if (m_GuardPoint.w == 0) {
-			m_GuardPoint.w = 0.0001; //hack to make IsGuarding simpler
-		}
-		LogAIDetail("Setting guard position to [{}]", to_string(static_cast<glm::vec3>(m_GuardPoint)));
-	}
-}
-
 void NPC::SaveGuardSpot(const glm::vec4 &pos)
 {
 	m_GuardPoint = pos;
 
 	if (m_GuardPoint.w == 0)
 		m_GuardPoint.w = 0.0001;		//hack to make IsGuarding simpler
-	LogAIDetail("Setting guard position to [{}]", to_string(static_cast<glm::vec3>(m_GuardPoint)));
+	LogAI("Setting guard position to {0}", to_string(static_cast<glm::vec3>(m_GuardPoint)));
 }
 
 void NPC::NextGuardPosition() {
@@ -648,7 +606,7 @@ void NPC::AssignWaypoints(int32 grid_id, int start_wp)
 
 	if (grid_id < 0) {
 		// Allow setting negative grid values for pausing pathing
-		CastToNPC()->SetGrid(grid_id);
+		this->CastToNPC()->SetGrid(grid_id);
 		return;
 	}
 
@@ -714,7 +672,7 @@ void Mob::SendTo(float new_x, float new_y, float new_z) {
 	m_Position.x = new_x;
 	m_Position.y = new_y;
 	m_Position.z = new_z;
-	LogAIDetail("Sent To ({}, {}, {})", new_x, new_y, new_z);
+	LogAI("Sent To ({}, {}, {})", new_x, new_y, new_z);
 
 	if (flymode == GravityBehavior::Flying)
 		return;
@@ -730,7 +688,7 @@ void Mob::SendTo(float new_x, float new_y, float new_z) {
 
 			float newz = zone->zonemap->FindBestZ(dest, nullptr);
 
-			LogAIDetail("BestZ returned {} at {}, {}, {}", newz, m_Position.x, m_Position.y, m_Position.z);
+			LogAI("BestZ returned {} at {}, {}, {}", newz, m_Position.x, m_Position.y, m_Position.z);
 
 			if ((newz > -2000) && std::abs(newz - dest.z) < RuleR(Map, FixPathingZMaxDeltaSendTo)) // Sanity check.
 				m_Position.z = newz + 1;
@@ -773,41 +731,29 @@ float Mob::GetFixedZ(const glm::vec3 &destination, int32 z_find_offset) {
 	float new_z = destination.z;
 
 	if (zone->HasMap()) {
-		if (flymode == GravityBehavior::Flying) {
-			return new_z;
-		}
 
-		if (zone->HasWaterMap() && zone->watermap->InLiquid(glm::vec3(m_Position))) {
+		if (flymode == GravityBehavior::Flying)
 			return new_z;
-		}
 
-		new_z = FindDestGroundZ(destination, (-GetZOffset() / 2));
+		if (zone->HasWaterMap() && zone->watermap->InLiquid(glm::vec3(m_Position)))
+			return new_z;
+
+		/*
+		 * Any more than 5 in the offset makes NPC's hop/snap to ceiling in small corridors
+		 */
+		new_z = this->FindDestGroundZ(destination, z_find_offset);
 		if (new_z != BEST_Z_INVALID) {
-			new_z += GetZOffset();
+			new_z += this->GetZOffset();
 
 			if (new_z < -2000) {
 				new_z = m_Position.z;
 			}
 		}
 
-		// prevent ceiling clipping
-		// if client is close in distance (not counting Z) and we clipped up into a ceiling
-		// this helps us snap back down (or up) if it were to happen
-		// other fixes were put in place to prevent clipping into the ceiling to begin with
-		if (std::abs(new_z - m_Position.z) > 15) {
-			LogFixZ("TRIGGER clipping detection");
-			auto t = GetTarget();
-			if (t && DistanceNoZ(GetPosition(), t->GetPosition()) < 20) {
-				new_z = FindDestGroundZ(t->GetPosition(), -t->GetZOffset());
-				new_z += GetZOffset();
-				GMMove(t->GetPosition().x, t->GetPosition().y, new_z, t->GetPosition().w);
-			}
-		}
-
 		auto duration = timer.elapsed();
 
-		LogFixZ("[{}] returned [{}] at [{}] [{}] [{}] - Took [{}]",
-			GetCleanName(),
+		LogFixZ("Mob::GetFixedZ() ([{}]) returned [{}] at [{}], [{}], [{}] - Took [{}]",
+			this->GetCleanName(),
 			new_z,
 			destination.x,
 			destination.y,
@@ -820,10 +766,6 @@ float Mob::GetFixedZ(const glm::vec3 &destination, int32 z_find_offset) {
 
 void Mob::FixZ(int32 z_find_offset /*= 5*/, bool fix_client_z /*= false*/) {
 	if (IsClient() && !fix_client_z) {
-		return;
-	}
-
-	if (GetIsBoat()) {
 		return;
 	}
 
@@ -843,21 +785,17 @@ void Mob::FixZ(int32 z_find_offset /*= 5*/, bool fix_client_z /*= false*/) {
 
 	if ((new_z > -2000) && new_z != BEST_Z_INVALID) {
 		if (RuleB(Map, MobZVisualDebug)) {
-			SendAppearanceEffect(78, 0, 0, 0, 0);
+			this->SendAppearanceEffect(78, 0, 0, 0, 0);
 		}
 
 		m_Position.z = new_z;
-
-		if (RuleB(Map, MobPathingVisualDebug)) {
-			DrawDebugCoordinateNode(fmt::format("{} new fixed z node", GetCleanName()), GetPosition());
-		}
 	}
 	else {
 		if (RuleB(Map, MobZVisualDebug)) {
-			SendAppearanceEffect(103, 0, 0, 0, 0);
+			this->SendAppearanceEffect(103, 0, 0, 0, 0);
 		}
 
-		LogFixZ("[{}] is failing to find Z [{}]", GetCleanName(), std::abs(m_Position.z - new_z));
+		LogFixZ("[{}] is failing to find Z [{}]", this->GetCleanName(), std::abs(m_Position.z - new_z));
 	}
 }
 
@@ -896,6 +834,8 @@ float Mob::GetZOffset() const {
 			offset = 1.0f;
 			break;
 		case RACE_DRAGON_438:
+			offset = 0.776f;
+			break;
 		case RACE_DRAGON_452:
 			offset = 0.776f;
 			break;
@@ -905,8 +845,9 @@ float Mob::GetZOffset() const {
 		case RACE_SPIDER_440:
 			offset = 0.938f;
 			break;
-		case RACE_IMP_46:
 		case RACE_SNAKE_468:
+			offset = 1.0f;
+			break;
 		case RACE_CORATHUS_459:
 			offset = 1.0f;
 			break;
@@ -917,6 +858,8 @@ float Mob::GetZOffset() const {
 			offset = 1.2f;
 			break;
 		case RACE_GOO_549:
+			offset = 0.5f;
+			break;
 		case RACE_GOO_548:
 			offset = 0.5f;
 			break;
@@ -933,48 +876,26 @@ float Mob::GetZOffset() const {
 			offset = 4.0f;
 			break;
 		case RACE_ARMOR_OF_MARR_323:
+			offset = 5.0f;
+			break;
 		case RACE_AMYGDALAN_663:
 			offset = 5.0f;
 			break;
 		case RACE_SANDMAN_664:
 			offset = 4.0f;
 			break;
-		case RACE_LAVA_DRAGON_49:
 		case RACE_ALARAN_SENTRY_STONE_703:
 			offset = 9.0f;
 			break;
 		case RACE_RABBIT_668:
 			offset = 5.0f;
 			break;
-		case RACE_WURM_158:
 		case RACE_BLIND_DREAMER_669:
 			offset = 7.0f;
 			break;
-		case RACE_SIREN_187:
-		case RACE_HALAS_CITIZEN_90:
-		case RACE_OTTERMAN_190:
-			offset = .5f;
-			break;
-		case RACE_COLDAIN_183:
-			offset = .6f;
-			break;
-		case RACE_WEREWOLF_14:
-			offset = 1.2f;
-			break;
-		case RACE_DWARF_8:
-			offset = .7f;
-			break;
-		case RACE_HORSE_216:
-			offset = 1.4f;
-			break;
-		case RACE_ENCHANTED_ARMOR_175:
-		case RACE_TIGER_63:
-			offset = 1.75f;
-			break;
-		case RACE_STATUE_OF_RALLOS_ZEK_66:
-			offset = 1.0f;
-			break;
 		case RACE_GORAL_687:
+			offset = 2.0f;
+			break;
 		case RACE_SELYRAH_686:
 			offset = 2.0f;
 			break;
@@ -1011,29 +932,7 @@ void Mob::TryMoveAlong(float distance, float angle, bool send)
 	}
 
 	new_pos.z = GetFixedZ(new_pos);
-
 	Teleport(new_pos);
-}
-
-// like above, but takes a starting position and returns a new location instead of actually moving
-glm::vec4 Mob::TryMoveAlong(const glm::vec4 &start, float distance, float angle)
-{
-	angle += start.w;
-	angle = FixHeading(angle);
-
-	glm::vec3 tmp_pos;
-	glm::vec3 new_pos = start;
-	new_pos.x += distance * g_Math.FastSin(angle);
-	new_pos.y += distance * g_Math.FastCos(angle);
-
-	if (zone->HasMap()) {
-		if (zone->zonemap->LineIntersectsZone(start, new_pos, 0.0f, &tmp_pos))
-			new_pos = tmp_pos;
-	}
-
-	new_pos.z = GetFixedZ(new_pos);
-
-	return {new_pos.x, new_pos.y, new_pos.z, start.w};
 }
 
 int	ZoneDatabase::GetHighestGrid(uint32 zoneid) {
@@ -1094,31 +993,18 @@ bool ZoneDatabase::GetWaypoints(uint32 grid, uint16 zoneid, uint32 num, wplist* 
 	return true;
 }
 
-void ZoneDatabase::AssignGrid(Client *client, uint32 grid_id, uint32 entity_id) {
-	auto target_npc = entity_list.GetNPCByID(entity_id);
-	auto spawn2_id = target_npc ? target_npc->GetSpawnPointID() : 0;
-	if (spawn2_id) {
-		std::string query = fmt::format(
-			"UPDATE spawn2 SET pathgrid = {} WHERE id = {}",
-			grid_id,
-			spawn2_id
-		);
-		auto results = QueryDatabase(query);
+void ZoneDatabase::AssignGrid(Client *client, int grid, int spawn2id) {
+	std::string query = StringFormat("UPDATE spawn2 SET pathgrid = %d WHERE id = %d", grid, spawn2id);
+	auto results = QueryDatabase(query);
 
-		if (!results.Success() || results.RowsAffected() != 1) {
-			return;
-		}
+	if (!results.Success())
+		return;
 
-		client->Message(
-			Chat::White,
-			fmt::format(
-				"{} (Spawn2 ID {}) will now use Grid ID {}.",
-				target_npc->GetCleanName(),
-				spawn2_id,
-				grid_id
-			).c_str()
-		);
+	if (results.RowsAffected() != 1) {
+		return;
 	}
+
+	client->Message(Chat::White, "Grid assign: spawn2 id = %d updated", spawn2id);
 }
 
 
@@ -1191,7 +1077,7 @@ void ZoneDatabase::AddWP(Client *client, uint32 gridid, uint32 wpnum, const glm:
 * DeleteWaypoint - Removes a specific waypoint from the grid
 *	grid_id:	The ID number of the grid whose wp is being deleted
 *	wp_num:		The number of the waypoint being deleted
-*	zoneid:		The ID number of the zone that Contains the waypoint being deleted
+*	zoneid:		The ID number of the zone that contains the waypoint being deleted
 */
 void ZoneDatabase::DeleteWaypoint(Client *client, uint32 grid_num, uint32 wp_num, uint16 zoneid)
 {
@@ -1349,6 +1235,7 @@ void NPC::RestoreGuardSpotCharm()
 /******************
 * Bot-specific overloads to make them play nice with the new movement system
 */
+#ifdef BOTS
 #include "bot.h"
 
 void Bot::WalkTo(float x, float y, float z)
@@ -1366,3 +1253,4 @@ void Bot::RunTo(float x, float y, float z)
 
 	Mob::RunTo(x, y, z);
 }
+#endif

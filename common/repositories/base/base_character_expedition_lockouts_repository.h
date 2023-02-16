@@ -13,18 +13,17 @@
 #define EQEMU_BASE_CHARACTER_EXPEDITION_LOCKOUTS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharacterExpeditionLockoutsRepository {
 public:
 	struct CharacterExpeditionLockouts {
-		uint32_t    id;
-		uint32_t    character_id;
+		int         id;
+		int         character_id;
 		std::string expedition_name;
 		std::string event_name;
-		time_t      expire_time;
-		uint32_t    duration;
+		std::string expire_time;
+		int         duration;
 		std::string from_expedition_uuid;
 	};
 
@@ -46,27 +45,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"character_id",
-			"expedition_name",
-			"event_name",
-			"UNIX_TIMESTAMP(expire_time)",
-			"duration",
-			"from_expedition_uuid",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -78,7 +59,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -94,20 +75,20 @@ public:
 
 	static CharacterExpeditionLockouts NewEntity()
 	{
-		CharacterExpeditionLockouts e{};
+		CharacterExpeditionLockouts entry{};
 
-		e.id                   = 0;
-		e.character_id         = 0;
-		e.expedition_name      = "";
-		e.event_name           = "";
-		e.expire_time          = std::time(nullptr);
-		e.duration             = 0;
-		e.from_expedition_uuid = "";
+		entry.id                   = 0;
+		entry.character_id         = 0;
+		entry.expedition_name      = "";
+		entry.event_name           = "";
+		entry.expire_time          = "";
+		entry.duration             = 0;
+		entry.from_expedition_uuid = "";
 
-		return e;
+		return entry;
 	}
 
-	static CharacterExpeditionLockouts GetCharacterExpeditionLockouts(
+	static CharacterExpeditionLockouts GetCharacterExpeditionLockoutsEntry(
 		const std::vector<CharacterExpeditionLockouts> &character_expedition_lockoutss,
 		int character_expedition_lockouts_id
 	)
@@ -136,17 +117,17 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharacterExpeditionLockouts e{};
+			CharacterExpeditionLockouts entry{};
 
-			e.id                   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.character_id         = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.expedition_name      = row[2] ? row[2] : "";
-			e.event_name           = row[3] ? row[3] : "";
-			e.expire_time          = strtoll(row[4] ? row[4] : "-1", nullptr, 10);
-			e.duration             = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.from_expedition_uuid = row[6] ? row[6] : "";
+			entry.id                   = atoi(row[0]);
+			entry.character_id         = atoi(row[1]);
+			entry.expedition_name      = row[2] ? row[2] : "";
+			entry.event_name           = row[3] ? row[3] : "";
+			entry.expire_time          = row[4] ? row[4] : "";
+			entry.duration             = atoi(row[5]);
+			entry.from_expedition_uuid = row[6] ? row[6] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -171,27 +152,27 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharacterExpeditionLockouts &e
+		CharacterExpeditionLockouts character_expedition_lockouts_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.character_id));
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.expedition_name) + "'");
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.event_name) + "'");
-		v.push_back(columns[4] + " = FROM_UNIXTIME(" + (e.expire_time > 0 ? std::to_string(e.expire_time) : "null") + ")");
-		v.push_back(columns[5] + " = " + std::to_string(e.duration));
-		v.push_back(columns[6] + " = '" + Strings::Escape(e.from_expedition_uuid) + "'");
+		update_values.push_back(columns[1] + " = " + std::to_string(character_expedition_lockouts_entry.character_id));
+		update_values.push_back(columns[2] + " = '" + EscapeString(character_expedition_lockouts_entry.expedition_name) + "'");
+		update_values.push_back(columns[3] + " = '" + EscapeString(character_expedition_lockouts_entry.event_name) + "'");
+		update_values.push_back(columns[4] + " = '" + EscapeString(character_expedition_lockouts_entry.expire_time) + "'");
+		update_values.push_back(columns[5] + " = " + std::to_string(character_expedition_lockouts_entry.duration));
+		update_values.push_back(columns[6] + " = '" + EscapeString(character_expedition_lockouts_entry.from_expedition_uuid) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				character_expedition_lockouts_entry.id
 			)
 		);
 
@@ -200,65 +181,65 @@ public:
 
 	static CharacterExpeditionLockouts InsertOne(
 		Database& db,
-		CharacterExpeditionLockouts e
+		CharacterExpeditionLockouts character_expedition_lockouts_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.character_id));
-		v.push_back("'" + Strings::Escape(e.expedition_name) + "'");
-		v.push_back("'" + Strings::Escape(e.event_name) + "'");
-		v.push_back("FROM_UNIXTIME(" + (e.expire_time > 0 ? std::to_string(e.expire_time) : "null") + ")");
-		v.push_back(std::to_string(e.duration));
-		v.push_back("'" + Strings::Escape(e.from_expedition_uuid) + "'");
+		insert_values.push_back(std::to_string(character_expedition_lockouts_entry.id));
+		insert_values.push_back(std::to_string(character_expedition_lockouts_entry.character_id));
+		insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.expedition_name) + "'");
+		insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.event_name) + "'");
+		insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.expire_time) + "'");
+		insert_values.push_back(std::to_string(character_expedition_lockouts_entry.duration));
+		insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.from_expedition_uuid) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			character_expedition_lockouts_entry.id = results.LastInsertedID();
+			return character_expedition_lockouts_entry;
 		}
 
-		e = NewEntity();
+		character_expedition_lockouts_entry = NewEntity();
 
-		return e;
+		return character_expedition_lockouts_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharacterExpeditionLockouts> &entries
+		std::vector<CharacterExpeditionLockouts> character_expedition_lockouts_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &character_expedition_lockouts_entry: character_expedition_lockouts_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.character_id));
-			v.push_back("'" + Strings::Escape(e.expedition_name) + "'");
-			v.push_back("'" + Strings::Escape(e.event_name) + "'");
-			v.push_back("FROM_UNIXTIME(" + (e.expire_time > 0 ? std::to_string(e.expire_time) : "null") + ")");
-			v.push_back(std::to_string(e.duration));
-			v.push_back("'" + Strings::Escape(e.from_expedition_uuid) + "'");
+			insert_values.push_back(std::to_string(character_expedition_lockouts_entry.id));
+			insert_values.push_back(std::to_string(character_expedition_lockouts_entry.character_id));
+			insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.expedition_name) + "'");
+			insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.event_name) + "'");
+			insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.expire_time) + "'");
+			insert_values.push_back(std::to_string(character_expedition_lockouts_entry.duration));
+			insert_values.push_back("'" + EscapeString(character_expedition_lockouts_entry.from_expedition_uuid) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -279,23 +260,23 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterExpeditionLockouts e{};
+			CharacterExpeditionLockouts entry{};
 
-			e.id                   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.character_id         = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.expedition_name      = row[2] ? row[2] : "";
-			e.event_name           = row[3] ? row[3] : "";
-			e.expire_time          = strtoll(row[4] ? row[4] : "-1", nullptr, 10);
-			e.duration             = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.from_expedition_uuid = row[6] ? row[6] : "";
+			entry.id                   = atoi(row[0]);
+			entry.character_id         = atoi(row[1]);
+			entry.expedition_name      = row[2] ? row[2] : "";
+			entry.event_name           = row[3] ? row[3] : "";
+			entry.expire_time          = row[4] ? row[4] : "";
+			entry.duration             = atoi(row[5]);
+			entry.from_expedition_uuid = row[6] ? row[6] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharacterExpeditionLockouts> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharacterExpeditionLockouts> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharacterExpeditionLockouts> all_entries;
 
@@ -310,23 +291,23 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterExpeditionLockouts e{};
+			CharacterExpeditionLockouts entry{};
 
-			e.id                   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.character_id         = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.expedition_name      = row[2] ? row[2] : "";
-			e.event_name           = row[3] ? row[3] : "";
-			e.expire_time          = strtoll(row[4] ? row[4] : "-1", nullptr, 10);
-			e.duration             = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.from_expedition_uuid = row[6] ? row[6] : "";
+			entry.id                   = atoi(row[0]);
+			entry.character_id         = atoi(row[1]);
+			entry.expedition_name      = row[2] ? row[2] : "";
+			entry.event_name           = row[3] ? row[3] : "";
+			entry.expire_time          = row[4] ? row[4] : "";
+			entry.duration             = atoi(row[5]);
+			entry.from_expedition_uuid = row[6] ? row[6] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -349,32 +330,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

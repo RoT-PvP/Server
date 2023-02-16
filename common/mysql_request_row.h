@@ -10,14 +10,8 @@
 #include <iterator>
 #include "types.h"
 
-class MySQLRequestRow
+class MySQLRequestRow : public std::iterator<std::input_iterator_tag, MYSQL_ROW>
 {
-public:
-	using iterator_category = std::input_iterator_tag;
-	using value_type = MYSQL_ROW;
-	using difference_type = std::ptrdiff_t;
-	using pointer = MYSQL_ROW*;
-	using reference = MYSQL_ROW&;
 
 private:
 	MYSQL_RES* m_Result;

@@ -1761,7 +1761,8 @@ struct AdventureRequestResponse_Struct{
 struct Illusion_Struct {
 /*000*/	uint32	spawnid;
 /*004*/	char	charname[64];
-/*068*/	int race;
+/*068*/	uint16	race;
+/*070*/	char	unknown070[2];
 /*072*/	uint8	gender;
 /*073*/	uint8	texture;
 /*074*/	uint8	helmtexture;
@@ -3179,8 +3180,8 @@ struct UseAA_Struct {
 
 struct AA_Ability {
 /*00*/	uint32 skill_id;
-/*04*/	uint32 base_value;
-/*08*/	uint32 limit_value;
+/*04*/	uint32 base1;
+/*08*/	uint32 base2;
 /*12*/	uint32 slot;
 };
 
@@ -3396,7 +3397,7 @@ struct DynamicZoneCompassEntry_Struct
 /*000*/ uint16 dz_zone_id;      // target dz id pair
 /*002*/ uint16 dz_instance_id;
 /*004*/ uint32 dz_type;         // 1: Expedition, 2: Tutorial (purple), 3: Task, 4: Mission, 5: Quest (green)
-/*008*/ uint32 dz_switch_id;
+/*008*/ uint32 unknown008;
 /*012*/ float y;
 /*016*/ float x;
 /*020*/ float z;

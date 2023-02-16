@@ -23,18 +23,18 @@
 
 BasePacket::BasePacket(const unsigned char *buf, uint32 len)
 {
-	pBuffer=nullptr;
-	size=0;
-	_wpos = 0;
-	_rpos = 0;
-	timestamp.tv_sec = 0;
+	this->pBuffer=nullptr;
+	this->size=0;
+	this->_wpos = 0;
+	this->_rpos = 0;
+	this->timestamp.tv_sec = 0;
 	if (len>0) {
-		size=len;
+		this->size=len;
 		pBuffer= new unsigned char[len];
 		if (buf) {
-			memcpy(pBuffer,buf,len);
+			memcpy(this->pBuffer,buf,len);
 		} else {
-			memset(pBuffer,0,len);
+			memset(this->pBuffer,0,len);
 		}
 	}
 }

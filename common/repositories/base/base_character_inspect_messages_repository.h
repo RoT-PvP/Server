@@ -13,13 +13,12 @@
 #define EQEMU_BASE_CHARACTER_INSPECT_MESSAGES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharacterInspectMessagesRepository {
 public:
 	struct CharacterInspectMessages {
-		uint32_t    id;
+		int         id;
 		std::string inspect_message;
 	};
 
@@ -36,22 +35,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"inspect_message",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -63,7 +49,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -79,15 +65,15 @@ public:
 
 	static CharacterInspectMessages NewEntity()
 	{
-		CharacterInspectMessages e{};
+		CharacterInspectMessages entry{};
 
-		e.id              = 0;
-		e.inspect_message = "";
+		entry.id              = 0;
+		entry.inspect_message = "";
 
-		return e;
+		return entry;
 	}
 
-	static CharacterInspectMessages GetCharacterInspectMessages(
+	static CharacterInspectMessages GetCharacterInspectMessagesEntry(
 		const std::vector<CharacterInspectMessages> &character_inspect_messagess,
 		int character_inspect_messages_id
 	)
@@ -116,12 +102,12 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharacterInspectMessages e{};
+			CharacterInspectMessages entry{};
 
-			e.id              = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.inspect_message = row[1] ? row[1] : "";
+			entry.id              = atoi(row[0]);
+			entry.inspect_message = row[1] ? row[1] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -146,23 +132,23 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharacterInspectMessages &e
+		CharacterInspectMessages character_inspect_messages_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.id));
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.inspect_message) + "'");
+		update_values.push_back(columns[0] + " = " + std::to_string(character_inspect_messages_entry.id));
+		update_values.push_back(columns[1] + " = '" + EscapeString(character_inspect_messages_entry.inspect_message) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				character_inspect_messages_entry.id
 			)
 		);
 
@@ -171,55 +157,55 @@ public:
 
 	static CharacterInspectMessages InsertOne(
 		Database& db,
-		CharacterInspectMessages e
+		CharacterInspectMessages character_inspect_messages_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.inspect_message) + "'");
+		insert_values.push_back(std::to_string(character_inspect_messages_entry.id));
+		insert_values.push_back("'" + EscapeString(character_inspect_messages_entry.inspect_message) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			character_inspect_messages_entry.id = results.LastInsertedID();
+			return character_inspect_messages_entry;
 		}
 
-		e = NewEntity();
+		character_inspect_messages_entry = NewEntity();
 
-		return e;
+		return character_inspect_messages_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharacterInspectMessages> &entries
+		std::vector<CharacterInspectMessages> character_inspect_messages_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &character_inspect_messages_entry: character_inspect_messages_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.inspect_message) + "'");
+			insert_values.push_back(std::to_string(character_inspect_messages_entry.id));
+			insert_values.push_back("'" + EscapeString(character_inspect_messages_entry.inspect_message) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -240,18 +226,18 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterInspectMessages e{};
+			CharacterInspectMessages entry{};
 
-			e.id              = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.inspect_message = row[1] ? row[1] : "";
+			entry.id              = atoi(row[0]);
+			entry.inspect_message = row[1] ? row[1] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharacterInspectMessages> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharacterInspectMessages> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharacterInspectMessages> all_entries;
 
@@ -266,18 +252,18 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterInspectMessages e{};
+			CharacterInspectMessages entry{};
 
-			e.id              = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.inspect_message = row[1] ? row[1] : "";
+			entry.id              = atoi(row[0]);
+			entry.inspect_message = row[1] ? row[1] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -300,32 +286,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

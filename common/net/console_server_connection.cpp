@@ -15,7 +15,7 @@ EQ::Net::ConsoleServerConnection::ConsoleServerConnection(ConsoleServer *parent,
 	memset(m_line, 0, MaxConsoleLineLength);
 	m_accept_messages = false;
 	m_user_id = 0;
-	m_admin = AccountStatus::Player;
+	m_admin = 0;
 
 	m_connection->OnRead(std::bind(&ConsoleServerConnection::OnRead, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 	m_connection->OnDisconnect(std::bind(&ConsoleServerConnection::OnDisconnect, this, std::placeholders::_1));
@@ -29,7 +29,7 @@ EQ::Net::ConsoleServerConnection::ConsoleServerConnection(ConsoleServer *parent,
 	if (addr.find("127.0.0.1") != std::string::npos || addr.find("::0") != std::string::npos) {
 		SendLine("Connection established from localhost, assuming admin");
 		m_status = ConsoleStatusLoggedIn;
-		m_admin = AccountStatus::Max;
+		m_admin = 255;
 		SendPrompt();
 	}
 	else {
@@ -116,42 +116,43 @@ bool EQ::Net::ConsoleServerConnection::SendChannelMessage(const ServerChannelMes
 	}
 
 	switch (scm->chan_num) {
-		case ChatChannel_Guild: {
-			QueueMessage(fmt::format("{} tells the guild [{}], '{}'", scm->from, scm->guilddbid, scm->message));
-			break;
-		}
-		case ChatChannel_Auction: {
+		case 4: {
 			if (RuleB(Chat, ServerWideAuction)) {
-				QueueMessage(fmt::format("{} auctions, '{}'", scm->from, scm->message));
+				QueueMessage(fmt::format("{0} auctions, '{1}'", scm->from, scm->message));
 				break;
 			} else { // I think we want default action in this case?
 				return false;
 			}
 		}
-		case ChatChannel_OOC: {
+
+		case 5: {
 			if (RuleB(Chat, ServerWideOOC)) {
-				QueueMessage(fmt::format("{} says ooc, '{}'", scm->from, scm->message));
+				QueueMessage(fmt::format("{0} says ooc, '{1}'", scm->from, scm->message));
 				break;
 			} else { // I think we want default action in this case?
 				return false;
 			}
 		}
-		case ChatChannel_Broadcast: {
-			QueueMessage(fmt::format("{} BROADCASTS, '{}'", scm->from, scm->message));
+
+		case 6: {
+			QueueMessage(fmt::format("{0} BROADCASTS, '{1}'", scm->from, scm->message));
 			break;
 		}
-		case ChatChannel_Tell: {
-			QueueMessage(fmt::format("[{}] tells {}, '{}'", scm->from, scm->to, scm->message));
+
+		case 7: {
+			QueueMessage(fmt::format("[{0}] tells you, '{1}'", scm->from, scm->message));
 			if (onTell) {
 				onTell();
 			}
 
 			break;
 		}
-		case ChatChannel_GMSAY: {
-			QueueMessage(fmt::format("{} GMSAYS, '{}'", scm->from, scm->message));
+		
+		case 11: {
+			QueueMessage(fmt::format("{0} GMSAYS, '{1}'", scm->from, scm->message));
 			break;
 		}
+
 		default: {
 			return false;
 		}

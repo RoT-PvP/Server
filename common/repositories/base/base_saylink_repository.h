@@ -13,13 +13,12 @@
 #define EQEMU_BASE_SAYLINK_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseSaylinkRepository {
 public:
 	struct Saylink {
-		int32_t     id;
+		int         id;
 		std::string phrase;
 	};
 
@@ -36,22 +35,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"phrase",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -63,7 +49,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -79,15 +65,15 @@ public:
 
 	static Saylink NewEntity()
 	{
-		Saylink e{};
+		Saylink entry{};
 
-		e.id     = 0;
-		e.phrase = "";
+		entry.id     = 0;
+		entry.phrase = "";
 
-		return e;
+		return entry;
 	}
 
-	static Saylink GetSaylink(
+	static Saylink GetSaylinkEntry(
 		const std::vector<Saylink> &saylinks,
 		int saylink_id
 	)
@@ -116,12 +102,12 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Saylink e{};
+			Saylink entry{};
 
-			e.id     = static_cast<int32_t>(atoi(row[0]));
-			e.phrase = row[1] ? row[1] : "";
+			entry.id     = atoi(row[0]);
+			entry.phrase = row[1] ? row[1] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -146,22 +132,22 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Saylink &e
+		Saylink saylink_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.phrase) + "'");
+		update_values.push_back(columns[1] + " = '" + EscapeString(saylink_entry.phrase) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				saylink_entry.id
 			)
 		);
 
@@ -170,55 +156,55 @@ public:
 
 	static Saylink InsertOne(
 		Database& db,
-		Saylink e
+		Saylink saylink_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.phrase) + "'");
+		insert_values.push_back(std::to_string(saylink_entry.id));
+		insert_values.push_back("'" + EscapeString(saylink_entry.phrase) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			saylink_entry.id = results.LastInsertedID();
+			return saylink_entry;
 		}
 
-		e = NewEntity();
+		saylink_entry = NewEntity();
 
-		return e;
+		return saylink_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Saylink> &entries
+		std::vector<Saylink> saylink_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &saylink_entry: saylink_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.phrase) + "'");
+			insert_values.push_back(std::to_string(saylink_entry.id));
+			insert_values.push_back("'" + EscapeString(saylink_entry.phrase) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -239,18 +225,18 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Saylink e{};
+			Saylink entry{};
 
-			e.id     = static_cast<int32_t>(atoi(row[0]));
-			e.phrase = row[1] ? row[1] : "";
+			entry.id     = atoi(row[0]);
+			entry.phrase = row[1] ? row[1] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Saylink> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Saylink> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Saylink> all_entries;
 
@@ -265,18 +251,18 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Saylink e{};
+			Saylink entry{};
 
-			e.id     = static_cast<int32_t>(atoi(row[0]));
-			e.phrase = row[1] ? row[1] : "";
+			entry.id     = atoi(row[0]);
+			entry.phrase = row[1] ? row[1] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -299,32 +285,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

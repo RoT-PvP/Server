@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-
+	
 	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 
 	This program is free software; you can redistribute it and/or modify
@@ -29,10 +29,9 @@
 
 #include "../eq_packet_structs.h"
 #include "../misc_functions.h"
-#include "../strings.h"
+#include "../string_util.h"
 #include "../item_instance.h"
 #include "titanium_structs.h"
-#include "../path_manager.h"
 
 #include <sstream>
 
@@ -70,7 +69,11 @@ namespace Titanium
 		auto Config = EQEmuConfig::get();
 		//create our opcode manager if we havent already
 		if (opcodes == nullptr) {
-			std::string opfile = fmt::format("{}/patch_{}.conf", path.GetPatchPath(), name);
+			//TODO: get this file name from the config file
+			std::string opfile = Config->PatchDir;
+			opfile += "patch_";
+			opfile += name;
+			opfile += ".conf";
 			//load up the opcode manager.
 			//TODO: figure out how to support shared memory with multiple patches...
 			opcodes = new RegularOpcodeManager();
@@ -111,7 +114,12 @@ namespace Titanium
 		//we need to go to every stream and replace it's manager.
 
 		if (opcodes != nullptr) {
-			std::string opfile = fmt::format("{}/patch_{}.conf", path.GetPatchPath(), name);
+			//TODO: get this file name from the config file
+			auto Config = EQEmuConfig::get();
+			std::string opfile = Config->PatchDir;
+			opfile += "patch_";
+			opfile += name;
+			opfile += ".conf";
 			if (!opcodes->ReloadOpcodes(opfile.c_str())) {
 				LogNetcode("[OPCODES] Error reloading opcodes file [{}] for patch [{}]", opfile.c_str(), name);
 				return;
@@ -330,13 +338,13 @@ namespace Titanium
 			SerializeItem(ob, (const EQ::ItemInstance*)eq->inst, ServerToTitaniumSlot(eq->slot_id), 0);
 			if (ob.tellp() == last_pos)
 				LogNetcode("Titanium::ENCODE(OP_CharInventory) Serialization failed on item slot [{}] during OP_CharInventory.  Item skipped", eq->slot_id);
-
+			
 			last_pos = ob.tellp();
 		}
 
 		in->size = ob.size();
 		in->pBuffer = ob.detach();
-
+		
 		delete[] __emu_buffer;
 
 		dest->FastQueuePacket(&in, ack_req);
@@ -380,7 +388,7 @@ namespace Titanium
 
 	ENCODE(OP_DeleteCharge)
 	{
-		Log(Logs::Detail, Logs::Netcode, "Titanium::ENCODE(OP_DeleteCharge)");
+		Log(Logs::Moderate, Logs::Netcode, "Titanium::ENCODE(OP_DeleteCharge)");
 
 		ENCODE_FORWARD(OP_MoveItem);
 	}
@@ -428,6 +436,30 @@ namespace Titanium
 		__packet->size = buf.size();
 		__packet->pBuffer = new unsigned char[__packet->size];
 		memcpy(__packet->pBuffer, buf.buffer(), __packet->size);
+
+		FINISH_ENCODE();
+	}
+
+	ENCODE(OP_DzCompass)
+	{
+		SETUP_VAR_ENCODE(DynamicZoneCompass_Struct);
+		ALLOC_VAR_ENCODE(structs::DynamicZoneCompass_Struct,
+			sizeof(structs::DynamicZoneCompass_Struct) +
+			sizeof(structs::DynamicZoneCompassEntry_Struct) * emu->count
+		);
+
+		OUT(client_id);
+		OUT(count);
+
+		for (uint32 i = 0; i < emu->count; ++i)
+		{
+			OUT(entries[i].dz_zone_id);
+			OUT(entries[i].dz_instance_id);
+			OUT(entries[i].dz_type);
+			OUT(entries[i].x);
+			OUT(entries[i].y);
+			OUT(entries[i].z);
+		}
 
 		FINISH_ENCODE();
 	}
@@ -829,7 +861,7 @@ namespace Titanium
 
 		//store away the emu struct
 		uchar* __emu_buffer = in->pBuffer;
-
+		
 		EQ::InternalSerializedItem_Struct* int_struct = (EQ::InternalSerializedItem_Struct*)(&__emu_buffer[4]);
 
 		EQ::OutBuffer ob;
@@ -846,7 +878,7 @@ namespace Titanium
 
 		in->size = ob.size();
 		in->pBuffer = ob.detach();
-
+		
 		delete[] __emu_buffer;
 
 		dest->FastQueuePacket(&in, ack_req);
@@ -890,25 +922,12 @@ namespace Titanium
 		ENCODE_LENGTH_EXACT(LootingItem_Struct);
 		SETUP_DIRECT_ENCODE(LootingItem_Struct, structs::LootingItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "Titanium::ENCODE(OP_LootItem)");
+		Log(Logs::Moderate, Logs::Netcode, "Titanium::ENCODE(OP_LootItem)");
 
 		OUT(lootee);
 		OUT(looter);
 		eq->slot_id = ServerToTitaniumCorpseSlot(emu->slot_id);
 		OUT(auto_loot);
-
-		FINISH_ENCODE();
-	}
-
-	ENCODE(OP_ManaChange)
-	{
-		ENCODE_LENGTH_EXACT(ManaChange_Struct);
-		SETUP_DIRECT_ENCODE(ManaChange_Struct, structs::ManaChange_Struct);
-
-		OUT(new_mana);
-		OUT(stamina);
-		OUT(spell_id);
-		OUT(keepcasting);
 
 		FINISH_ENCODE();
 	}
@@ -934,7 +953,7 @@ namespace Titanium
 		ENCODE_LENGTH_EXACT(MoveItem_Struct);
 		SETUP_DIRECT_ENCODE(MoveItem_Struct, structs::MoveItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "Titanium::ENCODE(OP_MoveItem)");
+		Log(Logs::Moderate, Logs::Netcode, "Titanium::ENCODE(OP_MoveItem)");
 
 		eq->from_slot = ServerToTitaniumSlot(emu->from_slot);
 		eq->to_slot = ServerToTitaniumSlot(emu->to_slot);
@@ -1319,8 +1338,8 @@ namespace Titanium
 
 		for(auto i = 0; i < eq->total_abilities; ++i) {
 			eq->abilities[i].skill_id = inapp->ReadUInt32();
-			eq->abilities[i].base_value = inapp->ReadUInt32();
-			eq->abilities[i].limit_value = inapp->ReadUInt32();
+			eq->abilities[i].base1 = inapp->ReadUInt32();
+			eq->abilities[i].base2 = inapp->ReadUInt32();
 			eq->abilities[i].slot = inapp->ReadUInt32();
 		}
 
@@ -1430,30 +1449,6 @@ namespace Titanium
 		}
 
 		FINISH_ENCODE();
-	}
-
-	ENCODE(OP_SetFace)
-	{
-		auto emu = reinterpret_cast<FaceChange_Struct*>((*p)->pBuffer);
-
-		EQApplicationPacket outapp(OP_Illusion, sizeof(structs::Illusion_Struct));
-		auto buf = reinterpret_cast<structs::Illusion_Struct*>(outapp.pBuffer);
-
-		buf->spawnid     = emu->entity_id;
-		buf->race        = -1; // unchanged
-		buf->gender      = -1; // unchanged
-		buf->texture     = -1; // unchanged
-		buf->helmtexture = -1; // unchanged
-		buf->face        = emu->face;
-		buf->hairstyle   = emu->hairstyle;
-		buf->haircolor   = emu->haircolor;
-		buf->beard       = emu->beard;
-		buf->beardcolor  = emu->beardcolor;
-		buf->size        = 0.0f; // unchanged
-
-		safe_delete(*p); // not using the original packet
-
-		dest->QueuePacket(&outapp, ack_req);
 	}
 
 	ENCODE(OP_ShopPlayerSell)
@@ -2178,7 +2173,7 @@ namespace Titanium
 		DECODE_LENGTH_EXACT(structs::LootingItem_Struct);
 		SETUP_DIRECT_DECODE(LootingItem_Struct, structs::LootingItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "Titanium::DECODE(OP_LootItem)");
+		Log(Logs::Moderate, Logs::Netcode, "Titanium::DECODE(OP_LootItem)");
 
 		IN(lootee);
 		IN(looter);
@@ -2193,7 +2188,7 @@ namespace Titanium
 		DECODE_LENGTH_EXACT(structs::MoveItem_Struct);
 		SETUP_DIRECT_DECODE(MoveItem_Struct, structs::MoveItem_Struct);
 
-		Log(Logs::Detail, Logs::Netcode, "Titanium::DECODE(OP_MoveItem)");
+		Log(Logs::Moderate, Logs::Netcode, "Titanium::DECODE(OP_MoveItem)");
 
 		emu->from_slot = TitaniumToServerSlot(eq->from_slot);
 		emu->to_slot = TitaniumToServerSlot(eq->to_slot);
@@ -2813,7 +2808,7 @@ namespace Titanium
 			return;
 		}
 
-		auto segments = Strings::Split(server_saylink, '\x12');
+		auto segments = SplitString(server_saylink, '\x12');
 
 		for (size_t segment_iter = 0; segment_iter < segments.size(); ++segment_iter) {
 			if (segment_iter & 1) {
@@ -2853,7 +2848,7 @@ namespace Titanium
 			return;
 		}
 
-		auto segments = Strings::Split(titanium_saylink, '\x12');
+		auto segments = SplitString(titanium_saylink, '\x12');
 
 		for (size_t segment_iter = 0; segment_iter < segments.size(); ++segment_iter) {
 			if (segment_iter & 1) {

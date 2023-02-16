@@ -13,16 +13,15 @@
 #define EQEMU_BASE_CHARACTER_PET_INVENTORY_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharacterPetInventoryRepository {
 public:
 	struct CharacterPetInventory {
-		int32_t char_id;
-		int32_t pet;
-		int32_t slot;
-		int32_t item_id;
+		int char_id;
+		int pet;
+		int slot;
+		int item_id;
 	};
 
 	static std::string PrimaryKey()
@@ -40,24 +39,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"char_id",
-			"pet",
-			"slot",
-			"item_id",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +69,17 @@ public:
 
 	static CharacterPetInventory NewEntity()
 	{
-		CharacterPetInventory e{};
+		CharacterPetInventory entry{};
 
-		e.char_id = 0;
-		e.pet     = 0;
-		e.slot    = 0;
-		e.item_id = 0;
+		entry.char_id = 0;
+		entry.pet     = 0;
+		entry.slot    = 0;
+		entry.item_id = 0;
 
-		return e;
+		return entry;
 	}
 
-	static CharacterPetInventory GetCharacterPetInventory(
+	static CharacterPetInventory GetCharacterPetInventoryEntry(
 		const std::vector<CharacterPetInventory> &character_pet_inventorys,
 		int character_pet_inventory_id
 	)
@@ -124,14 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharacterPetInventory e{};
+			CharacterPetInventory entry{};
 
-			e.char_id = static_cast<int32_t>(atoi(row[0]));
-			e.pet     = static_cast<int32_t>(atoi(row[1]));
-			e.slot    = static_cast<int32_t>(atoi(row[2]));
-			e.item_id = static_cast<int32_t>(atoi(row[3]));
+			entry.char_id = atoi(row[0]);
+			entry.pet     = atoi(row[1]);
+			entry.slot    = atoi(row[2]);
+			entry.item_id = atoi(row[3]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,25 +140,25 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharacterPetInventory &e
+		CharacterPetInventory character_pet_inventory_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.char_id));
-		v.push_back(columns[1] + " = " + std::to_string(e.pet));
-		v.push_back(columns[2] + " = " + std::to_string(e.slot));
-		v.push_back(columns[3] + " = " + std::to_string(e.item_id));
+		update_values.push_back(columns[0] + " = " + std::to_string(character_pet_inventory_entry.char_id));
+		update_values.push_back(columns[1] + " = " + std::to_string(character_pet_inventory_entry.pet));
+		update_values.push_back(columns[2] + " = " + std::to_string(character_pet_inventory_entry.slot));
+		update_values.push_back(columns[3] + " = " + std::to_string(character_pet_inventory_entry.item_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.char_id
+				character_pet_inventory_entry.char_id
 			)
 		);
 
@@ -183,59 +167,59 @@ public:
 
 	static CharacterPetInventory InsertOne(
 		Database& db,
-		CharacterPetInventory e
+		CharacterPetInventory character_pet_inventory_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.char_id));
-		v.push_back(std::to_string(e.pet));
-		v.push_back(std::to_string(e.slot));
-		v.push_back(std::to_string(e.item_id));
+		insert_values.push_back(std::to_string(character_pet_inventory_entry.char_id));
+		insert_values.push_back(std::to_string(character_pet_inventory_entry.pet));
+		insert_values.push_back(std::to_string(character_pet_inventory_entry.slot));
+		insert_values.push_back(std::to_string(character_pet_inventory_entry.item_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.char_id = results.LastInsertedID();
-			return e;
+			character_pet_inventory_entry.char_id = results.LastInsertedID();
+			return character_pet_inventory_entry;
 		}
 
-		e = NewEntity();
+		character_pet_inventory_entry = NewEntity();
 
-		return e;
+		return character_pet_inventory_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharacterPetInventory> &entries
+		std::vector<CharacterPetInventory> character_pet_inventory_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &character_pet_inventory_entry: character_pet_inventory_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.char_id));
-			v.push_back(std::to_string(e.pet));
-			v.push_back(std::to_string(e.slot));
-			v.push_back(std::to_string(e.item_id));
+			insert_values.push_back(std::to_string(character_pet_inventory_entry.char_id));
+			insert_values.push_back(std::to_string(character_pet_inventory_entry.pet));
+			insert_values.push_back(std::to_string(character_pet_inventory_entry.slot));
+			insert_values.push_back(std::to_string(character_pet_inventory_entry.item_id));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -256,20 +240,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterPetInventory e{};
+			CharacterPetInventory entry{};
 
-			e.char_id = static_cast<int32_t>(atoi(row[0]));
-			e.pet     = static_cast<int32_t>(atoi(row[1]));
-			e.slot    = static_cast<int32_t>(atoi(row[2]));
-			e.item_id = static_cast<int32_t>(atoi(row[3]));
+			entry.char_id = atoi(row[0]);
+			entry.pet     = atoi(row[1]);
+			entry.slot    = atoi(row[2]);
+			entry.item_id = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharacterPetInventory> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharacterPetInventory> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharacterPetInventory> all_entries;
 
@@ -284,20 +268,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterPetInventory e{};
+			CharacterPetInventory entry{};
 
-			e.char_id = static_cast<int32_t>(atoi(row[0]));
-			e.pet     = static_cast<int32_t>(atoi(row[1]));
-			e.slot    = static_cast<int32_t>(atoi(row[2]));
-			e.item_id = static_cast<int32_t>(atoi(row[3]));
+			entry.char_id = atoi(row[0]);
+			entry.pet     = atoi(row[1]);
+			entry.slot    = atoi(row[2]);
+			entry.item_id = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -320,32 +304,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

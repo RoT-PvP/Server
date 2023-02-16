@@ -13,25 +13,24 @@
 #define EQEMU_BASE_SPAWNGROUP_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseSpawngroupRepository {
 public:
 	struct Spawngroup {
-		int32_t     id;
+		int         id;
 		std::string name;
-		int8_t      spawn_limit;
+		int         spawn_limit;
 		float       dist;
 		float       max_x;
 		float       min_x;
 		float       max_y;
 		float       min_y;
-		int32_t     delay;
-		int32_t     mindelay;
-		int8_t      despawn;
-		int32_t     despawn_timer;
-		uint8_t     wp_spawns;
+		int         delay;
+		int         mindelay;
+		int         despawn;
+		int         despawn_timer;
+		int         wp_spawns;
 	};
 
 	static std::string PrimaryKey()
@@ -58,33 +57,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"name",
-			"spawn_limit",
-			"dist",
-			"max_x",
-			"min_x",
-			"max_y",
-			"min_y",
-			"delay",
-			"mindelay",
-			"despawn",
-			"despawn_timer",
-			"wp_spawns",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -96,7 +71,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -112,26 +87,26 @@ public:
 
 	static Spawngroup NewEntity()
 	{
-		Spawngroup e{};
+		Spawngroup entry{};
 
-		e.id            = 0;
-		e.name          = "";
-		e.spawn_limit   = 0;
-		e.dist          = 0;
-		e.max_x         = 0;
-		e.min_x         = 0;
-		e.max_y         = 0;
-		e.min_y         = 0;
-		e.delay         = 45000;
-		e.mindelay      = 15000;
-		e.despawn       = 0;
-		e.despawn_timer = 100;
-		e.wp_spawns     = 0;
+		entry.id            = 0;
+		entry.name          = "";
+		entry.spawn_limit   = 0;
+		entry.dist          = 0;
+		entry.max_x         = 0;
+		entry.min_x         = 0;
+		entry.max_y         = 0;
+		entry.min_y         = 0;
+		entry.delay         = 45000;
+		entry.mindelay      = 15000;
+		entry.despawn       = 0;
+		entry.despawn_timer = 100;
+		entry.wp_spawns     = 0;
 
-		return e;
+		return entry;
 	}
 
-	static Spawngroup GetSpawngroup(
+	static Spawngroup GetSpawngroupEntry(
 		const std::vector<Spawngroup> &spawngroups,
 		int spawngroup_id
 	)
@@ -160,23 +135,23 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Spawngroup e{};
+			Spawngroup entry{};
 
-			e.id            = static_cast<int32_t>(atoi(row[0]));
-			e.name          = row[1] ? row[1] : "";
-			e.spawn_limit   = static_cast<int8_t>(atoi(row[2]));
-			e.dist          = strtof(row[3], nullptr);
-			e.max_x         = strtof(row[4], nullptr);
-			e.min_x         = strtof(row[5], nullptr);
-			e.max_y         = strtof(row[6], nullptr);
-			e.min_y         = strtof(row[7], nullptr);
-			e.delay         = static_cast<int32_t>(atoi(row[8]));
-			e.mindelay      = static_cast<int32_t>(atoi(row[9]));
-			e.despawn       = static_cast<int8_t>(atoi(row[10]));
-			e.despawn_timer = static_cast<int32_t>(atoi(row[11]));
-			e.wp_spawns     = static_cast<uint8_t>(strtoul(row[12], nullptr, 10));
+			entry.id            = atoi(row[0]);
+			entry.name          = row[1] ? row[1] : "";
+			entry.spawn_limit   = atoi(row[2]);
+			entry.dist          = static_cast<float>(atof(row[3]));
+			entry.max_x         = static_cast<float>(atof(row[4]));
+			entry.min_x         = static_cast<float>(atof(row[5]));
+			entry.max_y         = static_cast<float>(atof(row[6]));
+			entry.min_y         = static_cast<float>(atof(row[7]));
+			entry.delay         = atoi(row[8]);
+			entry.mindelay      = atoi(row[9]);
+			entry.despawn       = atoi(row[10]);
+			entry.despawn_timer = atoi(row[11]);
+			entry.wp_spawns     = atoi(row[12]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -201,33 +176,33 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Spawngroup &e
+		Spawngroup spawngroup_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.name) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.spawn_limit));
-		v.push_back(columns[3] + " = " + std::to_string(e.dist));
-		v.push_back(columns[4] + " = " + std::to_string(e.max_x));
-		v.push_back(columns[5] + " = " + std::to_string(e.min_x));
-		v.push_back(columns[6] + " = " + std::to_string(e.max_y));
-		v.push_back(columns[7] + " = " + std::to_string(e.min_y));
-		v.push_back(columns[8] + " = " + std::to_string(e.delay));
-		v.push_back(columns[9] + " = " + std::to_string(e.mindelay));
-		v.push_back(columns[10] + " = " + std::to_string(e.despawn));
-		v.push_back(columns[11] + " = " + std::to_string(e.despawn_timer));
-		v.push_back(columns[12] + " = " + std::to_string(e.wp_spawns));
+		update_values.push_back(columns[1] + " = '" + EscapeString(spawngroup_entry.name) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(spawngroup_entry.spawn_limit));
+		update_values.push_back(columns[3] + " = " + std::to_string(spawngroup_entry.dist));
+		update_values.push_back(columns[4] + " = " + std::to_string(spawngroup_entry.max_x));
+		update_values.push_back(columns[5] + " = " + std::to_string(spawngroup_entry.min_x));
+		update_values.push_back(columns[6] + " = " + std::to_string(spawngroup_entry.max_y));
+		update_values.push_back(columns[7] + " = " + std::to_string(spawngroup_entry.min_y));
+		update_values.push_back(columns[8] + " = " + std::to_string(spawngroup_entry.delay));
+		update_values.push_back(columns[9] + " = " + std::to_string(spawngroup_entry.mindelay));
+		update_values.push_back(columns[10] + " = " + std::to_string(spawngroup_entry.despawn));
+		update_values.push_back(columns[11] + " = " + std::to_string(spawngroup_entry.despawn_timer));
+		update_values.push_back(columns[12] + " = " + std::to_string(spawngroup_entry.wp_spawns));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				spawngroup_entry.id
 			)
 		);
 
@@ -236,77 +211,77 @@ public:
 
 	static Spawngroup InsertOne(
 		Database& db,
-		Spawngroup e
+		Spawngroup spawngroup_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.name) + "'");
-		v.push_back(std::to_string(e.spawn_limit));
-		v.push_back(std::to_string(e.dist));
-		v.push_back(std::to_string(e.max_x));
-		v.push_back(std::to_string(e.min_x));
-		v.push_back(std::to_string(e.max_y));
-		v.push_back(std::to_string(e.min_y));
-		v.push_back(std::to_string(e.delay));
-		v.push_back(std::to_string(e.mindelay));
-		v.push_back(std::to_string(e.despawn));
-		v.push_back(std::to_string(e.despawn_timer));
-		v.push_back(std::to_string(e.wp_spawns));
+		insert_values.push_back(std::to_string(spawngroup_entry.id));
+		insert_values.push_back("'" + EscapeString(spawngroup_entry.name) + "'");
+		insert_values.push_back(std::to_string(spawngroup_entry.spawn_limit));
+		insert_values.push_back(std::to_string(spawngroup_entry.dist));
+		insert_values.push_back(std::to_string(spawngroup_entry.max_x));
+		insert_values.push_back(std::to_string(spawngroup_entry.min_x));
+		insert_values.push_back(std::to_string(spawngroup_entry.max_y));
+		insert_values.push_back(std::to_string(spawngroup_entry.min_y));
+		insert_values.push_back(std::to_string(spawngroup_entry.delay));
+		insert_values.push_back(std::to_string(spawngroup_entry.mindelay));
+		insert_values.push_back(std::to_string(spawngroup_entry.despawn));
+		insert_values.push_back(std::to_string(spawngroup_entry.despawn_timer));
+		insert_values.push_back(std::to_string(spawngroup_entry.wp_spawns));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			spawngroup_entry.id = results.LastInsertedID();
+			return spawngroup_entry;
 		}
 
-		e = NewEntity();
+		spawngroup_entry = NewEntity();
 
-		return e;
+		return spawngroup_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Spawngroup> &entries
+		std::vector<Spawngroup> spawngroup_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &spawngroup_entry: spawngroup_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.name) + "'");
-			v.push_back(std::to_string(e.spawn_limit));
-			v.push_back(std::to_string(e.dist));
-			v.push_back(std::to_string(e.max_x));
-			v.push_back(std::to_string(e.min_x));
-			v.push_back(std::to_string(e.max_y));
-			v.push_back(std::to_string(e.min_y));
-			v.push_back(std::to_string(e.delay));
-			v.push_back(std::to_string(e.mindelay));
-			v.push_back(std::to_string(e.despawn));
-			v.push_back(std::to_string(e.despawn_timer));
-			v.push_back(std::to_string(e.wp_spawns));
+			insert_values.push_back(std::to_string(spawngroup_entry.id));
+			insert_values.push_back("'" + EscapeString(spawngroup_entry.name) + "'");
+			insert_values.push_back(std::to_string(spawngroup_entry.spawn_limit));
+			insert_values.push_back(std::to_string(spawngroup_entry.dist));
+			insert_values.push_back(std::to_string(spawngroup_entry.max_x));
+			insert_values.push_back(std::to_string(spawngroup_entry.min_x));
+			insert_values.push_back(std::to_string(spawngroup_entry.max_y));
+			insert_values.push_back(std::to_string(spawngroup_entry.min_y));
+			insert_values.push_back(std::to_string(spawngroup_entry.delay));
+			insert_values.push_back(std::to_string(spawngroup_entry.mindelay));
+			insert_values.push_back(std::to_string(spawngroup_entry.despawn));
+			insert_values.push_back(std::to_string(spawngroup_entry.despawn_timer));
+			insert_values.push_back(std::to_string(spawngroup_entry.wp_spawns));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -327,29 +302,29 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Spawngroup e{};
+			Spawngroup entry{};
 
-			e.id            = static_cast<int32_t>(atoi(row[0]));
-			e.name          = row[1] ? row[1] : "";
-			e.spawn_limit   = static_cast<int8_t>(atoi(row[2]));
-			e.dist          = strtof(row[3], nullptr);
-			e.max_x         = strtof(row[4], nullptr);
-			e.min_x         = strtof(row[5], nullptr);
-			e.max_y         = strtof(row[6], nullptr);
-			e.min_y         = strtof(row[7], nullptr);
-			e.delay         = static_cast<int32_t>(atoi(row[8]));
-			e.mindelay      = static_cast<int32_t>(atoi(row[9]));
-			e.despawn       = static_cast<int8_t>(atoi(row[10]));
-			e.despawn_timer = static_cast<int32_t>(atoi(row[11]));
-			e.wp_spawns     = static_cast<uint8_t>(strtoul(row[12], nullptr, 10));
+			entry.id            = atoi(row[0]);
+			entry.name          = row[1] ? row[1] : "";
+			entry.spawn_limit   = atoi(row[2]);
+			entry.dist          = static_cast<float>(atof(row[3]));
+			entry.max_x         = static_cast<float>(atof(row[4]));
+			entry.min_x         = static_cast<float>(atof(row[5]));
+			entry.max_y         = static_cast<float>(atof(row[6]));
+			entry.min_y         = static_cast<float>(atof(row[7]));
+			entry.delay         = atoi(row[8]);
+			entry.mindelay      = atoi(row[9]);
+			entry.despawn       = atoi(row[10]);
+			entry.despawn_timer = atoi(row[11]);
+			entry.wp_spawns     = atoi(row[12]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Spawngroup> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Spawngroup> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Spawngroup> all_entries;
 
@@ -364,29 +339,29 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Spawngroup e{};
+			Spawngroup entry{};
 
-			e.id            = static_cast<int32_t>(atoi(row[0]));
-			e.name          = row[1] ? row[1] : "";
-			e.spawn_limit   = static_cast<int8_t>(atoi(row[2]));
-			e.dist          = strtof(row[3], nullptr);
-			e.max_x         = strtof(row[4], nullptr);
-			e.min_x         = strtof(row[5], nullptr);
-			e.max_y         = strtof(row[6], nullptr);
-			e.min_y         = strtof(row[7], nullptr);
-			e.delay         = static_cast<int32_t>(atoi(row[8]));
-			e.mindelay      = static_cast<int32_t>(atoi(row[9]));
-			e.despawn       = static_cast<int8_t>(atoi(row[10]));
-			e.despawn_timer = static_cast<int32_t>(atoi(row[11]));
-			e.wp_spawns     = static_cast<uint8_t>(strtoul(row[12], nullptr, 10));
+			entry.id            = atoi(row[0]);
+			entry.name          = row[1] ? row[1] : "";
+			entry.spawn_limit   = atoi(row[2]);
+			entry.dist          = static_cast<float>(atof(row[3]));
+			entry.max_x         = static_cast<float>(atof(row[4]));
+			entry.min_x         = static_cast<float>(atof(row[5]));
+			entry.max_y         = static_cast<float>(atof(row[6]));
+			entry.min_y         = static_cast<float>(atof(row[7]));
+			entry.delay         = atoi(row[8]);
+			entry.mindelay      = atoi(row[9]);
+			entry.despawn       = atoi(row[10]);
+			entry.despawn_timer = atoi(row[11]);
+			entry.wp_spawns     = atoi(row[12]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -409,32 +384,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

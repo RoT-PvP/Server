@@ -13,28 +13,27 @@
 #define EQEMU_BASE_PETITIONS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BasePetitionsRepository {
 public:
 	struct Petitions {
-		uint32_t    dib;
-		uint32_t    petid;
+		int         dib;
+		int         petid;
 		std::string charname;
 		std::string accountname;
 		std::string lastgm;
 		std::string petitiontext;
 		std::string gmtext;
 		std::string zone;
-		int32_t     urgency;
-		int32_t     charclass;
-		int32_t     charrace;
-		int32_t     charlevel;
-		int32_t     checkouts;
-		int32_t     unavailables;
-		int8_t      ischeckedout;
-		int64_t     senttime;
+		int         urgency;
+		int         charclass;
+		int         charrace;
+		int         charlevel;
+		int         checkouts;
+		int         unavailables;
+		int         ischeckedout;
+		int64       senttime;
 	};
 
 	static std::string PrimaryKey()
@@ -64,36 +63,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"dib",
-			"petid",
-			"charname",
-			"accountname",
-			"lastgm",
-			"petitiontext",
-			"gmtext",
-			"zone",
-			"urgency",
-			"charclass",
-			"charrace",
-			"charlevel",
-			"checkouts",
-			"unavailables",
-			"ischeckedout",
-			"senttime",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -105,7 +77,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -121,29 +93,29 @@ public:
 
 	static Petitions NewEntity()
 	{
-		Petitions e{};
+		Petitions entry{};
 
-		e.dib          = 0;
-		e.petid        = 0;
-		e.charname     = "";
-		e.accountname  = "";
-		e.lastgm       = "";
-		e.petitiontext = "";
-		e.gmtext       = "";
-		e.zone         = "";
-		e.urgency      = 0;
-		e.charclass    = 0;
-		e.charrace     = 0;
-		e.charlevel    = 0;
-		e.checkouts    = 0;
-		e.unavailables = 0;
-		e.ischeckedout = 0;
-		e.senttime     = 0;
+		entry.dib          = 0;
+		entry.petid        = 0;
+		entry.charname     = "";
+		entry.accountname  = "";
+		entry.lastgm       = "";
+		entry.petitiontext = "";
+		entry.gmtext       = "";
+		entry.zone         = "";
+		entry.urgency      = 0;
+		entry.charclass    = 0;
+		entry.charrace     = 0;
+		entry.charlevel    = 0;
+		entry.checkouts    = 0;
+		entry.unavailables = 0;
+		entry.ischeckedout = 0;
+		entry.senttime     = 0;
 
-		return e;
+		return entry;
 	}
 
-	static Petitions GetPetitions(
+	static Petitions GetPetitionsEntry(
 		const std::vector<Petitions> &petitionss,
 		int petitions_id
 	)
@@ -172,26 +144,26 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Petitions e{};
+			Petitions entry{};
 
-			e.dib          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.petid        = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.charname     = row[2] ? row[2] : "";
-			e.accountname  = row[3] ? row[3] : "";
-			e.lastgm       = row[4] ? row[4] : "";
-			e.petitiontext = row[5] ? row[5] : "";
-			e.gmtext       = row[6] ? row[6] : "";
-			e.zone         = row[7] ? row[7] : "";
-			e.urgency      = static_cast<int32_t>(atoi(row[8]));
-			e.charclass    = static_cast<int32_t>(atoi(row[9]));
-			e.charrace     = static_cast<int32_t>(atoi(row[10]));
-			e.charlevel    = static_cast<int32_t>(atoi(row[11]));
-			e.checkouts    = static_cast<int32_t>(atoi(row[12]));
-			e.unavailables = static_cast<int32_t>(atoi(row[13]));
-			e.ischeckedout = static_cast<int8_t>(atoi(row[14]));
-			e.senttime     = strtoll(row[15], nullptr, 10);
+			entry.dib          = atoi(row[0]);
+			entry.petid        = atoi(row[1]);
+			entry.charname     = row[2] ? row[2] : "";
+			entry.accountname  = row[3] ? row[3] : "";
+			entry.lastgm       = row[4] ? row[4] : "";
+			entry.petitiontext = row[5] ? row[5] : "";
+			entry.gmtext       = row[6] ? row[6] : "";
+			entry.zone         = row[7] ? row[7] : "";
+			entry.urgency      = atoi(row[8]);
+			entry.charclass    = atoi(row[9]);
+			entry.charrace     = atoi(row[10]);
+			entry.charlevel    = atoi(row[11]);
+			entry.checkouts    = atoi(row[12]);
+			entry.unavailables = atoi(row[13]);
+			entry.ischeckedout = atoi(row[14]);
+			entry.senttime     = strtoll(row[15], NULL, 10);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -216,36 +188,36 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Petitions &e
+		Petitions petitions_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.petid));
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.charname) + "'");
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.accountname) + "'");
-		v.push_back(columns[4] + " = '" + Strings::Escape(e.lastgm) + "'");
-		v.push_back(columns[5] + " = '" + Strings::Escape(e.petitiontext) + "'");
-		v.push_back(columns[6] + " = '" + Strings::Escape(e.gmtext) + "'");
-		v.push_back(columns[7] + " = '" + Strings::Escape(e.zone) + "'");
-		v.push_back(columns[8] + " = " + std::to_string(e.urgency));
-		v.push_back(columns[9] + " = " + std::to_string(e.charclass));
-		v.push_back(columns[10] + " = " + std::to_string(e.charrace));
-		v.push_back(columns[11] + " = " + std::to_string(e.charlevel));
-		v.push_back(columns[12] + " = " + std::to_string(e.checkouts));
-		v.push_back(columns[13] + " = " + std::to_string(e.unavailables));
-		v.push_back(columns[14] + " = " + std::to_string(e.ischeckedout));
-		v.push_back(columns[15] + " = " + std::to_string(e.senttime));
+		update_values.push_back(columns[1] + " = " + std::to_string(petitions_entry.petid));
+		update_values.push_back(columns[2] + " = '" + EscapeString(petitions_entry.charname) + "'");
+		update_values.push_back(columns[3] + " = '" + EscapeString(petitions_entry.accountname) + "'");
+		update_values.push_back(columns[4] + " = '" + EscapeString(petitions_entry.lastgm) + "'");
+		update_values.push_back(columns[5] + " = '" + EscapeString(petitions_entry.petitiontext) + "'");
+		update_values.push_back(columns[6] + " = '" + EscapeString(petitions_entry.gmtext) + "'");
+		update_values.push_back(columns[7] + " = '" + EscapeString(petitions_entry.zone) + "'");
+		update_values.push_back(columns[8] + " = " + std::to_string(petitions_entry.urgency));
+		update_values.push_back(columns[9] + " = " + std::to_string(petitions_entry.charclass));
+		update_values.push_back(columns[10] + " = " + std::to_string(petitions_entry.charrace));
+		update_values.push_back(columns[11] + " = " + std::to_string(petitions_entry.charlevel));
+		update_values.push_back(columns[12] + " = " + std::to_string(petitions_entry.checkouts));
+		update_values.push_back(columns[13] + " = " + std::to_string(petitions_entry.unavailables));
+		update_values.push_back(columns[14] + " = " + std::to_string(petitions_entry.ischeckedout));
+		update_values.push_back(columns[15] + " = " + std::to_string(petitions_entry.senttime));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.dib
+				petitions_entry.dib
 			)
 		);
 
@@ -254,83 +226,83 @@ public:
 
 	static Petitions InsertOne(
 		Database& db,
-		Petitions e
+		Petitions petitions_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.dib));
-		v.push_back(std::to_string(e.petid));
-		v.push_back("'" + Strings::Escape(e.charname) + "'");
-		v.push_back("'" + Strings::Escape(e.accountname) + "'");
-		v.push_back("'" + Strings::Escape(e.lastgm) + "'");
-		v.push_back("'" + Strings::Escape(e.petitiontext) + "'");
-		v.push_back("'" + Strings::Escape(e.gmtext) + "'");
-		v.push_back("'" + Strings::Escape(e.zone) + "'");
-		v.push_back(std::to_string(e.urgency));
-		v.push_back(std::to_string(e.charclass));
-		v.push_back(std::to_string(e.charrace));
-		v.push_back(std::to_string(e.charlevel));
-		v.push_back(std::to_string(e.checkouts));
-		v.push_back(std::to_string(e.unavailables));
-		v.push_back(std::to_string(e.ischeckedout));
-		v.push_back(std::to_string(e.senttime));
+		insert_values.push_back(std::to_string(petitions_entry.dib));
+		insert_values.push_back(std::to_string(petitions_entry.petid));
+		insert_values.push_back("'" + EscapeString(petitions_entry.charname) + "'");
+		insert_values.push_back("'" + EscapeString(petitions_entry.accountname) + "'");
+		insert_values.push_back("'" + EscapeString(petitions_entry.lastgm) + "'");
+		insert_values.push_back("'" + EscapeString(petitions_entry.petitiontext) + "'");
+		insert_values.push_back("'" + EscapeString(petitions_entry.gmtext) + "'");
+		insert_values.push_back("'" + EscapeString(petitions_entry.zone) + "'");
+		insert_values.push_back(std::to_string(petitions_entry.urgency));
+		insert_values.push_back(std::to_string(petitions_entry.charclass));
+		insert_values.push_back(std::to_string(petitions_entry.charrace));
+		insert_values.push_back(std::to_string(petitions_entry.charlevel));
+		insert_values.push_back(std::to_string(petitions_entry.checkouts));
+		insert_values.push_back(std::to_string(petitions_entry.unavailables));
+		insert_values.push_back(std::to_string(petitions_entry.ischeckedout));
+		insert_values.push_back(std::to_string(petitions_entry.senttime));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.dib = results.LastInsertedID();
-			return e;
+			petitions_entry.dib = results.LastInsertedID();
+			return petitions_entry;
 		}
 
-		e = NewEntity();
+		petitions_entry = NewEntity();
 
-		return e;
+		return petitions_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Petitions> &entries
+		std::vector<Petitions> petitions_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &petitions_entry: petitions_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.dib));
-			v.push_back(std::to_string(e.petid));
-			v.push_back("'" + Strings::Escape(e.charname) + "'");
-			v.push_back("'" + Strings::Escape(e.accountname) + "'");
-			v.push_back("'" + Strings::Escape(e.lastgm) + "'");
-			v.push_back("'" + Strings::Escape(e.petitiontext) + "'");
-			v.push_back("'" + Strings::Escape(e.gmtext) + "'");
-			v.push_back("'" + Strings::Escape(e.zone) + "'");
-			v.push_back(std::to_string(e.urgency));
-			v.push_back(std::to_string(e.charclass));
-			v.push_back(std::to_string(e.charrace));
-			v.push_back(std::to_string(e.charlevel));
-			v.push_back(std::to_string(e.checkouts));
-			v.push_back(std::to_string(e.unavailables));
-			v.push_back(std::to_string(e.ischeckedout));
-			v.push_back(std::to_string(e.senttime));
+			insert_values.push_back(std::to_string(petitions_entry.dib));
+			insert_values.push_back(std::to_string(petitions_entry.petid));
+			insert_values.push_back("'" + EscapeString(petitions_entry.charname) + "'");
+			insert_values.push_back("'" + EscapeString(petitions_entry.accountname) + "'");
+			insert_values.push_back("'" + EscapeString(petitions_entry.lastgm) + "'");
+			insert_values.push_back("'" + EscapeString(petitions_entry.petitiontext) + "'");
+			insert_values.push_back("'" + EscapeString(petitions_entry.gmtext) + "'");
+			insert_values.push_back("'" + EscapeString(petitions_entry.zone) + "'");
+			insert_values.push_back(std::to_string(petitions_entry.urgency));
+			insert_values.push_back(std::to_string(petitions_entry.charclass));
+			insert_values.push_back(std::to_string(petitions_entry.charrace));
+			insert_values.push_back(std::to_string(petitions_entry.charlevel));
+			insert_values.push_back(std::to_string(petitions_entry.checkouts));
+			insert_values.push_back(std::to_string(petitions_entry.unavailables));
+			insert_values.push_back(std::to_string(petitions_entry.ischeckedout));
+			insert_values.push_back(std::to_string(petitions_entry.senttime));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -351,32 +323,32 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Petitions e{};
+			Petitions entry{};
 
-			e.dib          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.petid        = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.charname     = row[2] ? row[2] : "";
-			e.accountname  = row[3] ? row[3] : "";
-			e.lastgm       = row[4] ? row[4] : "";
-			e.petitiontext = row[5] ? row[5] : "";
-			e.gmtext       = row[6] ? row[6] : "";
-			e.zone         = row[7] ? row[7] : "";
-			e.urgency      = static_cast<int32_t>(atoi(row[8]));
-			e.charclass    = static_cast<int32_t>(atoi(row[9]));
-			e.charrace     = static_cast<int32_t>(atoi(row[10]));
-			e.charlevel    = static_cast<int32_t>(atoi(row[11]));
-			e.checkouts    = static_cast<int32_t>(atoi(row[12]));
-			e.unavailables = static_cast<int32_t>(atoi(row[13]));
-			e.ischeckedout = static_cast<int8_t>(atoi(row[14]));
-			e.senttime     = strtoll(row[15], nullptr, 10);
+			entry.dib          = atoi(row[0]);
+			entry.petid        = atoi(row[1]);
+			entry.charname     = row[2] ? row[2] : "";
+			entry.accountname  = row[3] ? row[3] : "";
+			entry.lastgm       = row[4] ? row[4] : "";
+			entry.petitiontext = row[5] ? row[5] : "";
+			entry.gmtext       = row[6] ? row[6] : "";
+			entry.zone         = row[7] ? row[7] : "";
+			entry.urgency      = atoi(row[8]);
+			entry.charclass    = atoi(row[9]);
+			entry.charrace     = atoi(row[10]);
+			entry.charlevel    = atoi(row[11]);
+			entry.checkouts    = atoi(row[12]);
+			entry.unavailables = atoi(row[13]);
+			entry.ischeckedout = atoi(row[14]);
+			entry.senttime     = strtoll(row[15], NULL, 10);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Petitions> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Petitions> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Petitions> all_entries;
 
@@ -391,32 +363,32 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Petitions e{};
+			Petitions entry{};
 
-			e.dib          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.petid        = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.charname     = row[2] ? row[2] : "";
-			e.accountname  = row[3] ? row[3] : "";
-			e.lastgm       = row[4] ? row[4] : "";
-			e.petitiontext = row[5] ? row[5] : "";
-			e.gmtext       = row[6] ? row[6] : "";
-			e.zone         = row[7] ? row[7] : "";
-			e.urgency      = static_cast<int32_t>(atoi(row[8]));
-			e.charclass    = static_cast<int32_t>(atoi(row[9]));
-			e.charrace     = static_cast<int32_t>(atoi(row[10]));
-			e.charlevel    = static_cast<int32_t>(atoi(row[11]));
-			e.checkouts    = static_cast<int32_t>(atoi(row[12]));
-			e.unavailables = static_cast<int32_t>(atoi(row[13]));
-			e.ischeckedout = static_cast<int8_t>(atoi(row[14]));
-			e.senttime     = strtoll(row[15], nullptr, 10);
+			entry.dib          = atoi(row[0]);
+			entry.petid        = atoi(row[1]);
+			entry.charname     = row[2] ? row[2] : "";
+			entry.accountname  = row[3] ? row[3] : "";
+			entry.lastgm       = row[4] ? row[4] : "";
+			entry.petitiontext = row[5] ? row[5] : "";
+			entry.gmtext       = row[6] ? row[6] : "";
+			entry.zone         = row[7] ? row[7] : "";
+			entry.urgency      = atoi(row[8]);
+			entry.charclass    = atoi(row[9]);
+			entry.charrace     = atoi(row[10]);
+			entry.charlevel    = atoi(row[11]);
+			entry.checkouts    = atoi(row[12]);
+			entry.unavailables = atoi(row[13]);
+			entry.ischeckedout = atoi(row[14]);
+			entry.senttime     = strtoll(row[15], NULL, 10);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -439,32 +411,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

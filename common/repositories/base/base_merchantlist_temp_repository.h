@@ -13,18 +13,15 @@
 #define EQEMU_BASE_MERCHANTLIST_TEMP_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseMerchantlistTempRepository {
 public:
 	struct MerchantlistTemp {
-		uint32_t npcid;
-		uint8_t  slot;
-		int32_t  zone_id;
-		int32_t  instance_id;
-		uint32_t itemid;
-		uint32_t charges;
+		int npcid;
+		int slot;
+		int itemid;
+		int charges;
 	};
 
 	static std::string PrimaryKey()
@@ -37,20 +34,6 @@ public:
 		return {
 			"npcid",
 			"slot",
-			"zone_id",
-			"instance_id",
-			"itemid",
-			"charges",
-		};
-	}
-
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"npcid",
-			"slot",
-			"zone_id",
-			"instance_id",
 			"itemid",
 			"charges",
 		};
@@ -58,12 +41,7 @@ public:
 
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -75,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -91,19 +69,17 @@ public:
 
 	static MerchantlistTemp NewEntity()
 	{
-		MerchantlistTemp e{};
+		MerchantlistTemp entry{};
 
-		e.npcid       = 0;
-		e.slot        = 0;
-		e.zone_id     = 0;
-		e.instance_id = 0;
-		e.itemid      = 0;
-		e.charges     = 1;
+		entry.npcid   = 0;
+		entry.slot    = 0;
+		entry.itemid  = 0;
+		entry.charges = 1;
 
-		return e;
+		return entry;
 	}
 
-	static MerchantlistTemp GetMerchantlistTemp(
+	static MerchantlistTemp GetMerchantlistTempEntry(
 		const std::vector<MerchantlistTemp> &merchantlist_temps,
 		int merchantlist_temp_id
 	)
@@ -132,16 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			MerchantlistTemp e{};
+			MerchantlistTemp entry{};
 
-			e.npcid       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.slot        = static_cast<uint8_t>(strtoul(row[1], nullptr, 10));
-			e.zone_id     = static_cast<int32_t>(atoi(row[2]));
-			e.instance_id = static_cast<int32_t>(atoi(row[3]));
-			e.itemid      = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.charges     = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
+			entry.npcid   = atoi(row[0]);
+			entry.slot    = atoi(row[1]);
+			entry.itemid  = atoi(row[2]);
+			entry.charges = atoi(row[3]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -166,27 +140,25 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const MerchantlistTemp &e
+		MerchantlistTemp merchantlist_temp_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.npcid));
-		v.push_back(columns[1] + " = " + std::to_string(e.slot));
-		v.push_back(columns[2] + " = " + std::to_string(e.zone_id));
-		v.push_back(columns[3] + " = " + std::to_string(e.instance_id));
-		v.push_back(columns[4] + " = " + std::to_string(e.itemid));
-		v.push_back(columns[5] + " = " + std::to_string(e.charges));
+		update_values.push_back(columns[0] + " = " + std::to_string(merchantlist_temp_entry.npcid));
+		update_values.push_back(columns[1] + " = " + std::to_string(merchantlist_temp_entry.slot));
+		update_values.push_back(columns[2] + " = " + std::to_string(merchantlist_temp_entry.itemid));
+		update_values.push_back(columns[3] + " = " + std::to_string(merchantlist_temp_entry.charges));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.npcid
+				merchantlist_temp_entry.npcid
 			)
 		);
 
@@ -195,63 +167,59 @@ public:
 
 	static MerchantlistTemp InsertOne(
 		Database& db,
-		MerchantlistTemp e
+		MerchantlistTemp merchantlist_temp_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.npcid));
-		v.push_back(std::to_string(e.slot));
-		v.push_back(std::to_string(e.zone_id));
-		v.push_back(std::to_string(e.instance_id));
-		v.push_back(std::to_string(e.itemid));
-		v.push_back(std::to_string(e.charges));
+		insert_values.push_back(std::to_string(merchantlist_temp_entry.npcid));
+		insert_values.push_back(std::to_string(merchantlist_temp_entry.slot));
+		insert_values.push_back(std::to_string(merchantlist_temp_entry.itemid));
+		insert_values.push_back(std::to_string(merchantlist_temp_entry.charges));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.npcid = results.LastInsertedID();
-			return e;
+			merchantlist_temp_entry.npcid = results.LastInsertedID();
+			return merchantlist_temp_entry;
 		}
 
-		e = NewEntity();
+		merchantlist_temp_entry = NewEntity();
 
-		return e;
+		return merchantlist_temp_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<MerchantlistTemp> &entries
+		std::vector<MerchantlistTemp> merchantlist_temp_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &merchantlist_temp_entry: merchantlist_temp_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.npcid));
-			v.push_back(std::to_string(e.slot));
-			v.push_back(std::to_string(e.zone_id));
-			v.push_back(std::to_string(e.instance_id));
-			v.push_back(std::to_string(e.itemid));
-			v.push_back(std::to_string(e.charges));
+			insert_values.push_back(std::to_string(merchantlist_temp_entry.npcid));
+			insert_values.push_back(std::to_string(merchantlist_temp_entry.slot));
+			insert_values.push_back(std::to_string(merchantlist_temp_entry.itemid));
+			insert_values.push_back(std::to_string(merchantlist_temp_entry.charges));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -272,22 +240,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			MerchantlistTemp e{};
+			MerchantlistTemp entry{};
 
-			e.npcid       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.slot        = static_cast<uint8_t>(strtoul(row[1], nullptr, 10));
-			e.zone_id     = static_cast<int32_t>(atoi(row[2]));
-			e.instance_id = static_cast<int32_t>(atoi(row[3]));
-			e.itemid      = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.charges     = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
+			entry.npcid   = atoi(row[0]);
+			entry.slot    = atoi(row[1]);
+			entry.itemid  = atoi(row[2]);
+			entry.charges = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<MerchantlistTemp> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<MerchantlistTemp> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<MerchantlistTemp> all_entries;
 
@@ -302,22 +268,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			MerchantlistTemp e{};
+			MerchantlistTemp entry{};
 
-			e.npcid       = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.slot        = static_cast<uint8_t>(strtoul(row[1], nullptr, 10));
-			e.zone_id     = static_cast<int32_t>(atoi(row[2]));
-			e.instance_id = static_cast<int32_t>(atoi(row[3]));
-			e.itemid      = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.charges     = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
+			entry.npcid   = atoi(row[0]);
+			entry.slot    = atoi(row[1]);
+			entry.itemid  = atoi(row[2]);
+			entry.charges = atoi(row[3]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -340,32 +304,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

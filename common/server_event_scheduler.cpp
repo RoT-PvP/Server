@@ -1,5 +1,5 @@
 #include "../common/database.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 #include "server_event_scheduler.h"
 #include "../common/cron/croncpp.h"
 #include <chrono>
@@ -109,7 +109,7 @@ bool ServerEventScheduler::ValidateEventReadyToActivate(
 
 	if (now_time_unix >= start_time_unix && (doesnt_end || now_time_unix < end_time_unix)) {
 		LogSchedulerDetail(
-			"now_time [{}] start_time [{}] doesnt_end [{}] end_time [{}]",
+			"[ValidateEventReadyToActivate] now_time [{}] start_time [{}] doesnt_end [{}] end_time [{}]",
 			now_time_unix,
 			start_time_unix,
 			doesnt_end ? "true" : "false",
@@ -131,7 +131,7 @@ ServerEventScheduler *ServerEventScheduler::SetDatabase(Database *db)
 bool ServerEventScheduler::ValidateDatabaseConnection()
 {
 	if (!m_database) {
-		LogError("No database connection");
+		LogError("[ServerEventScheduler::LoadScheduledEvents] No database connection");
 		return false;
 	}
 
@@ -143,10 +143,6 @@ bool ServerEventScheduler::ValidateDatabaseConnection()
 // this helps inform decisions to tell all zones to reload their events
 bool ServerEventScheduler::CheckIfEventsChanged()
 {
-	if (!m_database) {
-		return false;
-	}
-
 	auto events = ServerScheduledEventsRepository::GetWhere(*m_database, "deleted_at is null");
 
 	// first check if the size changed, if it did this is the easiest step
@@ -178,7 +174,7 @@ bool ServerEventScheduler::CheckIfEventsChanged()
 					dbe.created_at != e.created_at ||
 					dbe.deleted_at != e.deleted_at
 					) {
-					LogSchedulerDetail("Field change detected");
+					LogSchedulerDetail("[CheckIfEventsChanged] Field change detected");
 					m_events = events;
 					return true;
 				}

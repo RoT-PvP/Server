@@ -47,10 +47,59 @@
 
 #include "database.h"
 #include "../common/eq_packet_structs.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 #include "../common/servertalk.h"
 
-void QSDatabase::AddSpeech(
+Database::Database()
+{
+	DBInitVars();
+}
+
+/*
+Establish a connection to a mysql database with the supplied parameters
+*/
+
+Database::Database(const char *host, const char *user, const char *passwd, const char *database, uint32 port)
+{
+	DBInitVars();
+	Connect(host, user, passwd, database, port);
+}
+
+bool Database::Connect(const char *host, const char *user, const char *passwd, const char *database, uint32 port)
+{
+	uint32 errnum = 0;
+	char   errbuf[MYSQL_ERRMSG_SIZE];
+	if (!Open(host, user, passwd, database, port, &errnum, errbuf)) {
+		LogError("Failed to connect to database: Error: {}", errbuf);
+		HandleMysqlError(errnum);
+
+		return false;
+	}
+	else {
+		LogInfo("Using database [{}] at [{}]:[{}]", database, host, port);
+		return true;
+	}
+}
+
+void Database::DBInitVars()
+{
+
+}
+
+
+void Database::HandleMysqlError(uint32 errnum)
+{
+}
+
+/*
+
+Close the connection to the database
+*/
+Database::~Database()
+{
+}
+
+void Database::AddSpeech(
 	const char *from,
 	const char *to,
 	const char *message,
@@ -85,7 +134,7 @@ void QSDatabase::AddSpeech(
 
 }
 
-void QSDatabase::LogPlayerDropItem(QSPlayerDropItem_Struct *QS)
+void Database::LogPlayerDropItem(QSPlayerDropItem_Struct *QS)
 {
 
 	std::string query = StringFormat(
@@ -124,7 +173,7 @@ void QSDatabase::LogPlayerDropItem(QSPlayerDropItem_Struct *QS)
 	}
 }
 
-void QSDatabase::LogPlayerTrade(PlayerLogTrade_Struct *QS, uint32 detailCount)
+void Database::LogPlayerTrade(QSPlayerLogTrade_Struct *QS, uint32 detailCount)
 {
 
 	std::string query   = StringFormat(
@@ -133,10 +182,10 @@ void QSDatabase::LogPlayerTrade(PlayerLogTrade_Struct *QS, uint32 detailCount)
 		"`char1_sp` = '%i', `char1_cp` = '%i', `char1_items` = '%i', "
 		"`char2_id` = '%i', `char2_pp` = '%i', `char2_gp` = '%i', "
 		"`char2_sp` = '%i', `char2_cp` = '%i', `char2_items` = '%i'",
-		QS->character_1_id, QS->character_1_money.platinum, QS->character_1_money.gold,
-		QS->character_1_money.silver, QS->character_1_money.copper, QS->character_1_item_count,
-		QS->character_2_id, QS->character_2_money.platinum, QS->character_2_money.gold,
-		QS->character_2_money.silver, QS->character_2_money.copper, QS->character_2_item_count
+		QS->char1_id, QS->char1_money.platinum, QS->char1_money.gold,
+		QS->char1_money.silver, QS->char1_money.copper, QS->char1_count,
+		QS->char2_id, QS->char2_money.platinum, QS->char2_money.gold,
+		QS->char2_money.silver, QS->char2_money.copper, QS->char2_count
 	);
 	auto        results = QueryDatabase(query);
 	if (!results.Success()) {
@@ -156,10 +205,10 @@ void QSDatabase::LogPlayerTrade(PlayerLogTrade_Struct *QS, uint32 detailCount)
 			"`from_id` = '%i', `from_slot` = '%i', `to_id` = '%i', `to_slot` = '%i', "
 			"`item_id` = '%i', `charges` = '%i', `aug_1` = '%i', `aug_2` = '%i', "
 			"`aug_3` = '%i', `aug_4` = '%i', `aug_5` = '%i'",
-			lastIndex, QS->item_entries[i].from_character_id, QS->item_entries[i].from_slot,
-			QS->item_entries[i].to_character_id, QS->item_entries[i].to_slot, QS->item_entries[i].item_id,
-			QS->item_entries[i].charges, QS->item_entries[i].aug_1, QS->item_entries[i].aug_2,
-			QS->item_entries[i].aug_3, QS->item_entries[i].aug_4, QS->item_entries[i].aug_5
+			lastIndex, QS->items[i].from_id, QS->items[i].from_slot,
+			QS->items[i].to_id, QS->items[i].to_slot, QS->items[i].item_id,
+			QS->items[i].charges, QS->items[i].aug_1, QS->items[i].aug_2,
+			QS->items[i].aug_3, QS->items[i].aug_4, QS->items[i].aug_5
 		);
 		results = QueryDatabase(query);
 		if (!results.Success()) {
@@ -171,7 +220,7 @@ void QSDatabase::LogPlayerTrade(PlayerLogTrade_Struct *QS, uint32 detailCount)
 
 }
 
-void QSDatabase::LogPlayerHandin(QSPlayerLogHandin_Struct *QS, uint32 detailCount)
+void Database::LogPlayerHandin(QSPlayerLogHandin_Struct *QS, uint32 detailCount)
 {
 
 	std::string query   = StringFormat(
@@ -210,8 +259,6 @@ void QSDatabase::LogPlayerHandin(QSPlayerLogHandin_Struct *QS, uint32 detailCoun
 			QS->items[i].aug_2, QS->items[i].aug_3, QS->items[i].aug_4,
 			QS->items[i].aug_5
 		);
-		auto results = QueryDatabase(query);
-
 		if (!results.Success()) {
 			LogInfo("Failed Handin Log Record Entry Insert: [{}]", results.ErrorMessage().c_str());
 			LogInfo("[{}]", query.c_str());
@@ -220,7 +267,7 @@ void QSDatabase::LogPlayerHandin(QSPlayerLogHandin_Struct *QS, uint32 detailCoun
 
 }
 
-void QSDatabase::LogPlayerNPCKill(QSPlayerLogNPCKill_Struct *QS, uint32 members)
+void Database::LogPlayerNPCKill(QSPlayerLogNPCKill_Struct *QS, uint32 members)
 {
 
 	std::string query   = StringFormat(
@@ -257,7 +304,7 @@ void QSDatabase::LogPlayerNPCKill(QSPlayerLogNPCKill_Struct *QS, uint32 members)
 
 }
 
-void QSDatabase::LogPlayerDelete(QSPlayerLogDelete_Struct *QS, uint32 items)
+void Database::LogPlayerDelete(QSPlayerLogDelete_Struct *QS, uint32 items)
 {
 
 	std::string query   = StringFormat(
@@ -296,7 +343,7 @@ void QSDatabase::LogPlayerDelete(QSPlayerLogDelete_Struct *QS, uint32 items)
 
 }
 
-void QSDatabase::LogPlayerMove(QSPlayerLogMove_Struct *QS, uint32 items)
+void Database::LogPlayerMove(QSPlayerLogMove_Struct *QS, uint32 items)
 {
 	/* These are item moves */
 
@@ -336,7 +383,7 @@ void QSDatabase::LogPlayerMove(QSPlayerLogMove_Struct *QS, uint32 items)
 	}
 }
 
-void QSDatabase::LogMerchantTransaction(QSMerchantLogTransaction_Struct *QS, uint32 items)
+void Database::LogMerchantTransaction(QSMerchantLogTransaction_Struct *QS, uint32 items)
 {
 	/* Merchant transactions are from the perspective of the merchant, not the player */
 	std::string query   = StringFormat(
@@ -384,7 +431,7 @@ void QSDatabase::LogMerchantTransaction(QSMerchantLogTransaction_Struct *QS, uin
 }
 
 // this function does not delete the ServerPacket, so it must be handled at call site
-void QSDatabase::GeneralQueryReceive(ServerPacket *pack)
+void Database::GeneralQueryReceive(ServerPacket *pack)
 {
 	/*
 		These are general queries passed from anywhere in zone instead of packing structures and breaking them down again and again

@@ -21,7 +21,7 @@
 #include "timer.h"
 #include "ptimer.h"
 #include "database.h"
-#include "strings.h"
+#include "string_util.h"
 
 #ifdef _WINDOWS
 	#include <winsock2.h>

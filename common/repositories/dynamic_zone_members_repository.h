@@ -1,8 +1,28 @@
+/**
+ * EQEmulator: Everquest Server Emulator
+ * Copyright (C) 2001-2020 EQEmulator Development Team (https://github.com/EQEmu/Server)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY except by those people which sell it, which
+ * are required to give you total support for your newly bought product;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ */
+
 #ifndef EQEMU_DYNAMIC_ZONE_MEMBERS_REPOSITORY_H
 #define EQEMU_DYNAMIC_ZONE_MEMBERS_REPOSITORY_H
 
 #include "../database.h"
-#include "../strings.h"
+#include "../string_util.h"
 #include "base/base_dynamic_zone_members_repository.h"
 
 class DynamicZoneMembersRepository: public BaseDynamicZoneMembersRepository {
@@ -49,6 +69,7 @@ public:
 		uint32_t id;
 		uint32_t dynamic_zone_id;
 		uint32_t character_id;
+		int is_current_member;
 		std::string character_name;
 	};
 
@@ -59,17 +80,32 @@ public:
 				dynamic_zone_members.id,
 				dynamic_zone_members.dynamic_zone_id,
 				dynamic_zone_members.character_id,
+				dynamic_zone_members.is_current_member,
 				character_data.name
 			FROM dynamic_zone_members
 				INNER JOIN character_data ON dynamic_zone_members.character_id = character_data.id
 		));
 	}
 
-	static std::vector<MemberWithName> GetAllWithNames(Database& db)
+	static std::vector<MemberWithName> GetWithNames(Database& db,
+		const std::vector<uint32_t>& dynamic_zone_ids)
 	{
+		if (dynamic_zone_ids.empty())
+		{
+			return {};
+		}
+
 		std::vector<MemberWithName> all_entries;
 
-		auto results = db.QueryDatabase(SelectMembersWithNames());
+		auto results = db.QueryDatabase(fmt::format(SQL(
+			{}
+			WHERE dynamic_zone_members.dynamic_zone_id IN ({})
+				AND dynamic_zone_members.is_current_member = TRUE;
+		),
+			SelectMembersWithNames(),
+			fmt::join(dynamic_zone_ids, ",")
+		));
+
 		if (results.Success())
 		{
 			all_entries.reserve(results.RowCount());
@@ -82,6 +118,7 @@ public:
 				entry.id                = strtoul(row[col++], nullptr, 10);
 				entry.dynamic_zone_id   = strtoul(row[col++], nullptr, 10);
 				entry.character_id      = strtoul(row[col++], nullptr, 10);
+				entry.is_current_member = strtoul(row[col++], nullptr, 10);
 				entry.character_name    = row[col++];
 
 				all_entries.emplace_back(std::move(entry));
@@ -136,7 +173,7 @@ public:
 				(dynamic_zone_id, character_id)
 			VALUES
 				({}, {})
-			ON DUPLICATE KEY UPDATE id = id;
+			ON DUPLICATE KEY UPDATE is_current_member = TRUE;
 		),
 			TableName(),
 			dynamic_zone_id,
@@ -147,7 +184,7 @@ public:
 	static void RemoveMember(Database& db, uint32_t dynamic_zone_id, uint32_t character_id)
 	{
 		db.QueryDatabase(fmt::format(SQL(
-			DELETE FROM {}
+			UPDATE {} SET is_current_member = FALSE
 			WHERE dynamic_zone_id = {} AND character_id = {};
 		),
 			TableName(), dynamic_zone_id, character_id
@@ -157,7 +194,7 @@ public:
 	static void RemoveAllMembers(Database& db, uint32_t dynamic_zone_id)
 	{
 		db.QueryDatabase(fmt::format(SQL(
-			DELETE FROM {}
+			UPDATE {} SET is_current_member = FALSE
 			WHERE dynamic_zone_id = {};
 		),
 			TableName(), dynamic_zone_id
@@ -169,10 +206,10 @@ public:
 		if (!dynamic_zone_ids.empty())
 		{
 			db.QueryDatabase(fmt::format(SQL(
-				DELETE FROM {}
+				UPDATE {} SET is_current_member = FALSE
 				WHERE dynamic_zone_id IN ({});
 			),
-				TableName(), Strings::Join(dynamic_zone_ids, ",")
+				TableName(), fmt::join(dynamic_zone_ids, ",")
 			));
 		}
 	}
@@ -189,18 +226,19 @@ public:
 			insert_values.push_back(std::to_string(dynamic_zone_members_entry.id));
 			insert_values.push_back(std::to_string(dynamic_zone_members_entry.dynamic_zone_id));
 			insert_values.push_back(std::to_string(dynamic_zone_members_entry.character_id));
+			insert_values.push_back(std::to_string(dynamic_zone_members_entry.is_current_member));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", insert_values) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
 		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
-				"INSERT INTO {} ({}) VALUES {} ON DUPLICATE KEY UPDATE id = id;",
+				"INSERT INTO {} ({}) VALUES {} ON DUPLICATE KEY UPDATE is_current_member = TRUE;",
 				TableName(),
 				ColumnsRaw(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 

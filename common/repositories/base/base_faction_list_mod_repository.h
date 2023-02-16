@@ -13,15 +13,14 @@
 #define EQEMU_BASE_FACTION_LIST_MOD_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseFactionListModRepository {
 public:
 	struct FactionListMod {
-		uint32_t    id;
-		uint32_t    faction_id;
-		int16_t     mod;
+		int         id;
+		int         faction_id;
+		int         mod;
 		std::string mod_name;
 	};
 
@@ -40,24 +39,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"faction_id",
-			"mod",
-			"mod_name",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +69,17 @@ public:
 
 	static FactionListMod NewEntity()
 	{
-		FactionListMod e{};
+		FactionListMod entry{};
 
-		e.id         = 0;
-		e.faction_id = 0;
-		e.mod        = 0;
-		e.mod_name   = "";
+		entry.id         = 0;
+		entry.faction_id = 0;
+		entry.mod        = 0;
+		entry.mod_name   = "";
 
-		return e;
+		return entry;
 	}
 
-	static FactionListMod GetFactionListMod(
+	static FactionListMod GetFactionListModEntry(
 		const std::vector<FactionListMod> &faction_list_mods,
 		int faction_list_mod_id
 	)
@@ -124,14 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			FactionListMod e{};
+			FactionListMod entry{};
 
-			e.id         = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.faction_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.mod        = static_cast<int16_t>(atoi(row[2]));
-			e.mod_name   = row[3] ? row[3] : "";
+			entry.id         = atoi(row[0]);
+			entry.faction_id = atoi(row[1]);
+			entry.mod        = atoi(row[2]);
+			entry.mod_name   = row[3] ? row[3] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,24 +140,24 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const FactionListMod &e
+		FactionListMod faction_list_mod_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.faction_id));
-		v.push_back(columns[2] + " = " + std::to_string(e.mod));
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.mod_name) + "'");
+		update_values.push_back(columns[1] + " = " + std::to_string(faction_list_mod_entry.faction_id));
+		update_values.push_back(columns[2] + " = " + std::to_string(faction_list_mod_entry.mod));
+		update_values.push_back(columns[3] + " = '" + EscapeString(faction_list_mod_entry.mod_name) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				faction_list_mod_entry.id
 			)
 		);
 
@@ -182,59 +166,59 @@ public:
 
 	static FactionListMod InsertOne(
 		Database& db,
-		FactionListMod e
+		FactionListMod faction_list_mod_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.faction_id));
-		v.push_back(std::to_string(e.mod));
-		v.push_back("'" + Strings::Escape(e.mod_name) + "'");
+		insert_values.push_back(std::to_string(faction_list_mod_entry.id));
+		insert_values.push_back(std::to_string(faction_list_mod_entry.faction_id));
+		insert_values.push_back(std::to_string(faction_list_mod_entry.mod));
+		insert_values.push_back("'" + EscapeString(faction_list_mod_entry.mod_name) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			faction_list_mod_entry.id = results.LastInsertedID();
+			return faction_list_mod_entry;
 		}
 
-		e = NewEntity();
+		faction_list_mod_entry = NewEntity();
 
-		return e;
+		return faction_list_mod_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<FactionListMod> &entries
+		std::vector<FactionListMod> faction_list_mod_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &faction_list_mod_entry: faction_list_mod_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.faction_id));
-			v.push_back(std::to_string(e.mod));
-			v.push_back("'" + Strings::Escape(e.mod_name) + "'");
+			insert_values.push_back(std::to_string(faction_list_mod_entry.id));
+			insert_values.push_back(std::to_string(faction_list_mod_entry.faction_id));
+			insert_values.push_back(std::to_string(faction_list_mod_entry.mod));
+			insert_values.push_back("'" + EscapeString(faction_list_mod_entry.mod_name) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -255,20 +239,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			FactionListMod e{};
+			FactionListMod entry{};
 
-			e.id         = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.faction_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.mod        = static_cast<int16_t>(atoi(row[2]));
-			e.mod_name   = row[3] ? row[3] : "";
+			entry.id         = atoi(row[0]);
+			entry.faction_id = atoi(row[1]);
+			entry.mod        = atoi(row[2]);
+			entry.mod_name   = row[3] ? row[3] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<FactionListMod> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<FactionListMod> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<FactionListMod> all_entries;
 
@@ -283,20 +267,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			FactionListMod e{};
+			FactionListMod entry{};
 
-			e.id         = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.faction_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.mod        = static_cast<int16_t>(atoi(row[2]));
-			e.mod_name   = row[3] ? row[3] : "";
+			entry.id         = atoi(row[0]);
+			entry.faction_id = atoi(row[1]);
+			entry.mod        = atoi(row[2]);
+			entry.mod_name   = row[3] ? row[3] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -319,32 +303,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };
