@@ -13,24 +13,23 @@
 #define EQEMU_BASE_OBJECT_CONTENTS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseObjectContentsRepository {
 public:
 	struct ObjectContents {
-		uint32_t zoneid;
-		uint32_t parentid;
-		uint32_t bagidx;
-		uint32_t itemid;
-		int16_t  charges;
-		time_t   droptime;
-		uint32_t augslot1;
-		uint32_t augslot2;
-		uint32_t augslot3;
-		uint32_t augslot4;
-		uint32_t augslot5;
-		int32_t  augslot6;
+		int         zoneid;
+		int         parentid;
+		int         bagidx;
+		int         itemid;
+		int         charges;
+		std::string droptime;
+		int         augslot1;
+		int         augslot2;
+		int         augslot3;
+		int         augslot4;
+		int         augslot5;
+		int         augslot6;
 	};
 
 	static std::string PrimaryKey()
@@ -56,32 +55,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"zoneid",
-			"parentid",
-			"bagidx",
-			"itemid",
-			"charges",
-			"UNIX_TIMESTAMP(droptime)",
-			"augslot1",
-			"augslot2",
-			"augslot3",
-			"augslot4",
-			"augslot5",
-			"augslot6",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -93,7 +69,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -109,25 +85,25 @@ public:
 
 	static ObjectContents NewEntity()
 	{
-		ObjectContents e{};
+		ObjectContents entry{};
 
-		e.zoneid   = 0;
-		e.parentid = 0;
-		e.bagidx   = 0;
-		e.itemid   = 0;
-		e.charges  = 0;
-		e.droptime = 0;
-		e.augslot1 = 0;
-		e.augslot2 = 0;
-		e.augslot3 = 0;
-		e.augslot4 = 0;
-		e.augslot5 = 0;
-		e.augslot6 = 0;
+		entry.zoneid   = 0;
+		entry.parentid = 0;
+		entry.bagidx   = 0;
+		entry.itemid   = 0;
+		entry.charges  = 0;
+		entry.droptime = "0000-00-00 00:00:00";
+		entry.augslot1 = 0;
+		entry.augslot2 = 0;
+		entry.augslot3 = 0;
+		entry.augslot4 = 0;
+		entry.augslot5 = 0;
+		entry.augslot6 = 0;
 
-		return e;
+		return entry;
 	}
 
-	static ObjectContents GetObjectContents(
+	static ObjectContents GetObjectContentsEntry(
 		const std::vector<ObjectContents> &object_contentss,
 		int object_contents_id
 	)
@@ -156,22 +132,22 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			ObjectContents e{};
+			ObjectContents entry{};
 
-			e.zoneid   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.parentid = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.bagidx   = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.itemid   = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.charges  = static_cast<int16_t>(atoi(row[4]));
-			e.droptime = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
-			e.augslot1 = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.augslot2 = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.augslot3 = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
-			e.augslot4 = static_cast<uint32_t>(strtoul(row[9], nullptr, 10));
-			e.augslot5 = static_cast<uint32_t>(strtoul(row[10], nullptr, 10));
-			e.augslot6 = static_cast<int32_t>(atoi(row[11]));
+			entry.zoneid   = atoi(row[0]);
+			entry.parentid = atoi(row[1]);
+			entry.bagidx   = atoi(row[2]);
+			entry.itemid   = atoi(row[3]);
+			entry.charges  = atoi(row[4]);
+			entry.droptime = row[5] ? row[5] : "";
+			entry.augslot1 = atoi(row[6]);
+			entry.augslot2 = atoi(row[7]);
+			entry.augslot3 = atoi(row[8]);
+			entry.augslot4 = atoi(row[9]);
+			entry.augslot5 = atoi(row[10]);
+			entry.augslot6 = atoi(row[11]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -196,33 +172,33 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const ObjectContents &e
+		ObjectContents object_contents_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.zoneid));
-		v.push_back(columns[1] + " = " + std::to_string(e.parentid));
-		v.push_back(columns[2] + " = " + std::to_string(e.bagidx));
-		v.push_back(columns[3] + " = " + std::to_string(e.itemid));
-		v.push_back(columns[4] + " = " + std::to_string(e.charges));
-		v.push_back(columns[5] + " = FROM_UNIXTIME(" + (e.droptime > 0 ? std::to_string(e.droptime) : "null") + ")");
-		v.push_back(columns[6] + " = " + std::to_string(e.augslot1));
-		v.push_back(columns[7] + " = " + std::to_string(e.augslot2));
-		v.push_back(columns[8] + " = " + std::to_string(e.augslot3));
-		v.push_back(columns[9] + " = " + std::to_string(e.augslot4));
-		v.push_back(columns[10] + " = " + std::to_string(e.augslot5));
-		v.push_back(columns[11] + " = " + std::to_string(e.augslot6));
+		update_values.push_back(columns[0] + " = " + std::to_string(object_contents_entry.zoneid));
+		update_values.push_back(columns[1] + " = " + std::to_string(object_contents_entry.parentid));
+		update_values.push_back(columns[2] + " = " + std::to_string(object_contents_entry.bagidx));
+		update_values.push_back(columns[3] + " = " + std::to_string(object_contents_entry.itemid));
+		update_values.push_back(columns[4] + " = " + std::to_string(object_contents_entry.charges));
+		update_values.push_back(columns[5] + " = '" + EscapeString(object_contents_entry.droptime) + "'");
+		update_values.push_back(columns[6] + " = " + std::to_string(object_contents_entry.augslot1));
+		update_values.push_back(columns[7] + " = " + std::to_string(object_contents_entry.augslot2));
+		update_values.push_back(columns[8] + " = " + std::to_string(object_contents_entry.augslot3));
+		update_values.push_back(columns[9] + " = " + std::to_string(object_contents_entry.augslot4));
+		update_values.push_back(columns[10] + " = " + std::to_string(object_contents_entry.augslot5));
+		update_values.push_back(columns[11] + " = " + std::to_string(object_contents_entry.augslot6));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.parentid
+				object_contents_entry.parentid
 			)
 		);
 
@@ -231,75 +207,75 @@ public:
 
 	static ObjectContents InsertOne(
 		Database& db,
-		ObjectContents e
+		ObjectContents object_contents_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.zoneid));
-		v.push_back(std::to_string(e.parentid));
-		v.push_back(std::to_string(e.bagidx));
-		v.push_back(std::to_string(e.itemid));
-		v.push_back(std::to_string(e.charges));
-		v.push_back("FROM_UNIXTIME(" + (e.droptime > 0 ? std::to_string(e.droptime) : "null") + ")");
-		v.push_back(std::to_string(e.augslot1));
-		v.push_back(std::to_string(e.augslot2));
-		v.push_back(std::to_string(e.augslot3));
-		v.push_back(std::to_string(e.augslot4));
-		v.push_back(std::to_string(e.augslot5));
-		v.push_back(std::to_string(e.augslot6));
+		insert_values.push_back(std::to_string(object_contents_entry.zoneid));
+		insert_values.push_back(std::to_string(object_contents_entry.parentid));
+		insert_values.push_back(std::to_string(object_contents_entry.bagidx));
+		insert_values.push_back(std::to_string(object_contents_entry.itemid));
+		insert_values.push_back(std::to_string(object_contents_entry.charges));
+		insert_values.push_back("'" + EscapeString(object_contents_entry.droptime) + "'");
+		insert_values.push_back(std::to_string(object_contents_entry.augslot1));
+		insert_values.push_back(std::to_string(object_contents_entry.augslot2));
+		insert_values.push_back(std::to_string(object_contents_entry.augslot3));
+		insert_values.push_back(std::to_string(object_contents_entry.augslot4));
+		insert_values.push_back(std::to_string(object_contents_entry.augslot5));
+		insert_values.push_back(std::to_string(object_contents_entry.augslot6));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.parentid = results.LastInsertedID();
-			return e;
+			object_contents_entry.parentid = results.LastInsertedID();
+			return object_contents_entry;
 		}
 
-		e = NewEntity();
+		object_contents_entry = NewEntity();
 
-		return e;
+		return object_contents_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<ObjectContents> &entries
+		std::vector<ObjectContents> object_contents_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &object_contents_entry: object_contents_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.zoneid));
-			v.push_back(std::to_string(e.parentid));
-			v.push_back(std::to_string(e.bagidx));
-			v.push_back(std::to_string(e.itemid));
-			v.push_back(std::to_string(e.charges));
-			v.push_back("FROM_UNIXTIME(" + (e.droptime > 0 ? std::to_string(e.droptime) : "null") + ")");
-			v.push_back(std::to_string(e.augslot1));
-			v.push_back(std::to_string(e.augslot2));
-			v.push_back(std::to_string(e.augslot3));
-			v.push_back(std::to_string(e.augslot4));
-			v.push_back(std::to_string(e.augslot5));
-			v.push_back(std::to_string(e.augslot6));
+			insert_values.push_back(std::to_string(object_contents_entry.zoneid));
+			insert_values.push_back(std::to_string(object_contents_entry.parentid));
+			insert_values.push_back(std::to_string(object_contents_entry.bagidx));
+			insert_values.push_back(std::to_string(object_contents_entry.itemid));
+			insert_values.push_back(std::to_string(object_contents_entry.charges));
+			insert_values.push_back("'" + EscapeString(object_contents_entry.droptime) + "'");
+			insert_values.push_back(std::to_string(object_contents_entry.augslot1));
+			insert_values.push_back(std::to_string(object_contents_entry.augslot2));
+			insert_values.push_back(std::to_string(object_contents_entry.augslot3));
+			insert_values.push_back(std::to_string(object_contents_entry.augslot4));
+			insert_values.push_back(std::to_string(object_contents_entry.augslot5));
+			insert_values.push_back(std::to_string(object_contents_entry.augslot6));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -320,28 +296,28 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			ObjectContents e{};
+			ObjectContents entry{};
 
-			e.zoneid   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.parentid = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.bagidx   = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.itemid   = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.charges  = static_cast<int16_t>(atoi(row[4]));
-			e.droptime = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
-			e.augslot1 = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.augslot2 = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.augslot3 = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
-			e.augslot4 = static_cast<uint32_t>(strtoul(row[9], nullptr, 10));
-			e.augslot5 = static_cast<uint32_t>(strtoul(row[10], nullptr, 10));
-			e.augslot6 = static_cast<int32_t>(atoi(row[11]));
+			entry.zoneid   = atoi(row[0]);
+			entry.parentid = atoi(row[1]);
+			entry.bagidx   = atoi(row[2]);
+			entry.itemid   = atoi(row[3]);
+			entry.charges  = atoi(row[4]);
+			entry.droptime = row[5] ? row[5] : "";
+			entry.augslot1 = atoi(row[6]);
+			entry.augslot2 = atoi(row[7]);
+			entry.augslot3 = atoi(row[8]);
+			entry.augslot4 = atoi(row[9]);
+			entry.augslot5 = atoi(row[10]);
+			entry.augslot6 = atoi(row[11]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<ObjectContents> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<ObjectContents> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<ObjectContents> all_entries;
 
@@ -356,28 +332,28 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			ObjectContents e{};
+			ObjectContents entry{};
 
-			e.zoneid   = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.parentid = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.bagidx   = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.itemid   = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.charges  = static_cast<int16_t>(atoi(row[4]));
-			e.droptime = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
-			e.augslot1 = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.augslot2 = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.augslot3 = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
-			e.augslot4 = static_cast<uint32_t>(strtoul(row[9], nullptr, 10));
-			e.augslot5 = static_cast<uint32_t>(strtoul(row[10], nullptr, 10));
-			e.augslot6 = static_cast<int32_t>(atoi(row[11]));
+			entry.zoneid   = atoi(row[0]);
+			entry.parentid = atoi(row[1]);
+			entry.bagidx   = atoi(row[2]);
+			entry.itemid   = atoi(row[3]);
+			entry.charges  = atoi(row[4]);
+			entry.droptime = row[5] ? row[5] : "";
+			entry.augslot1 = atoi(row[6]);
+			entry.augslot2 = atoi(row[7]);
+			entry.augslot3 = atoi(row[8]);
+			entry.augslot4 = atoi(row[9]);
+			entry.augslot5 = atoi(row[10]);
+			entry.augslot6 = atoi(row[11]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -400,32 +376,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

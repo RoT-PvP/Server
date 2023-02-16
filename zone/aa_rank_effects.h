@@ -29,8 +29,8 @@ struct RankEffect
 {
 	int slot;
 	int effect_id;
-	int base_value;
-	int limit_value;
+	int base1;
+	int base2;
 };
 
 }

@@ -13,18 +13,17 @@
 #define EQEMU_BASE_LOGIN_API_TOKENS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseLoginApiTokensRepository {
 public:
 	struct LoginApiTokens {
-		int32_t     id;
+		int         id;
 		std::string token;
-		int32_t     can_write;
-		int32_t     can_read;
-		time_t      created_at;
-		time_t      updated_at;
+		int         can_write;
+		int         can_read;
+		std::string created_at;
+		std::string updated_at;
 	};
 
 	static std::string PrimaryKey()
@@ -44,26 +43,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"token",
-			"can_write",
-			"can_read",
-			"UNIX_TIMESTAMP(created_at)",
-			"UNIX_TIMESTAMP(updated_at)",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -75,7 +57,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -91,19 +73,19 @@ public:
 
 	static LoginApiTokens NewEntity()
 	{
-		LoginApiTokens e{};
+		LoginApiTokens entry{};
 
-		e.id         = 0;
-		e.token      = "";
-		e.can_write  = 0;
-		e.can_read   = 0;
-		e.created_at = 0;
-		e.updated_at = std::time(nullptr);
+		entry.id         = 0;
+		entry.token      = "";
+		entry.can_write  = 0;
+		entry.can_read   = 0;
+		entry.created_at = "";
+		entry.updated_at = "";
 
-		return e;
+		return entry;
 	}
 
-	static LoginApiTokens GetLoginApiTokens(
+	static LoginApiTokens GetLoginApiTokensEntry(
 		const std::vector<LoginApiTokens> &login_api_tokenss,
 		int login_api_tokens_id
 	)
@@ -132,16 +114,16 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			LoginApiTokens e{};
+			LoginApiTokens entry{};
 
-			e.id         = static_cast<int32_t>(atoi(row[0]));
-			e.token      = row[1] ? row[1] : "";
-			e.can_write  = static_cast<int32_t>(atoi(row[2]));
-			e.can_read   = static_cast<int32_t>(atoi(row[3]));
-			e.created_at = strtoll(row[4] ? row[4] : "-1", nullptr, 10);
-			e.updated_at = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
+			entry.id         = atoi(row[0]);
+			entry.token      = row[1] ? row[1] : "";
+			entry.can_write  = atoi(row[2]);
+			entry.can_read   = atoi(row[3]);
+			entry.created_at = row[4] ? row[4] : "";
+			entry.updated_at = row[5] ? row[5] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -166,26 +148,26 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const LoginApiTokens &e
+		LoginApiTokens login_api_tokens_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.token) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.can_write));
-		v.push_back(columns[3] + " = " + std::to_string(e.can_read));
-		v.push_back(columns[4] + " = FROM_UNIXTIME(" + (e.created_at > 0 ? std::to_string(e.created_at) : "null") + ")");
-		v.push_back(columns[5] + " = FROM_UNIXTIME(" + (e.updated_at > 0 ? std::to_string(e.updated_at) : "null") + ")");
+		update_values.push_back(columns[1] + " = '" + EscapeString(login_api_tokens_entry.token) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(login_api_tokens_entry.can_write));
+		update_values.push_back(columns[3] + " = " + std::to_string(login_api_tokens_entry.can_read));
+		update_values.push_back(columns[4] + " = '" + EscapeString(login_api_tokens_entry.created_at) + "'");
+		update_values.push_back(columns[5] + " = '" + EscapeString(login_api_tokens_entry.updated_at) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				login_api_tokens_entry.id
 			)
 		);
 
@@ -194,63 +176,63 @@ public:
 
 	static LoginApiTokens InsertOne(
 		Database& db,
-		LoginApiTokens e
+		LoginApiTokens login_api_tokens_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.token) + "'");
-		v.push_back(std::to_string(e.can_write));
-		v.push_back(std::to_string(e.can_read));
-		v.push_back("FROM_UNIXTIME(" + (e.created_at > 0 ? std::to_string(e.created_at) : "null") + ")");
-		v.push_back("FROM_UNIXTIME(" + (e.updated_at > 0 ? std::to_string(e.updated_at) : "null") + ")");
+		insert_values.push_back(std::to_string(login_api_tokens_entry.id));
+		insert_values.push_back("'" + EscapeString(login_api_tokens_entry.token) + "'");
+		insert_values.push_back(std::to_string(login_api_tokens_entry.can_write));
+		insert_values.push_back(std::to_string(login_api_tokens_entry.can_read));
+		insert_values.push_back("'" + EscapeString(login_api_tokens_entry.created_at) + "'");
+		insert_values.push_back("'" + EscapeString(login_api_tokens_entry.updated_at) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			login_api_tokens_entry.id = results.LastInsertedID();
+			return login_api_tokens_entry;
 		}
 
-		e = NewEntity();
+		login_api_tokens_entry = NewEntity();
 
-		return e;
+		return login_api_tokens_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<LoginApiTokens> &entries
+		std::vector<LoginApiTokens> login_api_tokens_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &login_api_tokens_entry: login_api_tokens_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.token) + "'");
-			v.push_back(std::to_string(e.can_write));
-			v.push_back(std::to_string(e.can_read));
-			v.push_back("FROM_UNIXTIME(" + (e.created_at > 0 ? std::to_string(e.created_at) : "null") + ")");
-			v.push_back("FROM_UNIXTIME(" + (e.updated_at > 0 ? std::to_string(e.updated_at) : "null") + ")");
+			insert_values.push_back(std::to_string(login_api_tokens_entry.id));
+			insert_values.push_back("'" + EscapeString(login_api_tokens_entry.token) + "'");
+			insert_values.push_back(std::to_string(login_api_tokens_entry.can_write));
+			insert_values.push_back(std::to_string(login_api_tokens_entry.can_read));
+			insert_values.push_back("'" + EscapeString(login_api_tokens_entry.created_at) + "'");
+			insert_values.push_back("'" + EscapeString(login_api_tokens_entry.updated_at) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -271,22 +253,22 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LoginApiTokens e{};
+			LoginApiTokens entry{};
 
-			e.id         = static_cast<int32_t>(atoi(row[0]));
-			e.token      = row[1] ? row[1] : "";
-			e.can_write  = static_cast<int32_t>(atoi(row[2]));
-			e.can_read   = static_cast<int32_t>(atoi(row[3]));
-			e.created_at = strtoll(row[4] ? row[4] : "-1", nullptr, 10);
-			e.updated_at = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
+			entry.id         = atoi(row[0]);
+			entry.token      = row[1] ? row[1] : "";
+			entry.can_write  = atoi(row[2]);
+			entry.can_read   = atoi(row[3]);
+			entry.created_at = row[4] ? row[4] : "";
+			entry.updated_at = row[5] ? row[5] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<LoginApiTokens> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<LoginApiTokens> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<LoginApiTokens> all_entries;
 
@@ -301,22 +283,22 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LoginApiTokens e{};
+			LoginApiTokens entry{};
 
-			e.id         = static_cast<int32_t>(atoi(row[0]));
-			e.token      = row[1] ? row[1] : "";
-			e.can_write  = static_cast<int32_t>(atoi(row[2]));
-			e.can_read   = static_cast<int32_t>(atoi(row[3]));
-			e.created_at = strtoll(row[4] ? row[4] : "-1", nullptr, 10);
-			e.updated_at = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
+			entry.id         = atoi(row[0]);
+			entry.token      = row[1] ? row[1] : "";
+			entry.can_write  = atoi(row[2]);
+			entry.can_read   = atoi(row[3]);
+			entry.created_at = row[4] ? row[4] : "";
+			entry.updated_at = row[5] ? row[5] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -339,32 +321,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

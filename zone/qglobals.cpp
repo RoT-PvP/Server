@@ -1,4 +1,4 @@
-#include "../common/strings.h"
+#include "../common/string_util.h"
 
 #include "qglobals.h"
 #include "client.h"

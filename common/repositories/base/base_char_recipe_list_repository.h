@@ -13,15 +13,14 @@
 #define EQEMU_BASE_CHAR_RECIPE_LIST_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharRecipeListRepository {
 public:
 	struct CharRecipeList {
-		int32_t char_id;
-		int32_t recipe_id;
-		int32_t madecount;
+		int char_id;
+		int recipe_id;
+		int madecount;
 	};
 
 	static std::string PrimaryKey()
@@ -38,23 +37,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"char_id",
-			"recipe_id",
-			"madecount",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -66,7 +51,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -82,16 +67,16 @@ public:
 
 	static CharRecipeList NewEntity()
 	{
-		CharRecipeList e{};
+		CharRecipeList entry{};
 
-		e.char_id   = 0;
-		e.recipe_id = 0;
-		e.madecount = 0;
+		entry.char_id   = 0;
+		entry.recipe_id = 0;
+		entry.madecount = 0;
 
-		return e;
+		return entry;
 	}
 
-	static CharRecipeList GetCharRecipeList(
+	static CharRecipeList GetCharRecipeListEntry(
 		const std::vector<CharRecipeList> &char_recipe_lists,
 		int char_recipe_list_id
 	)
@@ -120,13 +105,13 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharRecipeList e{};
+			CharRecipeList entry{};
 
-			e.char_id   = static_cast<int32_t>(atoi(row[0]));
-			e.recipe_id = static_cast<int32_t>(atoi(row[1]));
-			e.madecount = static_cast<int32_t>(atoi(row[2]));
+			entry.char_id   = atoi(row[0]);
+			entry.recipe_id = atoi(row[1]);
+			entry.madecount = atoi(row[2]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -151,24 +136,24 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharRecipeList &e
+		CharRecipeList char_recipe_list_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.char_id));
-		v.push_back(columns[1] + " = " + std::to_string(e.recipe_id));
-		v.push_back(columns[2] + " = " + std::to_string(e.madecount));
+		update_values.push_back(columns[0] + " = " + std::to_string(char_recipe_list_entry.char_id));
+		update_values.push_back(columns[1] + " = " + std::to_string(char_recipe_list_entry.recipe_id));
+		update_values.push_back(columns[2] + " = " + std::to_string(char_recipe_list_entry.madecount));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.char_id
+				char_recipe_list_entry.char_id
 			)
 		);
 
@@ -177,57 +162,57 @@ public:
 
 	static CharRecipeList InsertOne(
 		Database& db,
-		CharRecipeList e
+		CharRecipeList char_recipe_list_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.char_id));
-		v.push_back(std::to_string(e.recipe_id));
-		v.push_back(std::to_string(e.madecount));
+		insert_values.push_back(std::to_string(char_recipe_list_entry.char_id));
+		insert_values.push_back(std::to_string(char_recipe_list_entry.recipe_id));
+		insert_values.push_back(std::to_string(char_recipe_list_entry.madecount));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.char_id = results.LastInsertedID();
-			return e;
+			char_recipe_list_entry.char_id = results.LastInsertedID();
+			return char_recipe_list_entry;
 		}
 
-		e = NewEntity();
+		char_recipe_list_entry = NewEntity();
 
-		return e;
+		return char_recipe_list_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharRecipeList> &entries
+		std::vector<CharRecipeList> char_recipe_list_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &char_recipe_list_entry: char_recipe_list_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.char_id));
-			v.push_back(std::to_string(e.recipe_id));
-			v.push_back(std::to_string(e.madecount));
+			insert_values.push_back(std::to_string(char_recipe_list_entry.char_id));
+			insert_values.push_back(std::to_string(char_recipe_list_entry.recipe_id));
+			insert_values.push_back(std::to_string(char_recipe_list_entry.madecount));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -248,19 +233,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharRecipeList e{};
+			CharRecipeList entry{};
 
-			e.char_id   = static_cast<int32_t>(atoi(row[0]));
-			e.recipe_id = static_cast<int32_t>(atoi(row[1]));
-			e.madecount = static_cast<int32_t>(atoi(row[2]));
+			entry.char_id   = atoi(row[0]);
+			entry.recipe_id = atoi(row[1]);
+			entry.madecount = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharRecipeList> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharRecipeList> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharRecipeList> all_entries;
 
@@ -275,19 +260,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharRecipeList e{};
+			CharRecipeList entry{};
 
-			e.char_id   = static_cast<int32_t>(atoi(row[0]));
-			e.recipe_id = static_cast<int32_t>(atoi(row[1]));
-			e.madecount = static_cast<int32_t>(atoi(row[2]));
+			entry.char_id   = atoi(row[0]);
+			entry.recipe_id = atoi(row[1]);
+			entry.madecount = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -310,32 +295,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

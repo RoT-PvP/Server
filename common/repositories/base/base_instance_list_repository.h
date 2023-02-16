@@ -13,19 +13,18 @@
 #define EQEMU_BASE_INSTANCE_LIST_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseInstanceListRepository {
 public:
 	struct InstanceList {
-		int32_t  id;
-		uint32_t zone;
-		uint8_t  version;
-		uint8_t  is_global;
-		uint32_t start_time;
-		uint32_t duration;
-		uint8_t  never_expires;
+		int id;
+		int zone;
+		int version;
+		int is_global;
+		int start_time;
+		int duration;
+		int never_expires;
 	};
 
 	static std::string PrimaryKey()
@@ -46,27 +45,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"zone",
-			"version",
-			"is_global",
-			"start_time",
-			"duration",
-			"never_expires",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -78,7 +59,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -94,20 +75,20 @@ public:
 
 	static InstanceList NewEntity()
 	{
-		InstanceList e{};
+		InstanceList entry{};
 
-		e.id            = 0;
-		e.zone          = 0;
-		e.version       = 0;
-		e.is_global     = 0;
-		e.start_time    = 0;
-		e.duration      = 0;
-		e.never_expires = 0;
+		entry.id            = 0;
+		entry.zone          = 0;
+		entry.version       = 0;
+		entry.is_global     = 0;
+		entry.start_time    = 0;
+		entry.duration      = 0;
+		entry.never_expires = 0;
 
-		return e;
+		return entry;
 	}
 
-	static InstanceList GetInstanceList(
+	static InstanceList GetInstanceListEntry(
 		const std::vector<InstanceList> &instance_lists,
 		int instance_list_id
 	)
@@ -136,17 +117,17 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			InstanceList e{};
+			InstanceList entry{};
 
-			e.id            = static_cast<int32_t>(atoi(row[0]));
-			e.zone          = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.version       = static_cast<uint8_t>(strtoul(row[2], nullptr, 10));
-			e.is_global     = static_cast<uint8_t>(strtoul(row[3], nullptr, 10));
-			e.start_time    = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.duration      = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.never_expires = static_cast<uint8_t>(strtoul(row[6], nullptr, 10));
+			entry.id            = atoi(row[0]);
+			entry.zone          = atoi(row[1]);
+			entry.version       = atoi(row[2]);
+			entry.is_global     = atoi(row[3]);
+			entry.start_time    = atoi(row[4]);
+			entry.duration      = atoi(row[5]);
+			entry.never_expires = atoi(row[6]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -171,27 +152,27 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const InstanceList &e
+		InstanceList instance_list_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.zone));
-		v.push_back(columns[2] + " = " + std::to_string(e.version));
-		v.push_back(columns[3] + " = " + std::to_string(e.is_global));
-		v.push_back(columns[4] + " = " + std::to_string(e.start_time));
-		v.push_back(columns[5] + " = " + std::to_string(e.duration));
-		v.push_back(columns[6] + " = " + std::to_string(e.never_expires));
+		update_values.push_back(columns[1] + " = " + std::to_string(instance_list_entry.zone));
+		update_values.push_back(columns[2] + " = " + std::to_string(instance_list_entry.version));
+		update_values.push_back(columns[3] + " = " + std::to_string(instance_list_entry.is_global));
+		update_values.push_back(columns[4] + " = " + std::to_string(instance_list_entry.start_time));
+		update_values.push_back(columns[5] + " = " + std::to_string(instance_list_entry.duration));
+		update_values.push_back(columns[6] + " = " + std::to_string(instance_list_entry.never_expires));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				instance_list_entry.id
 			)
 		);
 
@@ -200,65 +181,65 @@ public:
 
 	static InstanceList InsertOne(
 		Database& db,
-		InstanceList e
+		InstanceList instance_list_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.zone));
-		v.push_back(std::to_string(e.version));
-		v.push_back(std::to_string(e.is_global));
-		v.push_back(std::to_string(e.start_time));
-		v.push_back(std::to_string(e.duration));
-		v.push_back(std::to_string(e.never_expires));
+		insert_values.push_back(std::to_string(instance_list_entry.id));
+		insert_values.push_back(std::to_string(instance_list_entry.zone));
+		insert_values.push_back(std::to_string(instance_list_entry.version));
+		insert_values.push_back(std::to_string(instance_list_entry.is_global));
+		insert_values.push_back(std::to_string(instance_list_entry.start_time));
+		insert_values.push_back(std::to_string(instance_list_entry.duration));
+		insert_values.push_back(std::to_string(instance_list_entry.never_expires));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			instance_list_entry.id = results.LastInsertedID();
+			return instance_list_entry;
 		}
 
-		e = NewEntity();
+		instance_list_entry = NewEntity();
 
-		return e;
+		return instance_list_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<InstanceList> &entries
+		std::vector<InstanceList> instance_list_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &instance_list_entry: instance_list_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.zone));
-			v.push_back(std::to_string(e.version));
-			v.push_back(std::to_string(e.is_global));
-			v.push_back(std::to_string(e.start_time));
-			v.push_back(std::to_string(e.duration));
-			v.push_back(std::to_string(e.never_expires));
+			insert_values.push_back(std::to_string(instance_list_entry.id));
+			insert_values.push_back(std::to_string(instance_list_entry.zone));
+			insert_values.push_back(std::to_string(instance_list_entry.version));
+			insert_values.push_back(std::to_string(instance_list_entry.is_global));
+			insert_values.push_back(std::to_string(instance_list_entry.start_time));
+			insert_values.push_back(std::to_string(instance_list_entry.duration));
+			insert_values.push_back(std::to_string(instance_list_entry.never_expires));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -279,23 +260,23 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			InstanceList e{};
+			InstanceList entry{};
 
-			e.id            = static_cast<int32_t>(atoi(row[0]));
-			e.zone          = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.version       = static_cast<uint8_t>(strtoul(row[2], nullptr, 10));
-			e.is_global     = static_cast<uint8_t>(strtoul(row[3], nullptr, 10));
-			e.start_time    = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.duration      = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.never_expires = static_cast<uint8_t>(strtoul(row[6], nullptr, 10));
+			entry.id            = atoi(row[0]);
+			entry.zone          = atoi(row[1]);
+			entry.version       = atoi(row[2]);
+			entry.is_global     = atoi(row[3]);
+			entry.start_time    = atoi(row[4]);
+			entry.duration      = atoi(row[5]);
+			entry.never_expires = atoi(row[6]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<InstanceList> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<InstanceList> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<InstanceList> all_entries;
 
@@ -310,23 +291,23 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			InstanceList e{};
+			InstanceList entry{};
 
-			e.id            = static_cast<int32_t>(atoi(row[0]));
-			e.zone          = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.version       = static_cast<uint8_t>(strtoul(row[2], nullptr, 10));
-			e.is_global     = static_cast<uint8_t>(strtoul(row[3], nullptr, 10));
-			e.start_time    = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.duration      = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.never_expires = static_cast<uint8_t>(strtoul(row[6], nullptr, 10));
+			entry.id            = atoi(row[0]);
+			entry.zone          = atoi(row[1]);
+			entry.version       = atoi(row[2]);
+			entry.is_global     = atoi(row[3]);
+			entry.start_time    = atoi(row[4]);
+			entry.duration      = atoi(row[5]);
+			entry.never_expires = atoi(row[6]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -349,32 +330,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

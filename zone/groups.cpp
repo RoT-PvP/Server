@@ -23,10 +23,8 @@
 #include "npc_ai.h"
 #include "../common/packet_functions.h"
 #include "../common/packet_dump.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 #include "worldserver.h"
-#include "string_ids.h"
-#include "../common/events/player_event_logs.h"
 
 extern EntityList entity_list;
 extern WorldServer worldserver;
@@ -118,88 +116,91 @@ Group::~Group()
 //Split money used in OP_Split (/split and /autosplit).
 void Group::SplitMoney(uint32 copper, uint32 silver, uint32 gold, uint32 platinum, Client *splitter) {
 	//avoid unneeded work
-	if (
-		!copper &&
-		!silver &&
-		!gold &&
-		!platinum
-	) {
+	if(copper == 0 && silver == 0 && gold == 0 && platinum == 0)
 		return;
-	}
 
-	uint8 member_count = 0;
-	for (uint32 i = 0; i < MAX_GROUP_MEMBERS; i++) {
+	uint32 i;
+	uint8 membercount = 0;
+	for (i = 0; i < MAX_GROUP_MEMBERS; i++) {
 		// Don't split with Mercs or Bots
-		if (members[i] && members[i]->IsClient()) {
-			member_count++;
+		if (members[i] != nullptr && members[i]->IsClient()) {
+			membercount++;
 		}
 	}
 
-	if (!member_count) {
+	if (membercount == 0)
 		return;
-	}
 
-	uint32 modifier;
-	if (member_count > 1) {
-		modifier = platinum % member_count;
-
-		if (modifier) {
-			platinum -= modifier;
-			gold += 10 * modifier;
+	uint32 mod;
+	//try to handle round off error a little better
+	if(membercount > 1) {
+		mod = platinum % membercount;
+		if((mod) > 0) {
+			platinum -= mod;
+			gold += 10 * mod;
 		}
-
-		modifier = gold % member_count;
-
-		if (modifier) {
-			gold -= modifier;
-			silver += 10 * modifier;
+		mod = gold % membercount;
+		if((mod) > 0) {
+			gold -= mod;
+			silver += 10 * mod;
 		}
-
-		modifier = silver % member_count;
-
-		if (modifier) {
-			silver -= modifier;
-			copper += 10 * modifier;
+		mod = silver % membercount;
+		if((mod) > 0) {
+			silver -= mod;
+			copper += 10 * mod;
 		}
 	}
 
-	auto copper_split = copper / member_count;
-	auto silver_split = silver / member_count;
-	auto gold_split = gold / member_count;
-	auto platinum_split = platinum / member_count;
+	//calculate the splits
+	//We can still round off copper pieces, but I dont care
+	uint32 sc;
+	uint32 cpsplit = copper / membercount;
+	sc = copper % membercount;
+	uint32 spsplit = silver / membercount;
+	uint32 gpsplit = gold / membercount;
+	uint32 ppsplit = platinum / membercount;
 
-	for (uint32 i = 0; i < MAX_GROUP_MEMBERS; i++) {
-		if (members[i] && members[i]->IsClient()) { // If Group Member is Client
-			members[i]->CastToClient()->AddMoneyToPP(
-				copper_split,
-				silver_split,
-				gold_split,
-				platinum_split,
-				true
-			);
+	char buf[128];
+	buf[63] = '\0';
+	std::string msg = "You receive";
+	bool one = false;
 
-			if (player_event_logs.IsEventEnabled(PlayerEvent::SPLIT_MONEY)) {
-				auto e = PlayerEvent::SplitMoneyEvent{
-					.copper = copper_split,
-					.silver = silver_split,
-					.gold = gold_split,
-					.platinum = platinum_split,
-					.player_money_balance = members[i]->CastToClient()->GetCarriedMoney(),
-				};
+	if(ppsplit > 0) {
+		snprintf(buf, 63, " %u platinum", ppsplit);
+		msg += buf;
+		one = true;
+	}
+	if(gpsplit > 0) {
+		if(one)
+			msg += ",";
+		snprintf(buf, 63, " %u gold", gpsplit);
+		msg += buf;
+		one = true;
+	}
+	if(spsplit > 0) {
+		if(one)
+			msg += ",";
+		snprintf(buf, 63, " %u silver", spsplit);
+		msg += buf;
+		one = true;
+	}
+	if(cpsplit > 0) {
+		if(one)
+			msg += ",";
+		//this message is not 100% accurate for the splitter
+		//if they are receiving any roundoff
+		snprintf(buf, 63, " %u copper", cpsplit);
+		msg += buf;
+		one = true;
+	}
+	msg += " as your split";
 
-				RecordPlayerEventLogWithClient(members[i]->CastToClient(), PlayerEvent::SPLIT_MONEY, e);
-			}
-
-			members[i]->CastToClient()->MessageString(
-				Chat::MoneySplit,
-				YOU_RECEIVE_AS_SPLIT,
-				Strings::Money(
-					platinum_split,
-					gold_split,
-					silver_split,
-					copper_split
-				).c_str()
-			);
+	for (i = 0; i < MAX_GROUP_MEMBERS; i++) {
+		if (members[i] != nullptr && members[i]->IsClient()) { // If Group Member is Client
+			Client *c = members[i]->CastToClient();
+			//I could not get MoneyOnCorpse to work, so we use this
+			c->AddMoneyToPP(cpsplit, spsplit, gpsplit, ppsplit, true);
+			c->Message(Chat::Green, msg.c_str());
 		}
 	}
 }
@@ -294,7 +295,7 @@ bool Group::AddMember(Mob* newmember, const char *NewMemberName, uint32 Characte
 				members[i]->CastToClient()->QueuePacket(outapp);
 
 				//put new member into existing group members' list(s)
-				strcpy(members[i]->CastToClient()->GetPP().groupMembers[GroupCount()-1], NewMemberName);
+				strcpy(members[i]->CastToClient()->GetPP().groupMembers[this->GroupCount()-1], NewMemberName);
 			}
 
 			//put existing group member(s) into the new member's list
@@ -356,9 +357,9 @@ bool Group::AddMember(Mob* newmember, const char *NewMemberName, uint32 Characte
 
 	safe_delete(outapp);
 
-	if (RuleB(Bots, Enabled)) {
-		Bot::UpdateGroupCastingRoles(this);
-	}
+#ifdef BOTS
+	Bot::UpdateGroupCastingRoles(this);
+#endif
 
 	return true;
 }
@@ -537,9 +538,9 @@ bool Group::UpdatePlayer(Mob* update){
 	if (update->IsClient() && !mentoree && mentoree_name.length() && !mentoree_name.compare(update->GetName()))
 		mentoree = update->CastToClient();
 
-	if (RuleB(Bots, Enabled)) {
-		Bot::UpdateGroupCastingRoles(this);
-	}
+#ifdef BOTS
+	Bot::UpdateGroupCastingRoles(this);
+#endif
 
 	return updateSuccess;
 }
@@ -574,9 +575,9 @@ void Group::MemberZoned(Mob* removemob) {
 	if (removemob->IsClient() && removemob == mentoree)
 		mentoree = nullptr;
 
-	if (RuleB(Bots, Enabled)) {
-		Bot::UpdateGroupCastingRoles(this);
-	}
+#ifdef BOTS
+	Bot::UpdateGroupCastingRoles(this);
+#endif
 }
 
 void Group::SendGroupJoinOOZ(Mob* NewMember) {
@@ -585,7 +586,7 @@ void Group::SendGroupJoinOOZ(Mob* NewMember) {
 	{
 		return;
 	}
-
+	
 	if (!NewMember->HasGroup())
 	{
 		return;
@@ -685,7 +686,7 @@ bool Group::DelMember(Mob* oldmember, bool ignoresender)
 	{
 		for(uint32 nl = 0; nl < MAX_GROUP_MEMBERS; nl++)
 		{
-			if(members[nl])
+			if(members[nl]) 
 			{
 				if (members[nl]->IsClient())
 				{
@@ -695,7 +696,7 @@ bool Group::DelMember(Mob* oldmember, bool ignoresender)
 			}
 		}
 	}
-
+	
 	if (!GetLeaderName())
 	{
 		DisbandGroup();
@@ -740,14 +741,14 @@ bool Group::DelMember(Mob* oldmember, bool ignoresender)
 		if(oldmember->IsClient())
 			oldmember->CastToClient()->QueuePacket(outapp);
 	}
-
+	
 	safe_delete(outapp);
 
 	if(oldmember->IsClient())
 	{
 		database.SetGroupID(oldmember->GetCleanName(), 0, oldmember->CastToClient()->CharacterID(), false);
 	}
-
+	
 	if(oldmember->IsMerc())
 	{
 		Client* owner = oldmember->CastToMerc()->GetMercOwner();
@@ -795,9 +796,9 @@ bool Group::DelMember(Mob* oldmember, bool ignoresender)
 		ClearAllNPCMarks();
 	}
 
-	if (RuleB(Bots, Enabled)) {
-		Bot::UpdateGroupCastingRoles(this);
-	}
+#ifdef BOTS
+	Bot::UpdateGroupCastingRoles(this);
+#endif
 
 	return true;
 }
@@ -823,7 +824,7 @@ void Group::CastGroupSpell(Mob* caster, uint16 spell_id) {
 		if(members[z] == caster) {
 			caster->SpellOnTarget(spell_id, caster);
 #ifdef GROUP_BUFF_PETS
-			if(spells[spell_id].target_type != ST_GroupNoPets && caster->GetPet() && caster->HasPetAffinity() && !caster->GetPet()->IsCharmed())
+			if(spells[spell_id].targettype != ST_GroupNoPets && caster->GetPet() && caster->HasPetAffinity() && !caster->GetPet()->IsCharmed())
 				caster->SpellOnTarget(spell_id, caster->GetPet());
 #endif
 		}
@@ -834,7 +835,7 @@ void Group::CastGroupSpell(Mob* caster, uint16 spell_id) {
 				members[z]->CalcSpellPowerDistanceMod(spell_id, distance);
 				caster->SpellOnTarget(spell_id, members[z]);
 #ifdef GROUP_BUFF_PETS
-				if(spells[spell_id].target_type != ST_GroupNoPets && members[z]->GetPet() && members[z]->HasPetAffinity() && !members[z]->GetPet()->IsCharmed())
+				if(spells[spell_id].targettype != ST_GroupNoPets && members[z]->GetPet() && members[z]->HasPetAffinity() && !members[z]->GetPet()->IsCharmed())
 					caster->SpellOnTarget(spell_id, members[z]->GetPet());
 #endif
 			} else
@@ -846,28 +847,62 @@ void Group::CastGroupSpell(Mob* caster, uint16 spell_id) {
 	disbandcheck = true;
 }
 
-bool Group::IsGroupMember(Mob* c)
-{
-	if (c) {
-		for (const auto &m: members) {
-			if (m == c) {
-				return true;
-			}
+// does the caster + group
+void Group::GroupBardPulse(Mob* caster, uint16 spell_id) {
+	uint32 z;
+	float range, distance;
+
+	if(!caster)
+		return;
+
+	castspell = true;
+	range = caster->GetAOERange(spell_id);
+
+	float range2 = range*range;
+
+	for(z=0; z < MAX_GROUP_MEMBERS; z++) {
+		if(members[z] == caster) {
+			caster->BardPulse(spell_id, caster);
+#ifdef GROUP_BUFF_PETS
+			if(caster->GetPet() && caster->HasPetAffinity() && !caster->GetPet()->IsCharmed())
+				caster->BardPulse(spell_id, caster->GetPet());
+#endif
+		}
+		else if(members[z] != nullptr)
+		{
+			distance = DistanceSquared(caster->GetPosition(), members[z]->GetPosition());
+			if(distance <= range2) {
+				members[z]->BardPulse(spell_id, caster);
+#ifdef GROUP_BUFF_PETS
+				if(members[z]->GetPet() && members[z]->HasPetAffinity() && !members[z]->GetPet()->IsCharmed())
+					members[z]->GetPet()->BardPulse(spell_id, caster);
+#endif
+			} else
+				LogSpells("Group bard pulse: [{}] is out of range [{}] at distance [{}] from [{}]", members[z]->GetName(), range, distance, caster->GetName());
 		}
 	}
-
-	return false;
 }
 
-bool Group::IsGroupMember(const char *name)
+bool Group::IsGroupMember(Mob* client)
 {
-	if (name) {
-		for (const auto& m : membername) {
-			if (!strcmp(m, name)) {
-				return true;
-			}
+	bool Result = false;
+
+	if(client) {
+		for (uint32 i = 0; i < MAX_GROUP_MEMBERS; i++) {
+			if (members[i] == client)
+				Result = true;
 		}
 	}
+
+	return Result;
+}
+
+bool Group::IsGroupMember(const char *Name)
+{
+	if(Name)
+		for(uint32 i = 0; i < MAX_GROUP_MEMBERS; i++)
+			if((strlen(Name) == strlen(membername[i])) && !strncmp(membername[i], Name, strlen(Name)))
+				return true;
 
 	return false;
 }
@@ -908,9 +943,9 @@ uint32 Group::GetTotalGroupDamage(Mob* other) {
 }
 
 void Group::DisbandGroup(bool joinraid) {
-	if (RuleB(Bots, Enabled)) {
-		Bot::UpdateGroupCastingRoles(this, true);
-	}
+#ifdef BOTS
+	Bot::UpdateGroupCastingRoles(this, true);
+#endif
 
 	auto outapp = new EQApplicationPacket(OP_GroupUpdate, sizeof(GroupUpdate_Struct));
 
@@ -941,7 +976,7 @@ void Group::DisbandGroup(bool joinraid) {
 			if (!joinraid)
 				members[i]->CastToClient()->LeaveGroupXTargets(this);
 		}
-
+		
 		if (members[i]->IsMerc())
 		{
 			Client* owner = members[i]->CastToMerc()->GetMercOwner();
@@ -1003,6 +1038,7 @@ void Group::GetClientList(std::list<Client*>& client_list, bool clear_list)
 	}
 }
 
+#ifdef BOTS
 void Group::GetBotList(std::list<Bot*>& bot_list, bool clear_list)
 {
 	if (clear_list)
@@ -1013,6 +1049,7 @@ void Group::GetBotList(std::list<Bot*>& bot_list, bool clear_list)
 			bot_list.push_back(bot_iter->CastToBot());
 	}
 }
+#endif
 
 bool Group::Process() {
 	if(disbandcheck && !GroupCount())
@@ -1216,7 +1253,7 @@ void Group::GroupMessageString(Mob* sender, uint32 type, uint32 string_id, const
 
 		if(members[i] == sender)
 			continue;
-
+			
 		if(!members[i]->IsClient())
 			continue;
 
@@ -1235,7 +1272,7 @@ void Client::LeaveGroup() {
 		{
 			MemberCount -= 1;
 		}
-
+		
 		if(MemberCount < 3)
 		{
 			g->DisbandGroup();
@@ -1308,7 +1345,7 @@ void Group::BalanceHP(int32 penalty, float range, Mob* caster, int32 limit)
 	if (!range)
 		range = 200;
 
-	int64 dmgtaken = 0, numMem = 0, dmgtaken_tmp = 0;
+	int dmgtaken = 0, numMem = 0, dmgtaken_tmp = 0;
 
 	float distance;
 	float range2 = range*range;
@@ -2419,7 +2456,7 @@ bool Group::AmIPuller(const char *mob_name)
 {
 	if (!mob_name)
 		return false;
-
+	
 	return !((bool)PullerName.compare(mob_name));
 }
 
@@ -2485,17 +2522,5 @@ bool Group::DoesAnyMemberHaveExpeditionLockout(
 			}
 		}
 	}
-	return false;
-}
-
-bool Group::IsLeader(const char* name) {
-	if (name) {
-		for (const auto& m : membername) {
-			if (!strcmp(m, name)) {
-				return true;
-			}
-		}
-	}
-
 	return false;
 }

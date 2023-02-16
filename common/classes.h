@@ -20,7 +20,6 @@
 
 #include "../common/types.h"
 
-#define NO_CLASS 0
 #define WARRIOR 1
 #define CLERIC 2
 #define PALADIN 3
@@ -56,9 +55,10 @@
 #define BANKER 40
 #define MERCHANT 41
 #define DISCORD_MERCHANT 59
-#define ADVENTURE_RECRUITER 60
-#define ADVENTURE_MERCHANT 61
-#define LDON_TREASURE 62	// objects you can use /open on first seen in LDONs, seen on Danvi's Corpse in Akheva
+#define ADVENTURERECRUITER 60
+#define ADVENTUREMERCHANT 61
+#define LDON_TREASURE 62	// objects you can use /open on first seen in LDONs
+#define CORPSE_CLASS 62	// only seen on Danvi's Corpse in Akheva so far..
 #define TRIBUTE_MASTER 63
 #define GUILD_TRIBUTE_MASTER 64	// not sure
 #define GUILD_BANKER 66
@@ -66,7 +66,7 @@
 #define DARK_REIGN_MERCHANT 68
 #define FELLOWSHIP_MASTER 69
 #define ALT_CURRENCY_MERCHANT 70
-#define MERCENARY_MASTER 71
+#define MERCERNARY_MASTER 71
 
 
 // player class values

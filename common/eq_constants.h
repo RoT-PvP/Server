@@ -79,8 +79,6 @@
 #define	ANIM_DEATH		0x73
 #define ANIM_LOOT		0x69
 
-constexpr int16 RECAST_TYPE_UNLINKED_ITEM = -1;
-
 typedef enum {
 	eaStanding = 0,
 	eaSitting,		//1
@@ -686,6 +684,14 @@ namespace Zones {
 	constexpr uint16 APPRENTICE = 999; // Designer Apprentice
 }
 
+//ZoneChange_Struct->success values
+#define ZONE_ERROR_NOMSG 0
+#define ZONE_ERROR_NOTREADY -1
+#define ZONE_ERROR_VALIDPC -2
+#define ZONE_ERROR_STORYZONE -3
+#define ZONE_ERROR_NOEXPANSION -6
+#define ZONE_ERROR_NOEXPERIENCE -7
+
 
 typedef enum {
 	FilterNone = 0,
@@ -712,7 +718,7 @@ typedef enum {
 	FilterPetMisses = 21,		//0=show, 1=hide
 	FilterFocusEffects = 22,	//0=show, 1=hide
 	FilterPetSpells = 23,		//0=show, 1=hide
-	FilterHealOverTime = 24,	//0=show, 1=mine only, 2=hide
+	FilterHealOverTime = 24,	//0=show, 1=hide
 	FilterUnknown25 = 25,
 	FilterUnknown26 = 26,
 	FilterUnknown27 = 27,
@@ -966,83 +972,6 @@ enum class DynamicZoneMemberStatus : uint8_t
 	Offline,
 	InDynamicZone,
 	LinkDead
-};
-
-enum LDoNThemes {
-	Unused = 0,
-	GUK,
-	MIR,
-	MMC,
-	RUJ,
-	TAK
-};
-
-enum LDoNThemeBits {
-	UnusedBit = 0,
-	GUKBit = 1,
-	MIRBit = 2,
-	MMCBit = 4,
-	RUJBit = 8,
-	TAKBit = 16
-};
-
-enum StartZoneIndex {
-    Odus = 0,
-    Qeynos,
-    Halas,
-    Rivervale,
-    Freeport,
-    Neriak,
-    Grobb,
-    Oggok,
-    Kaladim,
-    GreaterFaydark,
-    Felwithe,
-    Akanon,
-    Cabilis,
-    SharVahl
-};
-
-enum FVNoDropFlagRule
-{
-	Disabled = 0,
-	Enabled = 1,
-	AdminOnly = 2
-};
-
-enum Anonymity : uint8
-{
-	NotAnonymous,
-	Anonymous,
-	Roleplaying
-};
-
-enum ZoningMessage : int8 {
-	ZoneNoMessage    = 0,
-	ZoneSuccess      = 1,
-	ZoneNotReady     = -1,
-	ZoneValidPC      = -2,
-	ZoneStoryZone    = -3,
-	ZoneNoExpansion  = -6,
-	ZoneNoExperience = -7
-};
-
-enum class RecipeCountType : uint8
-{
-	Component,
-	Container,
-	Fail,
-	Salvage,
-	Success
-};
-
-#define ALT_CURRENCY_ID_RADIANT 4
-#define ALT_CURRENCY_ID_EBON 5
-
-enum ResurrectionActions
-{
-	Decline,
-	Accept
 };
 
 #endif /*COMMON_EQ_CONSTANTS_H*/

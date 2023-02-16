@@ -13,19 +13,18 @@
 #define EQEMU_BASE_LOGIN_SERVER_ADMINS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseLoginServerAdminsRepository {
 public:
 	struct LoginServerAdmins {
-		uint32_t    id;
+		int         id;
 		std::string account_name;
 		std::string account_password;
 		std::string first_name;
 		std::string last_name;
 		std::string email;
-		time_t      registration_date;
+		std::string registration_date;
 		std::string registration_ip_address;
 	};
 
@@ -48,28 +47,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"account_name",
-			"account_password",
-			"first_name",
-			"last_name",
-			"email",
-			"UNIX_TIMESTAMP(registration_date)",
-			"registration_ip_address",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -81,7 +61,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -97,21 +77,21 @@ public:
 
 	static LoginServerAdmins NewEntity()
 	{
-		LoginServerAdmins e{};
+		LoginServerAdmins entry{};
 
-		e.id                      = 0;
-		e.account_name            = "";
-		e.account_password        = "";
-		e.first_name              = "";
-		e.last_name               = "";
-		e.email                   = "";
-		e.registration_date       = 0;
-		e.registration_ip_address = "";
+		entry.id                      = 0;
+		entry.account_name            = "";
+		entry.account_password        = "";
+		entry.first_name              = "";
+		entry.last_name               = "";
+		entry.email                   = "";
+		entry.registration_date       = "";
+		entry.registration_ip_address = "";
 
-		return e;
+		return entry;
 	}
 
-	static LoginServerAdmins GetLoginServerAdmins(
+	static LoginServerAdmins GetLoginServerAdminsEntry(
 		const std::vector<LoginServerAdmins> &login_server_adminss,
 		int login_server_admins_id
 	)
@@ -140,18 +120,18 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			LoginServerAdmins e{};
+			LoginServerAdmins entry{};
 
-			e.id                      = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.account_name            = row[1] ? row[1] : "";
-			e.account_password        = row[2] ? row[2] : "";
-			e.first_name              = row[3] ? row[3] : "";
-			e.last_name               = row[4] ? row[4] : "";
-			e.email                   = row[5] ? row[5] : "";
-			e.registration_date       = strtoll(row[6] ? row[6] : "-1", nullptr, 10);
-			e.registration_ip_address = row[7] ? row[7] : "";
+			entry.id                      = atoi(row[0]);
+			entry.account_name            = row[1] ? row[1] : "";
+			entry.account_password        = row[2] ? row[2] : "";
+			entry.first_name              = row[3] ? row[3] : "";
+			entry.last_name               = row[4] ? row[4] : "";
+			entry.email                   = row[5] ? row[5] : "";
+			entry.registration_date       = row[6] ? row[6] : "";
+			entry.registration_ip_address = row[7] ? row[7] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -176,28 +156,28 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const LoginServerAdmins &e
+		LoginServerAdmins login_server_admins_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.account_name) + "'");
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.account_password) + "'");
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.first_name) + "'");
-		v.push_back(columns[4] + " = '" + Strings::Escape(e.last_name) + "'");
-		v.push_back(columns[5] + " = '" + Strings::Escape(e.email) + "'");
-		v.push_back(columns[6] + " = FROM_UNIXTIME(" + (e.registration_date > 0 ? std::to_string(e.registration_date) : "null") + ")");
-		v.push_back(columns[7] + " = '" + Strings::Escape(e.registration_ip_address) + "'");
+		update_values.push_back(columns[1] + " = '" + EscapeString(login_server_admins_entry.account_name) + "'");
+		update_values.push_back(columns[2] + " = '" + EscapeString(login_server_admins_entry.account_password) + "'");
+		update_values.push_back(columns[3] + " = '" + EscapeString(login_server_admins_entry.first_name) + "'");
+		update_values.push_back(columns[4] + " = '" + EscapeString(login_server_admins_entry.last_name) + "'");
+		update_values.push_back(columns[5] + " = '" + EscapeString(login_server_admins_entry.email) + "'");
+		update_values.push_back(columns[6] + " = '" + EscapeString(login_server_admins_entry.registration_date) + "'");
+		update_values.push_back(columns[7] + " = '" + EscapeString(login_server_admins_entry.registration_ip_address) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				login_server_admins_entry.id
 			)
 		);
 
@@ -206,67 +186,67 @@ public:
 
 	static LoginServerAdmins InsertOne(
 		Database& db,
-		LoginServerAdmins e
+		LoginServerAdmins login_server_admins_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.account_name) + "'");
-		v.push_back("'" + Strings::Escape(e.account_password) + "'");
-		v.push_back("'" + Strings::Escape(e.first_name) + "'");
-		v.push_back("'" + Strings::Escape(e.last_name) + "'");
-		v.push_back("'" + Strings::Escape(e.email) + "'");
-		v.push_back("FROM_UNIXTIME(" + (e.registration_date > 0 ? std::to_string(e.registration_date) : "null") + ")");
-		v.push_back("'" + Strings::Escape(e.registration_ip_address) + "'");
+		insert_values.push_back(std::to_string(login_server_admins_entry.id));
+		insert_values.push_back("'" + EscapeString(login_server_admins_entry.account_name) + "'");
+		insert_values.push_back("'" + EscapeString(login_server_admins_entry.account_password) + "'");
+		insert_values.push_back("'" + EscapeString(login_server_admins_entry.first_name) + "'");
+		insert_values.push_back("'" + EscapeString(login_server_admins_entry.last_name) + "'");
+		insert_values.push_back("'" + EscapeString(login_server_admins_entry.email) + "'");
+		insert_values.push_back("'" + EscapeString(login_server_admins_entry.registration_date) + "'");
+		insert_values.push_back("'" + EscapeString(login_server_admins_entry.registration_ip_address) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			login_server_admins_entry.id = results.LastInsertedID();
+			return login_server_admins_entry;
 		}
 
-		e = NewEntity();
+		login_server_admins_entry = NewEntity();
 
-		return e;
+		return login_server_admins_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<LoginServerAdmins> &entries
+		std::vector<LoginServerAdmins> login_server_admins_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &login_server_admins_entry: login_server_admins_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.account_name) + "'");
-			v.push_back("'" + Strings::Escape(e.account_password) + "'");
-			v.push_back("'" + Strings::Escape(e.first_name) + "'");
-			v.push_back("'" + Strings::Escape(e.last_name) + "'");
-			v.push_back("'" + Strings::Escape(e.email) + "'");
-			v.push_back("FROM_UNIXTIME(" + (e.registration_date > 0 ? std::to_string(e.registration_date) : "null") + ")");
-			v.push_back("'" + Strings::Escape(e.registration_ip_address) + "'");
+			insert_values.push_back(std::to_string(login_server_admins_entry.id));
+			insert_values.push_back("'" + EscapeString(login_server_admins_entry.account_name) + "'");
+			insert_values.push_back("'" + EscapeString(login_server_admins_entry.account_password) + "'");
+			insert_values.push_back("'" + EscapeString(login_server_admins_entry.first_name) + "'");
+			insert_values.push_back("'" + EscapeString(login_server_admins_entry.last_name) + "'");
+			insert_values.push_back("'" + EscapeString(login_server_admins_entry.email) + "'");
+			insert_values.push_back("'" + EscapeString(login_server_admins_entry.registration_date) + "'");
+			insert_values.push_back("'" + EscapeString(login_server_admins_entry.registration_ip_address) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -287,24 +267,24 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LoginServerAdmins e{};
+			LoginServerAdmins entry{};
 
-			e.id                      = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.account_name            = row[1] ? row[1] : "";
-			e.account_password        = row[2] ? row[2] : "";
-			e.first_name              = row[3] ? row[3] : "";
-			e.last_name               = row[4] ? row[4] : "";
-			e.email                   = row[5] ? row[5] : "";
-			e.registration_date       = strtoll(row[6] ? row[6] : "-1", nullptr, 10);
-			e.registration_ip_address = row[7] ? row[7] : "";
+			entry.id                      = atoi(row[0]);
+			entry.account_name            = row[1] ? row[1] : "";
+			entry.account_password        = row[2] ? row[2] : "";
+			entry.first_name              = row[3] ? row[3] : "";
+			entry.last_name               = row[4] ? row[4] : "";
+			entry.email                   = row[5] ? row[5] : "";
+			entry.registration_date       = row[6] ? row[6] : "";
+			entry.registration_ip_address = row[7] ? row[7] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<LoginServerAdmins> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<LoginServerAdmins> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<LoginServerAdmins> all_entries;
 
@@ -319,24 +299,24 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LoginServerAdmins e{};
+			LoginServerAdmins entry{};
 
-			e.id                      = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.account_name            = row[1] ? row[1] : "";
-			e.account_password        = row[2] ? row[2] : "";
-			e.first_name              = row[3] ? row[3] : "";
-			e.last_name               = row[4] ? row[4] : "";
-			e.email                   = row[5] ? row[5] : "";
-			e.registration_date       = strtoll(row[6] ? row[6] : "-1", nullptr, 10);
-			e.registration_ip_address = row[7] ? row[7] : "";
+			entry.id                      = atoi(row[0]);
+			entry.account_name            = row[1] ? row[1] : "";
+			entry.account_password        = row[2] ? row[2] : "";
+			entry.first_name              = row[3] ? row[3] : "";
+			entry.last_name               = row[4] ? row[4] : "";
+			entry.email                   = row[5] ? row[5] : "";
+			entry.registration_date       = row[6] ? row[6] : "";
+			entry.registration_ip_address = row[7] ? row[7] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -359,32 +339,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

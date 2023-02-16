@@ -13,19 +13,16 @@
 #define EQEMU_BASE_LOGSYS_CATEGORIES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseLogsysCategoriesRepository {
 public:
 	struct LogsysCategories {
-		int32_t     log_category_id;
+		int         log_category_id;
 		std::string log_category_description;
-		int16_t     log_to_console;
-		int16_t     log_to_file;
-		int16_t     log_to_gmsay;
-		int16_t     log_to_discord;
-		int32_t     discord_webhook_id;
+		int         log_to_console;
+		int         log_to_file;
+		int         log_to_gmsay;
 	};
 
 	static std::string PrimaryKey()
@@ -41,32 +38,12 @@ public:
 			"log_to_console",
 			"log_to_file",
 			"log_to_gmsay",
-			"log_to_discord",
-			"discord_webhook_id",
-		};
-	}
-
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"log_category_id",
-			"log_category_description",
-			"log_to_console",
-			"log_to_file",
-			"log_to_gmsay",
-			"log_to_discord",
-			"discord_webhook_id",
 		};
 	}
 
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -78,7 +55,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -94,20 +71,18 @@ public:
 
 	static LogsysCategories NewEntity()
 	{
-		LogsysCategories e{};
+		LogsysCategories entry{};
 
-		e.log_category_id          = 0;
-		e.log_category_description = "";
-		e.log_to_console           = 0;
-		e.log_to_file              = 0;
-		e.log_to_gmsay             = 0;
-		e.log_to_discord           = 0;
-		e.discord_webhook_id       = 0;
+		entry.log_category_id          = 0;
+		entry.log_category_description = "";
+		entry.log_to_console           = 0;
+		entry.log_to_file              = 0;
+		entry.log_to_gmsay             = 0;
 
-		return e;
+		return entry;
 	}
 
-	static LogsysCategories GetLogsysCategories(
+	static LogsysCategories GetLogsysCategoriesEntry(
 		const std::vector<LogsysCategories> &logsys_categoriess,
 		int logsys_categories_id
 	)
@@ -136,17 +111,15 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			LogsysCategories e{};
+			LogsysCategories entry{};
 
-			e.log_category_id          = static_cast<int32_t>(atoi(row[0]));
-			e.log_category_description = row[1] ? row[1] : "";
-			e.log_to_console           = static_cast<int16_t>(atoi(row[2]));
-			e.log_to_file              = static_cast<int16_t>(atoi(row[3]));
-			e.log_to_gmsay             = static_cast<int16_t>(atoi(row[4]));
-			e.log_to_discord           = static_cast<int16_t>(atoi(row[5]));
-			e.discord_webhook_id       = static_cast<int32_t>(atoi(row[6]));
+			entry.log_category_id          = atoi(row[0]);
+			entry.log_category_description = row[1] ? row[1] : "";
+			entry.log_to_console           = atoi(row[2]);
+			entry.log_to_file              = atoi(row[3]);
+			entry.log_to_gmsay             = atoi(row[4]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -171,28 +144,26 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const LogsysCategories &e
+		LogsysCategories logsys_categories_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.log_category_id));
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.log_category_description) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.log_to_console));
-		v.push_back(columns[3] + " = " + std::to_string(e.log_to_file));
-		v.push_back(columns[4] + " = " + std::to_string(e.log_to_gmsay));
-		v.push_back(columns[5] + " = " + std::to_string(e.log_to_discord));
-		v.push_back(columns[6] + " = " + std::to_string(e.discord_webhook_id));
+		update_values.push_back(columns[0] + " = " + std::to_string(logsys_categories_entry.log_category_id));
+		update_values.push_back(columns[1] + " = '" + EscapeString(logsys_categories_entry.log_category_description) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(logsys_categories_entry.log_to_console));
+		update_values.push_back(columns[3] + " = " + std::to_string(logsys_categories_entry.log_to_file));
+		update_values.push_back(columns[4] + " = " + std::to_string(logsys_categories_entry.log_to_gmsay));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.log_category_id
+				logsys_categories_entry.log_category_id
 			)
 		);
 
@@ -201,65 +172,61 @@ public:
 
 	static LogsysCategories InsertOne(
 		Database& db,
-		LogsysCategories e
+		LogsysCategories logsys_categories_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.log_category_id));
-		v.push_back("'" + Strings::Escape(e.log_category_description) + "'");
-		v.push_back(std::to_string(e.log_to_console));
-		v.push_back(std::to_string(e.log_to_file));
-		v.push_back(std::to_string(e.log_to_gmsay));
-		v.push_back(std::to_string(e.log_to_discord));
-		v.push_back(std::to_string(e.discord_webhook_id));
+		insert_values.push_back(std::to_string(logsys_categories_entry.log_category_id));
+		insert_values.push_back("'" + EscapeString(logsys_categories_entry.log_category_description) + "'");
+		insert_values.push_back(std::to_string(logsys_categories_entry.log_to_console));
+		insert_values.push_back(std::to_string(logsys_categories_entry.log_to_file));
+		insert_values.push_back(std::to_string(logsys_categories_entry.log_to_gmsay));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.log_category_id = results.LastInsertedID();
-			return e;
+			logsys_categories_entry.log_category_id = results.LastInsertedID();
+			return logsys_categories_entry;
 		}
 
-		e = NewEntity();
+		logsys_categories_entry = NewEntity();
 
-		return e;
+		return logsys_categories_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<LogsysCategories> &entries
+		std::vector<LogsysCategories> logsys_categories_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &logsys_categories_entry: logsys_categories_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.log_category_id));
-			v.push_back("'" + Strings::Escape(e.log_category_description) + "'");
-			v.push_back(std::to_string(e.log_to_console));
-			v.push_back(std::to_string(e.log_to_file));
-			v.push_back(std::to_string(e.log_to_gmsay));
-			v.push_back(std::to_string(e.log_to_discord));
-			v.push_back(std::to_string(e.discord_webhook_id));
+			insert_values.push_back(std::to_string(logsys_categories_entry.log_category_id));
+			insert_values.push_back("'" + EscapeString(logsys_categories_entry.log_category_description) + "'");
+			insert_values.push_back(std::to_string(logsys_categories_entry.log_to_console));
+			insert_values.push_back(std::to_string(logsys_categories_entry.log_to_file));
+			insert_values.push_back(std::to_string(logsys_categories_entry.log_to_gmsay));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -280,23 +247,21 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LogsysCategories e{};
+			LogsysCategories entry{};
 
-			e.log_category_id          = static_cast<int32_t>(atoi(row[0]));
-			e.log_category_description = row[1] ? row[1] : "";
-			e.log_to_console           = static_cast<int16_t>(atoi(row[2]));
-			e.log_to_file              = static_cast<int16_t>(atoi(row[3]));
-			e.log_to_gmsay             = static_cast<int16_t>(atoi(row[4]));
-			e.log_to_discord           = static_cast<int16_t>(atoi(row[5]));
-			e.discord_webhook_id       = static_cast<int32_t>(atoi(row[6]));
+			entry.log_category_id          = atoi(row[0]);
+			entry.log_category_description = row[1] ? row[1] : "";
+			entry.log_to_console           = atoi(row[2]);
+			entry.log_to_file              = atoi(row[3]);
+			entry.log_to_gmsay             = atoi(row[4]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<LogsysCategories> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<LogsysCategories> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<LogsysCategories> all_entries;
 
@@ -311,23 +276,21 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LogsysCategories e{};
+			LogsysCategories entry{};
 
-			e.log_category_id          = static_cast<int32_t>(atoi(row[0]));
-			e.log_category_description = row[1] ? row[1] : "";
-			e.log_to_console           = static_cast<int16_t>(atoi(row[2]));
-			e.log_to_file              = static_cast<int16_t>(atoi(row[3]));
-			e.log_to_gmsay             = static_cast<int16_t>(atoi(row[4]));
-			e.log_to_discord           = static_cast<int16_t>(atoi(row[5]));
-			e.discord_webhook_id       = static_cast<int32_t>(atoi(row[6]));
+			entry.log_category_id          = atoi(row[0]);
+			entry.log_category_description = row[1] ? row[1] : "";
+			entry.log_to_console           = atoi(row[2]);
+			entry.log_to_file              = atoi(row[3]);
+			entry.log_to_gmsay             = atoi(row[4]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -350,32 +313,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

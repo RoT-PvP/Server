@@ -3,7 +3,7 @@
 #include "../common/extprofile.h"
 #include "../common/rulesys.h"
 #include "../common/misc_functions.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 #include "../common/random.h"
 #include "adventure.h"
 #include "adventure_manager.h"
@@ -11,7 +11,7 @@
 #include "zonelist.h"
 #include "clientlist.h"
 #include "cliententry.h"
-#include "../common/zone_store.h"
+#include "world_store.h"
 
 extern ZSList zoneserver_list;
 extern ClientList client_list;
@@ -28,17 +28,20 @@ Adventure::Adventure(AdventureTemplate *t)
 	instance_id = 0;
 }
 
-Adventure::Adventure(AdventureTemplate *t, int in_count, int in_assassination_count, AdventureStatus in_status, uint16 in_instance_id, uint32 time_left)
+Adventure::Adventure(AdventureTemplate *t, int count, int assassination_count, AdventureStatus status, uint16 instance_id, uint32 time_left)
 {
 	adventure_template = t;
-	count = in_count;
-	assassination_count = in_assassination_count;
-	status = in_status;
-	instance_id = in_instance_id;
+	this->count = count;
+	this->assassination_count = assassination_count;
+	this->status = status;
+	this->instance_id = instance_id;
 
-	if (in_status == AS_Finished) {
+	if(status == AS_Finished)
+	{
 		database.SetInstanceDuration(instance_id, time_left);
-	} else {
+	}
+	else
+	{
 		database.SetInstanceDuration(instance_id, time_left + 60);
 	}
 

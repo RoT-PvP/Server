@@ -13,14 +13,13 @@
 #define EQEMU_BASE_LDON_TRAP_ENTRIES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseLdonTrapEntriesRepository {
 public:
 	struct LdonTrapEntries {
-		uint32_t id;
-		uint32_t trap_id;
+		int id;
+		int trap_id;
 	};
 
 	static std::string PrimaryKey()
@@ -36,22 +35,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"trap_id",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -63,7 +49,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -79,15 +65,15 @@ public:
 
 	static LdonTrapEntries NewEntity()
 	{
-		LdonTrapEntries e{};
+		LdonTrapEntries entry{};
 
-		e.id      = 0;
-		e.trap_id = 0;
+		entry.id      = 0;
+		entry.trap_id = 0;
 
-		return e;
+		return entry;
 	}
 
-	static LdonTrapEntries GetLdonTrapEntries(
+	static LdonTrapEntries GetLdonTrapEntriesEntry(
 		const std::vector<LdonTrapEntries> &ldon_trap_entriess,
 		int ldon_trap_entries_id
 	)
@@ -116,12 +102,12 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			LdonTrapEntries e{};
+			LdonTrapEntries entry{};
 
-			e.id      = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.trap_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
+			entry.id      = atoi(row[0]);
+			entry.trap_id = atoi(row[1]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -146,23 +132,23 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const LdonTrapEntries &e
+		LdonTrapEntries ldon_trap_entries_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.id));
-		v.push_back(columns[1] + " = " + std::to_string(e.trap_id));
+		update_values.push_back(columns[0] + " = " + std::to_string(ldon_trap_entries_entry.id));
+		update_values.push_back(columns[1] + " = " + std::to_string(ldon_trap_entries_entry.trap_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				ldon_trap_entries_entry.id
 			)
 		);
 
@@ -171,55 +157,55 @@ public:
 
 	static LdonTrapEntries InsertOne(
 		Database& db,
-		LdonTrapEntries e
+		LdonTrapEntries ldon_trap_entries_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.trap_id));
+		insert_values.push_back(std::to_string(ldon_trap_entries_entry.id));
+		insert_values.push_back(std::to_string(ldon_trap_entries_entry.trap_id));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			ldon_trap_entries_entry.id = results.LastInsertedID();
+			return ldon_trap_entries_entry;
 		}
 
-		e = NewEntity();
+		ldon_trap_entries_entry = NewEntity();
 
-		return e;
+		return ldon_trap_entries_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<LdonTrapEntries> &entries
+		std::vector<LdonTrapEntries> ldon_trap_entries_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &ldon_trap_entries_entry: ldon_trap_entries_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.trap_id));
+			insert_values.push_back(std::to_string(ldon_trap_entries_entry.id));
+			insert_values.push_back(std::to_string(ldon_trap_entries_entry.trap_id));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -240,18 +226,18 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LdonTrapEntries e{};
+			LdonTrapEntries entry{};
 
-			e.id      = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.trap_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
+			entry.id      = atoi(row[0]);
+			entry.trap_id = atoi(row[1]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<LdonTrapEntries> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<LdonTrapEntries> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<LdonTrapEntries> all_entries;
 
@@ -266,18 +252,18 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LdonTrapEntries e{};
+			LdonTrapEntries entry{};
 
-			e.id      = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.trap_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
+			entry.id      = atoi(row[0]);
+			entry.trap_id = atoi(row[1]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -300,32 +286,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

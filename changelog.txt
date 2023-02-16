@@ -3,7 +3,7 @@
 ############################################
 #
 # New changelog can be found here
-# https://docs.eqemu.io/server/changelog/server
+# https://eqemu.gitbook.io/changelog/
 #
 ############################################
 # Deprecated

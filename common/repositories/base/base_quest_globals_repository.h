@@ -13,18 +13,17 @@
 #define EQEMU_BASE_QUEST_GLOBALS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseQuestGlobalsRepository {
 public:
 	struct QuestGlobals {
-		int32_t     charid;
-		int32_t     npcid;
-		int32_t     zoneid;
+		int         charid;
+		int         npcid;
+		int         zoneid;
 		std::string name;
 		std::string value;
-		int32_t     expdate;
+		int         expdate;
 	};
 
 	static std::string PrimaryKey()
@@ -44,26 +43,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"charid",
-			"npcid",
-			"zoneid",
-			"name",
-			"value",
-			"expdate",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -75,7 +57,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -91,19 +73,19 @@ public:
 
 	static QuestGlobals NewEntity()
 	{
-		QuestGlobals e{};
+		QuestGlobals entry{};
 
-		e.charid  = 0;
-		e.npcid   = 0;
-		e.zoneid  = 0;
-		e.name    = "";
-		e.value   = "?";
-		e.expdate = 0;
+		entry.charid  = 0;
+		entry.npcid   = 0;
+		entry.zoneid  = 0;
+		entry.name    = "";
+		entry.value   = "?";
+		entry.expdate = 0;
 
-		return e;
+		return entry;
 	}
 
-	static QuestGlobals GetQuestGlobals(
+	static QuestGlobals GetQuestGlobalsEntry(
 		const std::vector<QuestGlobals> &quest_globalss,
 		int quest_globals_id
 	)
@@ -132,16 +114,16 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			QuestGlobals e{};
+			QuestGlobals entry{};
 
-			e.charid  = static_cast<int32_t>(atoi(row[0]));
-			e.npcid   = static_cast<int32_t>(atoi(row[1]));
-			e.zoneid  = static_cast<int32_t>(atoi(row[2]));
-			e.name    = row[3] ? row[3] : "";
-			e.value   = row[4] ? row[4] : "";
-			e.expdate = static_cast<int32_t>(atoi(row[5]));
+			entry.charid  = atoi(row[0]);
+			entry.npcid   = atoi(row[1]);
+			entry.zoneid  = atoi(row[2]);
+			entry.name    = row[3] ? row[3] : "";
+			entry.value   = row[4] ? row[4] : "";
+			entry.expdate = atoi(row[5]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -166,27 +148,27 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const QuestGlobals &e
+		QuestGlobals quest_globals_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.charid));
-		v.push_back(columns[1] + " = " + std::to_string(e.npcid));
-		v.push_back(columns[2] + " = " + std::to_string(e.zoneid));
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.name) + "'");
-		v.push_back(columns[4] + " = '" + Strings::Escape(e.value) + "'");
-		v.push_back(columns[5] + " = " + std::to_string(e.expdate));
+		update_values.push_back(columns[0] + " = " + std::to_string(quest_globals_entry.charid));
+		update_values.push_back(columns[1] + " = " + std::to_string(quest_globals_entry.npcid));
+		update_values.push_back(columns[2] + " = " + std::to_string(quest_globals_entry.zoneid));
+		update_values.push_back(columns[3] + " = '" + EscapeString(quest_globals_entry.name) + "'");
+		update_values.push_back(columns[4] + " = '" + EscapeString(quest_globals_entry.value) + "'");
+		update_values.push_back(columns[5] + " = " + std::to_string(quest_globals_entry.expdate));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.charid
+				quest_globals_entry.charid
 			)
 		);
 
@@ -195,63 +177,63 @@ public:
 
 	static QuestGlobals InsertOne(
 		Database& db,
-		QuestGlobals e
+		QuestGlobals quest_globals_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.charid));
-		v.push_back(std::to_string(e.npcid));
-		v.push_back(std::to_string(e.zoneid));
-		v.push_back("'" + Strings::Escape(e.name) + "'");
-		v.push_back("'" + Strings::Escape(e.value) + "'");
-		v.push_back(std::to_string(e.expdate));
+		insert_values.push_back(std::to_string(quest_globals_entry.charid));
+		insert_values.push_back(std::to_string(quest_globals_entry.npcid));
+		insert_values.push_back(std::to_string(quest_globals_entry.zoneid));
+		insert_values.push_back("'" + EscapeString(quest_globals_entry.name) + "'");
+		insert_values.push_back("'" + EscapeString(quest_globals_entry.value) + "'");
+		insert_values.push_back(std::to_string(quest_globals_entry.expdate));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.charid = results.LastInsertedID();
-			return e;
+			quest_globals_entry.charid = results.LastInsertedID();
+			return quest_globals_entry;
 		}
 
-		e = NewEntity();
+		quest_globals_entry = NewEntity();
 
-		return e;
+		return quest_globals_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<QuestGlobals> &entries
+		std::vector<QuestGlobals> quest_globals_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &quest_globals_entry: quest_globals_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.charid));
-			v.push_back(std::to_string(e.npcid));
-			v.push_back(std::to_string(e.zoneid));
-			v.push_back("'" + Strings::Escape(e.name) + "'");
-			v.push_back("'" + Strings::Escape(e.value) + "'");
-			v.push_back(std::to_string(e.expdate));
+			insert_values.push_back(std::to_string(quest_globals_entry.charid));
+			insert_values.push_back(std::to_string(quest_globals_entry.npcid));
+			insert_values.push_back(std::to_string(quest_globals_entry.zoneid));
+			insert_values.push_back("'" + EscapeString(quest_globals_entry.name) + "'");
+			insert_values.push_back("'" + EscapeString(quest_globals_entry.value) + "'");
+			insert_values.push_back(std::to_string(quest_globals_entry.expdate));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -272,22 +254,22 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			QuestGlobals e{};
+			QuestGlobals entry{};
 
-			e.charid  = static_cast<int32_t>(atoi(row[0]));
-			e.npcid   = static_cast<int32_t>(atoi(row[1]));
-			e.zoneid  = static_cast<int32_t>(atoi(row[2]));
-			e.name    = row[3] ? row[3] : "";
-			e.value   = row[4] ? row[4] : "";
-			e.expdate = static_cast<int32_t>(atoi(row[5]));
+			entry.charid  = atoi(row[0]);
+			entry.npcid   = atoi(row[1]);
+			entry.zoneid  = atoi(row[2]);
+			entry.name    = row[3] ? row[3] : "";
+			entry.value   = row[4] ? row[4] : "";
+			entry.expdate = atoi(row[5]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<QuestGlobals> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<QuestGlobals> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<QuestGlobals> all_entries;
 
@@ -302,22 +284,22 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			QuestGlobals e{};
+			QuestGlobals entry{};
 
-			e.charid  = static_cast<int32_t>(atoi(row[0]));
-			e.npcid   = static_cast<int32_t>(atoi(row[1]));
-			e.zoneid  = static_cast<int32_t>(atoi(row[2]));
-			e.name    = row[3] ? row[3] : "";
-			e.value   = row[4] ? row[4] : "";
-			e.expdate = static_cast<int32_t>(atoi(row[5]));
+			entry.charid  = atoi(row[0]);
+			entry.npcid   = atoi(row[1]);
+			entry.zoneid  = atoi(row[2]);
+			entry.name    = row[3] ? row[3] : "";
+			entry.value   = row[4] ? row[4] : "";
+			entry.expdate = atoi(row[5]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -340,32 +322,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

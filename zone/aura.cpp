@@ -1,4 +1,4 @@
-#include "../common/strings.h"
+#include "../common/string_util.h"
 
 #include "aura.h"
 #include "client.h"
@@ -77,10 +77,7 @@ void Aura::ProcessOnAllFriendlies(Mob *owner)
 
 	for (auto &e : mob_list) {
 		auto mob = e.second;
-		if (!mob) {
-			continue;
-		}
-		if (mob->IsClient() || mob->IsPetOwnerClient() || mob->IsMerc() || mob->IsBot()) {
+		if (mob->IsClient() || mob->IsPetOwnerClient() || mob->IsMerc()) {
 			auto it = casted_on.find(mob->GetID());
 
 			if (it != casted_on.end()) { // we are already on the list, let's check for removal
@@ -190,9 +187,6 @@ void Aura::ProcessOnAllGroupMembers(Mob *owner)
 
 		for (auto &e : mob_list) {
 			auto mob = e.second;
-			if (!mob) {
-				continue;
-			}
 			// step 1: check if we're already managing this NPC's buff
 			auto it  = casted_on.find(mob->GetID());
 			if (it != casted_on.end()) {
@@ -420,9 +414,6 @@ void Aura::ProcessOnGroupMembersPets(Mob *owner)
 
 		for (auto &e : mob_list) {
 			auto mob = e.second;
-			if (!mob) {
-				continue;
-			}
 			// step 1: check if we're already managing this NPC's buff
 			auto it  = casted_on.find(mob->GetID());
 			if (it != casted_on.end()) {
@@ -581,10 +572,6 @@ void Aura::ProcessTotem(Mob *owner)
 
 	for (auto &e : mob_list) {
 		auto mob = e.second;
-		if (!mob) {
-			continue;
-		}
-
 		if (mob == this) {
 			continue;
 		}
@@ -637,15 +624,11 @@ void Aura::ProcessEnterTrap(Mob *owner)
 
 	for (auto &e : mob_list) {
 		auto mob = e.second;
-		if (!mob) {
-			continue;
-		}
-
 		if (mob == this) {
 			continue;
 		}
 		// might need more checks ...
-		if (mob != owner && owner->IsAttackAllowed(mob) && DistanceSquared(GetPosition(), mob->GetPosition()) <= distance) {
+		if (owner->IsAttackAllowed(mob) && DistanceSquared(GetPosition(), mob->GetPosition()) <= distance) {
 			SpellFinished(spell_id, mob);
 			owner->RemoveAura(GetID(), false); // if we're a buff (ex. NEC) we don't want to strip :P
 			break;
@@ -659,15 +642,11 @@ void Aura::ProcessExitTrap(Mob *owner)
 
 	for (auto &e : mob_list) {
 		auto mob = e.second;
-		if (!mob) {
-			continue;
-		}
-
 		if (mob == this) {
 			continue;
 		}
 		// might need more checks ...
-		if (mob != owner && owner->IsAttackAllowed(mob)) {
+		if (owner->IsAttackAllowed(mob)) {
 			bool in_range = DistanceSquared(GetPosition(), mob->GetPosition()) <= distance;
 			auto it       = casted_on.find(mob->GetID());
 			if (it != casted_on.end()) {
@@ -690,10 +669,6 @@ void Aura::ProcessSpawns()
 {
 	const auto &clients = entity_list.GetCloseMobList(this, distance);
 	for (auto  &e : clients) {
-		if (!e.second) {
-			continue;
-		}
-
 		if (!e.second->IsClient()) {
 			continue;
 		}
@@ -964,7 +939,7 @@ bool ZoneDatabase::GetAuraEntry(uint16 spell_id, AuraRecord &record)
 void Mob::AddAura(Aura *aura, AuraRecord &record)
 {
 	LogAura(
-		"aura owner [{}] spawn_id [{}] aura_name [{}]",
+		"[AddAura] aura owner [{}] spawn_id [{}] aura_name [{}]",
 		GetCleanName(),
 		aura->GetID(),
 		aura->GetCleanName()
@@ -999,7 +974,7 @@ void Mob::AddAura(Aura *aura, AuraRecord &record)
 void Mob::AddTrap(Aura *aura, AuraRecord &record)
 {
 	LogAura(
-		"aura owner [{}] spawn_id [{}] aura_name [{}]",
+		"[AddTrap] aura owner [{}] spawn_id [{}] aura_name [{}]",
 		GetCleanName(),
 		aura->GetID(),
 		aura->GetCleanName()
@@ -1048,7 +1023,7 @@ void Mob::RemoveAllAuras()
 		for (auto &e : aura_mgr.auras) {
 			if (e.aura) {
 				LogAura(
-					"aura owner [{}] spawn_id [{}] aura_name [{}]",
+					"[RemoveAllAuras] aura owner [{}] spawn_id [{}] aura_name [{}]",
 					GetCleanName(),
 					e.spawn_id,
 					e.name
@@ -1065,7 +1040,7 @@ void Mob::RemoveAllAuras()
 		for (auto &e : trap_mgr.auras) {
 			if (e.aura) {
 				LogAura(
-					"trap owner [{}] spawn_id [{}] aura_name [{}]",
+					"[RemoveAllAuras] trap owner [{}] spawn_id [{}] aura_name [{}]",
 					GetCleanName(),
 					e.spawn_id,
 					e.name
@@ -1085,7 +1060,7 @@ void Mob::RemoveAura(int spawn_id, bool skip_strip, bool expired)
 		auto &aura = aura_mgr.auras[i];
 		if (aura.spawn_id == spawn_id) {
 			LogAura(
-				"mob [{}] spawn_id [{}] skip_strip [{}] expired [{}]",
+				"[RemoveAura] mob [{}] spawn_id [{}] skip_strip [{}] expired [{}]",
 				GetCleanName(),
 				spawn_id,
 				skip_strip ? "true" : "false",

@@ -29,12 +29,15 @@
 #include "../common/expedition_lockout_timer.h"
 #include "../common/repositories/dynamic_zone_members_repository.h"
 #include "../common/repositories/expedition_lockouts_repository.h"
+#include "../common/util/uuid.h"
 
 extern WorldServer worldserver;
 extern Zone* zone;
 
 // message string 8271 (not in emu clients)
 const char* const DZ_YOU_NOT_ASSIGNED        = "You could not use this command because you are not currently assigned to a dynamic zone.";
+// message string 9265 (not in emu clients)
+const char* const EXPEDITION_OTHER_BELONGS   = "{} attempted to create an expedition but {} already belongs to one.";
 // lockout warnings were added to live in March 11 2020 patch
 const char* const DZADD_INVITE_WARNING       = "Warning! You will be given replay timers for the following events if you enter %s:";
 const char* const DZADD_INVITE_WARNING_TIMER = "%s - %sD:%sH:%sM";
@@ -45,61 +48,42 @@ constexpr char LOCK_BEGIN[]                  = "The trial has begun. You cannot 
 const int32_t Expedition::REPLAY_TIMER_ID = -1;
 const int32_t Expedition::EVENT_TIMER_ID  = 1;
 
-Expedition::Expedition(DynamicZone* dz) :
-	m_dynamic_zone(dz)
+Expedition::Expedition(
+	uint32_t id, const std::string& uuid, DynamicZone&& dz, const std::string& expedition_name,
+	const DynamicZoneMember& leader
+) : ExpeditionBase(id, uuid, expedition_name, leader)
 {
-	assert(m_dynamic_zone != nullptr);
+	SetDynamicZone(std::move(dz));
 }
 
-Expedition::Expedition(DynamicZone* dz, uint32_t id, uint32_t dz_id) :
-	m_dynamic_zone(dz),
-	m_id(id),
-	m_dynamic_zone_id(dz_id)
+void Expedition::SetDynamicZone(DynamicZone&& dz)
 {
-	assert(m_dynamic_zone != nullptr); // dz must remain valid for lifetime of expedition
+	dz.SetName(GetName());
+	dz.SetLeader(GetLeader());
+
+	m_dynamiczone = std::move(dz);
 }
 
-void Expedition::LoadRepositoryResult(const ExpeditionsRepository::Expeditions& entry)
-{
-	m_id                 = entry.id;
-	m_dynamic_zone_id    = entry.dynamic_zone_id;
-	m_add_replay_on_join = entry.add_replay_on_join;
-	m_is_locked          = entry.is_locked;
-}
-
-void Expedition::RegisterDynamicZoneCallbacks()
-{
-	uint32_t expedition_id = GetID();
-
-	GetDynamicZone()->RegisterOnClientAddRemove(
-		[expedition_id](Client* client, bool removed, bool silent) {
-			auto expedition = Expedition::FindCachedExpeditionByID(expedition_id);
-			if (expedition) {
-				expedition->OnClientAddRemove(client, removed, silent);
-			}
-		});
-}
-
-Expedition* Expedition::TryCreate(Client* requester, DynamicZone& dz_request, bool disable_messages)
+Expedition* Expedition::TryCreate(
+	Client* requester, DynamicZone& dynamiczone, ExpeditionRequest& request)
 {
 	if (!requester || !zone)
 	{
 		return nullptr;
 	}
 
-	ExpeditionRequest request{ dz_request, disable_messages };
-
 	// request parses leader, members list, and lockouts while validating
 	if (!request.Validate(requester))
 	{
-		LogExpeditionsDetail("[{}] request by [{}] denied", request.GetExpeditionName(), requester->GetName());
+		LogExpeditionsModerate("[{}] request by [{}] denied", request.GetExpeditionName(), requester->GetName());
 		return nullptr;
 	}
 
-	dz_request.SetLeader({ request.GetLeaderID(), request.GetLeaderName(), DynamicZoneMemberStatus::Online });
+	dynamiczone.SetMinPlayers(request.GetMinPlayers());
+	dynamiczone.SetMaxPlayers(request.GetMaxPlayers());
 
-	auto dz = DynamicZone::CreateNew(dz_request, request.GetMembers());
-	if (!dz)
+	auto dynamic_zone_id = dynamiczone.Create();
+	if (dynamic_zone_id == 0)
 	{
 		// live uses this message when trying to enter an instance that isn't ready
 		// we can use it as the client error message if instance creation fails
@@ -108,29 +92,44 @@ Expedition* Expedition::TryCreate(Client* requester, DynamicZone& dz_request, bo
 		return nullptr;
 	}
 
+	std::string expedition_uuid = EQ::Util::UUID::Generate().ToString();
+
 	// unique expedition ids are created from database via auto-increment column
-	auto expedition_id = ExpeditionDatabase::InsertExpedition(dz->GetID());
+	auto expedition_id = ExpeditionDatabase::InsertExpedition(
+		expedition_uuid,
+		dynamiczone.GetID(),
+		request.GetExpeditionName(),
+		request.GetLeaderID(),
+		request.GetMinPlayers(),
+		request.GetMaxPlayers()
+	);
 
 	if (expedition_id)
 	{
-		auto expedition = std::make_unique<Expedition>(dz, expedition_id, dz->GetID());
-
-		LogExpeditions(
-			"Created [{}] [{}] dz: [{}] instance id: [{}] leader: [{}] minplayers: [{}] maxplayers: [{}]",
-			expedition->GetID(),
-			expedition->GetName(),
-			dz->GetID(),
-			dz->GetInstanceID(),
-			expedition->GetLeaderName(),
-			dz->GetMinPlayers(),
-			dz->GetMaxPlayers()
+		auto expedition = std::make_unique<Expedition>(
+			expedition_id,
+			expedition_uuid,
+			std::move(dynamiczone),
+			request.GetExpeditionName(),
+			DynamicZoneMember{ request.GetLeaderID(), request.GetLeaderName() }
 		);
 
+		LogExpeditions(
+			"Created [{}] [{}] instance id: [{}] leader: [{}] minplayers: [{}] maxplayers: [{}]",
+			expedition->GetID(),
+			expedition->GetName(),
+			expedition->GetDynamicZone().GetInstanceID(),
+			expedition->GetLeaderName(),
+			expedition->GetDynamicZone().GetMinPlayers(),
+			expedition->GetDynamicZone().GetMaxPlayers()
+		);
+
+		expedition->GetDynamicZone().SaveMembers(request.GetMembers());
 		expedition->SaveLockouts(request);
-		expedition->RegisterDynamicZoneCallbacks();
 
 		auto inserted = zone->expedition_cache.emplace(expedition_id, std::move(expedition));
 
+		inserted.first->second->SendUpdatesToZoneMembers();
 		inserted.first->second->SendWorldExpeditionUpdate(ServerOP_ExpeditionCreate); // cache in other zones
 		inserted.first->second->SendLeaderMessage(request.GetLeaderClient(),
 			Chat::System, EXPEDITION_AVAILABLE, { request.GetExpeditionName() });
@@ -141,8 +140,6 @@ Expedition* Expedition::TryCreate(Client* requester, DynamicZone& dz_request, bo
 				Chat::System, request.GetNotAllAddedMessage());
 		}
 
-		dz->DoAsyncZoneMemberUpdates();
-
 		return inserted.first->second.get();
 	}
 
@@ -150,36 +147,48 @@ Expedition* Expedition::TryCreate(Client* requester, DynamicZone& dz_request, bo
 }
 
 void Expedition::CacheExpeditions(
-	std::vector<ExpeditionsRepository::Expeditions>&& expedition_entries)
+	std::vector<ExpeditionsRepository::ExpeditionWithLeader>&& expedition_entries)
 {
 	if (!zone)
 	{
 		return;
 	}
 
-	// bulk load expedition internal lockouts before caching
+	// bulk load expedition dzs, members, and internal lockouts before caching
 	std::vector<uint32_t> expedition_ids;
+	std::vector<uint32_t> dynamic_zone_ids;
 	for (const auto& entry : expedition_entries)
 	{
 		expedition_ids.emplace_back(entry.id);
+		dynamic_zone_ids.emplace_back(entry.dynamic_zone_id);
 	}
 
-	// todo: lockouts need be moved to dynamic zone
+	auto dynamic_zones = DynamicZonesRepository::GetWithInstance(database, dynamic_zone_ids);
+	auto dynamic_zone_members = DynamicZoneMembersRepository::GetWithNames(database, dynamic_zone_ids);
 	auto expedition_lockouts = ExpeditionLockoutsRepository::GetWithTimestamp(database, expedition_ids);
 
 	for (auto& entry : expedition_entries)
 	{
-		// the expedition's dynamic zone and members should already be in cache
-		auto dynamic_zone = DynamicZone::FindDynamicZoneByID(entry.dynamic_zone_id);
-		if (!dynamic_zone)
+		auto expedition = std::make_unique<Expedition>();
+		expedition->LoadRepositoryResult(std::move(entry));
+
+		auto dz_entry_iter = std::find_if(dynamic_zones.begin(), dynamic_zones.end(),
+			[&](const DynamicZonesRepository::DynamicZoneInstance& dz_entry) {
+				return dz_entry.id == entry.dynamic_zone_id;
+			});
+
+		if (dz_entry_iter != dynamic_zones.end())
 		{
-			LogExpeditions("[Warning] Expedition [{}] dz [{}] not found during caching", entry.id, entry.dynamic_zone_id);
-			continue;
+			expedition->SetDynamicZone(std::move(*dz_entry_iter));
 		}
 
-		auto expedition = std::make_unique<Expedition>(dynamic_zone);
-		expedition->LoadRepositoryResult(entry);
-		expedition->RegisterDynamicZoneCallbacks();
+		for (auto& member : dynamic_zone_members)
+		{
+			if (member.dynamic_zone_id == entry.dynamic_zone_id)
+			{
+				expedition->GetDynamicZone().AddMemberFromRepositoryResult(std::move(member));
+			}
+		}
 
 		for (auto& lockout_entry : expedition_lockouts)
 		{
@@ -198,8 +207,14 @@ void Expedition::CacheExpeditions(
 			}
 		}
 
-		zone->expedition_cache.emplace(entry.id, std::move(expedition));
-		dynamic_zone->DoAsyncZoneMemberUpdates();
+		// stored on expedition in db but on dz in memory cache
+		expedition->GetDynamicZone().SetMinPlayers(entry.min_players);
+		expedition->GetDynamicZone().SetMaxPlayers(entry.max_players);
+
+		expedition->SendWorldExpeditionUpdate(ServerOP_ExpeditionGetMemberStatuses);
+
+		auto inserted = zone->expedition_cache.emplace(entry.id, std::move(expedition));
+		inserted.first->second->SendUpdatesToZoneMembers();
 	}
 }
 
@@ -209,7 +224,7 @@ void Expedition::CacheFromDatabase(uint32_t expedition_id)
 	{
 		BenchTimer benchmark;
 
-		auto expedition = ExpeditionsRepository::GetWhere(database, fmt::format("id = {}", expedition_id));
+		auto expedition = ExpeditionsRepository::GetWithLeaderName(database, expedition_id);
 		CacheExpeditions({ std::move(expedition) });
 
 		LogExpeditions("Caching new expedition [{}] took [{}s]", expedition_id, benchmark.elapsed());
@@ -225,13 +240,11 @@ bool Expedition::CacheAllFromDatabase()
 
 	BenchTimer benchmark;
 
-	auto expeditions = ExpeditionsRepository::All(database);
+	auto expeditions = ExpeditionsRepository::GetAllWithLeaderName(database);
 	zone->expedition_cache.clear();
 	zone->expedition_cache.reserve(expeditions.size());
 
 	CacheExpeditions(std::move(expeditions));
-
-	LogInfo("Loaded [{}] expedition(s)", Strings::Commify(zone->expedition_cache.size()));
 
 	LogExpeditions("Caching [{}] expedition(s) took [{}s]", zone->expedition_cache.size(), benchmark.elapsed());
 
@@ -250,8 +263,7 @@ Expedition* Expedition::FindCachedExpeditionByCharacterID(uint32_t character_id)
 	{
 		for (const auto& expedition : zone->expedition_cache)
 		{
-			auto expedition_dz = expedition.second->GetDynamicZone();
-			if (expedition_dz && expedition_dz->HasMember(character_id))
+			if (expedition.second->GetDynamicZone().HasMember(character_id))
 			{
 				return expedition.second.get();
 			}
@@ -266,8 +278,7 @@ Expedition* Expedition::FindCachedExpeditionByCharacterName(const std::string& c
 	{
 		for (const auto& expedition : zone->expedition_cache)
 		{
-			auto expedition_dz = expedition.second->GetDynamicZone();
-			if (expedition_dz && expedition_dz->HasMember(char_name))
+			if (expedition.second->GetDynamicZone().HasMember(char_name))
 			{
 				return expedition.second.get();
 			}
@@ -282,7 +293,7 @@ Expedition* Expedition::FindCachedExpeditionByDynamicZoneID(uint32_t dz_id)
 	{
 		for (const auto& cached_expedition : zone->expedition_cache)
 		{
-			if (cached_expedition.second->GetDynamicZoneID() == dz_id)
+			if (cached_expedition.second->GetDynamicZone().GetID() == dz_id)
 			{
 				return cached_expedition.second.get();
 			}
@@ -310,8 +321,8 @@ Expedition* Expedition::FindCachedExpeditionByZoneInstance(uint32_t zone_id, uin
 	{
 		for (const auto& cached_expedition : zone->expedition_cache)
 		{
-			auto expedition_dz = cached_expedition.second->GetDynamicZone();
-			if (expedition_dz && expedition_dz->IsSameDz(zone_id, instance_id))
+			if (cached_expedition.second->GetDynamicZone().GetZoneID() == zone_id &&
+			    cached_expedition.second->GetDynamicZone().GetInstanceID() == instance_id)
 			{
 				return cached_expedition.second.get();
 			}
@@ -348,8 +359,7 @@ void Expedition::AddReplayLockout(uint32_t seconds)
 
 void Expedition::AddLockout(const std::string& event_name, uint32_t seconds)
 {
-	auto lockout = ExpeditionLockoutTimer::CreateLockout(GetName(),
-		event_name, seconds, GetDynamicZone()->GetUUID());
+	auto lockout = ExpeditionLockoutTimer::CreateLockout(m_expedition_name, event_name, seconds, m_uuid);
 	AddLockout(lockout);
 }
 
@@ -359,7 +369,7 @@ void Expedition::AddLockout(const ExpeditionLockoutTimer& lockout, bool members_
 	{
 		ExpeditionDatabase::InsertLockout(m_id, lockout);
 	}
-	ExpeditionDatabase::InsertMembersLockout(GetDynamicZone()->GetMembers(), lockout);
+	ExpeditionDatabase::InsertMembersLockout(GetDynamicZone().GetMembers(), lockout);
 
 	ProcessLockoutUpdate(lockout, false, members_only);
 	SendWorldLockoutUpdate(lockout, false, members_only);
@@ -369,8 +379,8 @@ void Expedition::AddLockoutDuration(const std::string& event_name, int seconds, 
 {
 	// lockout timers use unsigned durations to define intent but we may need
 	// to insert a new lockout while still supporting timer reductions
-	auto lockout = ExpeditionLockoutTimer::CreateLockout(GetName(),
-		event_name, std::max(0, seconds), GetDynamicZone()->GetUUID());
+	auto lockout = ExpeditionLockoutTimer::CreateLockout(
+		m_expedition_name, event_name, std::max(0, seconds), m_uuid);
 
 	if (!members_only)
 	{
@@ -389,7 +399,7 @@ void Expedition::AddLockoutDuration(const std::string& event_name, int seconds, 
 	// processing lockout duration applies multiplier again in client methods,
 	// update database with modified value now but pass original on
 	int modified_seconds = static_cast<int>(seconds * RuleR(Expedition, LockoutDurationMultiplier));
-	ExpeditionDatabase::AddLockoutDuration(GetDynamicZone()->GetMembers(), lockout, modified_seconds);
+	ExpeditionDatabase::AddLockoutDuration(GetDynamicZone().GetMembers(), lockout, modified_seconds);
 
 	ProcessLockoutDuration(lockout, seconds, members_only);
 	SendWorldLockoutDuration(lockout, seconds, members_only);
@@ -410,18 +420,115 @@ void Expedition::UpdateLockoutDuration(
 		seconds = static_cast<uint32_t>(seconds * RuleR(Expedition, LockoutDurationMultiplier));
 
 		uint64_t expire_time = it->second.GetStartTime() + seconds;
-		AddLockout({ GetDynamicZone()->GetUUID(), GetName(), event_name, expire_time, seconds }, members_only);
+		AddLockout({ m_uuid, m_expedition_name, event_name, expire_time, seconds }, members_only);
 	}
 }
 
 void Expedition::RemoveLockout(const std::string& event_name)
 {
 	ExpeditionDatabase::DeleteLockout(m_id, event_name);
-	ExpeditionDatabase::DeleteMembersLockout(GetDynamicZone()->GetMembers(), GetName(), event_name);
+	ExpeditionDatabase::DeleteMembersLockout(GetDynamicZone().GetMembers(), m_expedition_name, event_name);
 
-	ExpeditionLockoutTimer lockout{GetDynamicZone()->GetUUID(), GetName(), event_name, 0, 0};
+	ExpeditionLockoutTimer lockout{m_uuid, m_expedition_name, event_name, 0, 0};
 	ProcessLockoutUpdate(lockout, true);
 	SendWorldLockoutUpdate(lockout, true);
+}
+
+bool Expedition::AddMember(const std::string& add_char_name, uint32_t add_char_id)
+{
+	if (GetDynamicZone().HasMember(add_char_id))
+	{
+		return false;
+	}
+
+	m_dynamiczone.AddCharacter(add_char_id);
+
+	ProcessMemberAdded(add_char_name, add_char_id);
+	SendWorldMemberChanged(add_char_name, add_char_id, false);
+
+	return true;
+}
+
+void Expedition::RemoveAllMembers(bool enable_removal_timers)
+{
+	m_dynamiczone.RemoveAllCharacters(enable_removal_timers);
+
+	SendUpdatesToZoneMembers(true);
+	SendWorldExpeditionUpdate(ServerOP_ExpeditionMembersRemoved);
+
+	GetDynamicZone().ClearInternalMembers();
+}
+
+bool Expedition::RemoveMember(const std::string& remove_char_name)
+{
+	auto member = GetDynamicZone().GetMemberData(remove_char_name);
+	if (!member.IsValid())
+	{
+		return false;
+	}
+
+	m_dynamiczone.RemoveCharacter(member.id);
+
+	ProcessMemberRemoved(member.name, member.id);
+	SendWorldMemberChanged(member.name, member.id, true);
+
+	return true;
+}
+
+void Expedition::SwapMember(Client* add_client, const std::string& remove_char_name)
+{
+	if (!add_client || remove_char_name.empty())
+	{
+		return;
+	}
+
+	auto member = GetDynamicZone().GetMemberData(remove_char_name);
+	if (!member.IsValid())
+	{
+		return;
+	}
+
+	// make remove and add atomic to avoid racing with separate world messages
+	m_dynamiczone.RemoveCharacter(member.id);
+	m_dynamiczone.AddCharacter(add_client->CharacterID());
+
+	ProcessMemberRemoved(member.name, member.id);
+	ProcessMemberAdded(add_client->GetName(), add_client->CharacterID());
+	SendWorldMemberSwapped(member.name, member.id, add_client->GetName(), add_client->CharacterID());
+}
+
+void Expedition::SetMemberStatus(Client* client, DynamicZoneMemberStatus status)
+{
+	if (client)
+	{
+		SendMemberStatusToZoneMembers(client->CharacterID(), status);
+		SendWorldMemberStatus(client->CharacterID(), status);
+	}
+}
+
+void Expedition::SendMemberStatusToZoneMembers(uint32_t update_member_id, DynamicZoneMemberStatus status)
+{
+	auto member_data = GetDynamicZone().GetMemberData(update_member_id);
+	if (!member_data.IsValid())
+	{
+		return;
+	}
+
+	// if zone already had this member status cached avoid packet update to clients
+	bool changed = GetDynamicZone().SetInternalMemberStatus(update_member_id, status);
+	if (changed)
+	{
+		member_data = GetDynamicZone().GetMemberData(update_member_id); // rules may override status
+		auto outapp_member_status = CreateMemberListStatusPacket(member_data.name, member_data.status);
+		for (auto& member : GetDynamicZone().GetMembers())
+		{
+			Client* member_client = entity_list.GetClientByCharID(member.id);
+			if (member_client)
+			{
+				member_client->QueuePacket(outapp_member_status.get());
+			}
+		}
+	}
 }
 
 void Expedition::SendClientExpeditionInvite(
@@ -432,7 +539,7 @@ void Expedition::SendClientExpeditionInvite(
 		return;
 	}
 
-	LogExpeditionsDetail(
+	LogExpeditionsModerate(
 		"Sending expedition [{}] invite to player [{}] inviter [{}] swap name [{}]",
 		m_id, client->GetName(), inviter_name, swap_remove_name
 	);
@@ -440,7 +547,7 @@ void Expedition::SendClientExpeditionInvite(
 	client->SetPendingExpeditionInvite({ m_id, inviter_name, swap_remove_name });
 
 	client->MessageString(Chat::System, EXPEDITION_ASKED_TO_JOIN,
-		GetLeaderName().c_str(), GetName().c_str());
+		m_leader.name.c_str(), m_expedition_name.c_str());
 
 	// live (as of March 11 2020 patch) sends warnings for lockouts added
 	// during current expedition that client would receive on entering dz
@@ -449,13 +556,12 @@ void Expedition::SendClientExpeditionInvite(
 	{
 		// live doesn't issue a warning for the dz's replay timer
 		const ExpeditionLockoutTimer& lockout = lockout_iter.second;
-		if (!lockout.IsReplayTimer() && !lockout.IsExpired() &&
-		    lockout.IsFromExpedition(GetDynamicZone()->GetUUID()) &&
-		    !client->HasExpeditionLockout(GetName(), lockout.GetEventName()))
+		if (!lockout.IsReplayTimer() && !lockout.IsExpired() && lockout.IsFromExpedition(m_uuid) &&
+		    !client->HasExpeditionLockout(m_expedition_name, lockout.GetEventName()))
 		{
 			if (!warned)
 			{
-				client->Message(Chat::System, DZADD_INVITE_WARNING, GetName().c_str());
+				client->Message(Chat::System, DZADD_INVITE_WARNING, m_expedition_name.c_str());
 				warned = true;
 			}
 
@@ -477,7 +583,7 @@ void Expedition::SendClientExpeditionInvite(
 void Expedition::SendLeaderMessage(
 	Client* leader_client, uint16_t chat_type, uint32_t string_id, const std::initializer_list<std::string>& args)
 {
-	Client::SendCrossZoneMessageString(leader_client, GetLeaderName(), chat_type, string_id, args);
+	Client::SendCrossZoneMessageString(leader_client, m_leader.name, chat_type, string_id, args);
 }
 
 bool Expedition::ProcessAddConflicts(Client* leader_client, Client* add_client, bool swapping)
@@ -489,7 +595,7 @@ bool Expedition::ProcessAddConflicts(Client* leader_client, Client* add_client, 
 
 	bool has_conflict = false;
 
-	if (GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		SendLeaderMessage(leader_client, Chat::Red, DZADD_LEAVE_ZONE_FIRST, { add_client->GetName() });
 		has_conflict = true;
@@ -504,13 +610,13 @@ bool Expedition::ProcessAddConflicts(Client* leader_client, Client* add_client, 
 	}
 
 	// check any extra event lockouts for this expedition that the client has and expedition doesn't
-	auto client_lockouts = add_client->GetExpeditionLockouts(GetName());
+	auto client_lockouts = add_client->GetExpeditionLockouts(m_expedition_name);
 	for (const auto& client_lockout : client_lockouts)
 	{
 		if (client_lockout.IsReplayTimer())
 		{
 			// client with a replay lockout is allowed only if the replay timer was from this expedition
-			if (client_lockout.GetExpeditionUUID() != GetDynamicZone()->GetUUID())
+			if (client_lockout.GetExpeditionUUID() != GetUUID())
 			{
 				has_conflict = true;
 
@@ -546,15 +652,15 @@ bool Expedition::ProcessAddConflicts(Client* leader_client, Client* add_client, 
 	// member swapping integrity is handled by invite response
 	if (!swapping)
 	{
-		auto member_count = GetDynamicZone()->GetDatabaseMemberCount();
+		auto member_count = GetDynamicZone().GetDatabaseMemberCount();
 		if (member_count == 0)
 		{
 			has_conflict = true;
 		}
-		else if (member_count >= GetDynamicZone()->GetMaxPlayers())
+		else if (member_count >= GetDynamicZone().GetMaxPlayers())
 		{
 			SendLeaderMessage(leader_client, Chat::Red, DZADD_EXCEED_MAX, {
-				fmt::format_int(GetDynamicZone()->GetMaxPlayers()).str() });
+				fmt::format_int(GetDynamicZone().GetMaxPlayers()).str() });
 			has_conflict = true;
 		}
 	}
@@ -577,12 +683,14 @@ void Expedition::DzInviteResponse(Client* add_client, bool accepted, const std::
 		return;
 	}
 
-	LogExpeditionsDetail("Invite response by [{}] accepted [{}] swap_name [{}]",
-		add_client->GetName(), accepted, swap_remove_name);
+	LogExpeditionsModerate(
+		"Invite response by [{}] accepted [{}] swap_name [{}]",
+		add_client->GetName(), accepted, swap_remove_name
+	);
 
 	// a null leader_client is handled by SendLeaderMessage fallbacks
 	// note current leader receives invite reply messages (if leader changed)
-	Client* leader_client = entity_list.GetClientByCharID(GetLeaderID());
+	Client* leader_client = entity_list.GetClientByCharID(m_leader.id);
 
 	if (!accepted)
 	{
@@ -605,8 +713,8 @@ void Expedition::DzInviteResponse(Client* add_client, bool accepted, const std::
 	// error if swapping and character was already removed before the accept
 	if (was_swap_invite)
 	{
-		auto swap_member = GetDynamicZone()->GetMemberData(swap_remove_name);
-		if (!swap_member.IsValid() || !GetDynamicZone()->HasDatabaseMember(swap_member.id))
+		auto swap_member = GetDynamicZone().GetMemberData(swap_remove_name);
+		if (!swap_member.IsValid() || !GetDynamicZone().HasDatabaseMember(swap_member.id))
 		{
 			has_conflicts = true;
 		}
@@ -625,8 +733,8 @@ void Expedition::DzInviteResponse(Client* add_client, bool accepted, const std::
 		{
 			auto replay_lockout = m_lockouts.find(DZ_REPLAY_TIMER_NAME);
 			if (replay_lockout != m_lockouts.end() &&
-			    replay_lockout->second.IsFromExpedition(GetDynamicZone()->GetUUID()) &&
-			    !add_client->HasExpeditionLockout(GetName(), DZ_REPLAY_TIMER_NAME))
+			    replay_lockout->second.IsFromExpedition(m_uuid) &&
+			    !add_client->HasExpeditionLockout(m_expedition_name, DZ_REPLAY_TIMER_NAME))
 			{
 				ExpeditionLockoutTimer replay_timer = replay_lockout->second; // copy
 				replay_timer.Reset();
@@ -634,20 +742,13 @@ void Expedition::DzInviteResponse(Client* add_client, bool accepted, const std::
 			}
 		}
 
-		auto status = DynamicZoneMemberStatus::Online;
-		DynamicZoneMember add_member{ add_client->CharacterID(), add_client->GetName(), status };
-
-		bool success = false;
-		if (was_swap_invite) {
-			success = GetDynamicZone()->SwapMember(add_member, swap_remove_name);
-		} else {
-			success = GetDynamicZone()->AddMember(add_member);
-		}
-
-		if (success)
+		if (was_swap_invite)
 		{
-			SendLeaderMessage(leader_client, Chat::Yellow, EXPEDITION_MEMBER_ADDED,
-				{ add_client->GetName(), GetName().c_str() });
+			SwapMember(add_client, swap_remove_name);
+		}
+		else
+		{
+			AddMember(add_client->GetName(), add_client->CharacterID());
 		}
 	}
 }
@@ -659,15 +760,15 @@ bool Expedition::ConfirmLeaderCommand(Client* requester)
 		return false;
 	}
 
-	if (!GetLeader().IsValid())
+	if (!m_leader.IsValid())
 	{
 		requester->MessageString(Chat::Red, UNABLE_RETRIEVE_LEADER); // unconfirmed message
 		return false;
 	}
 
-	if (GetLeaderID() != requester->CharacterID())
+	if (m_leader.id != requester->CharacterID())
 	{
-		requester->MessageString(Chat::System, EXPEDITION_NOT_LEADER, GetLeaderName().c_str());
+		requester->MessageString(Chat::System, EXPEDITION_NOT_LEADER, m_leader.name.c_str());
 		return false;
 	}
 
@@ -683,7 +784,7 @@ void Expedition::TryAddClient(
 		return;
 	}
 
-	LogExpeditionsDetail(
+	LogExpeditionsModerate(
 		"Add player request for expedition [{}] by inviter [{}] add name [{}] swap name [{}]",
 		m_id, inviter_name, add_client->GetName(), swap_remove_name
 	);
@@ -730,7 +831,7 @@ void Expedition::DzAddPlayer(
 	}
 	else
 	{
-		auto member_data = GetDynamicZone()->GetMemberData(add_char_name);
+		auto member_data = GetDynamicZone().GetMemberData(add_char_name);
 		if (member_data.IsValid())
 		{
 			// live prioritizes offline message before already a member message
@@ -801,16 +902,14 @@ void Expedition::DzRemovePlayer(Client* requester, std::string char_name)
 	}
 
 	// live only seems to enforce min_players for requesting expeditions, no need to check here
-	// note: on live members removed when inside a dz instance remain "temporary"
-	// members for kick timer duration and still receive lockouts across zones (unimplemented)
-	bool removed = GetDynamicZone()->RemoveMember(char_name);
+	bool removed = RemoveMember(char_name);
 	if (!removed)
 	{
 		requester->MessageString(Chat::Red, EXPEDITION_NOT_MEMBER, FormatName(char_name).c_str());
 	}
 	else
 	{
-		requester->MessageString(Chat::Yellow, EXPEDITION_REMOVED, FormatName(char_name).c_str(), GetName().c_str());
+		requester->MessageString(Chat::Yellow, EXPEDITION_REMOVED, FormatName(char_name).c_str(), m_expedition_name.c_str());
 	}
 }
 
@@ -818,7 +917,7 @@ void Expedition::DzQuit(Client* requester)
 {
 	if (requester)
 	{
-		GetDynamicZone()->RemoveMember(requester->GetName());
+		RemoveMember(requester->GetName());
 	}
 }
 
@@ -830,7 +929,7 @@ void Expedition::DzSwapPlayer(
 		return;
 	}
 
-	if (remove_char_name.empty() || !GetDynamicZone()->HasMember(remove_char_name))
+	if (remove_char_name.empty() || !GetDynamicZone().HasMember(remove_char_name))
 	{
 		requester->MessageString(Chat::Red, DZSWAP_CANNOT_REMOVE, FormatName(remove_char_name).c_str());
 		return;
@@ -843,10 +942,10 @@ void Expedition::DzPlayerList(Client* requester)
 {
 	if (requester)
 	{
-		requester->MessageString(Chat::Yellow, EXPEDITION_LEADER, GetLeaderName().c_str());
+		requester->MessageString(Chat::Yellow, EXPEDITION_LEADER, m_leader.name.c_str());
 
 		std::string member_names;
-		for (const auto& member : GetDynamicZone()->GetMembers())
+		for (const auto& member : GetDynamicZone().GetMembers())
 		{
 			fmt::format_to(std::back_inserter(member_names), "{}, ", member.name);
 		}
@@ -867,8 +966,8 @@ void Expedition::DzKickPlayers(Client* requester)
 		return;
 	}
 
-	GetDynamicZone()->RemoveAllMembers();
-	requester->MessageString(Chat::Red, EXPEDITION_REMOVED, "Everyone", GetName().c_str());
+	RemoveAllMembers();
+	requester->MessageString(Chat::Red, EXPEDITION_REMOVED, "Everyone", m_expedition_name.c_str());
 }
 
 void Expedition::SetLocked(
@@ -876,7 +975,7 @@ void Expedition::SetLocked(
 {
 	m_is_locked = lock_expedition;
 
-	if (m_is_locked && lock_msg != ExpeditionLockMessage::None && GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (m_is_locked && lock_msg != ExpeditionLockMessage::None && m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		auto msg = (lock_msg == ExpeditionLockMessage::Close) ? LOCK_CLOSE : LOCK_BEGIN;
 		for (const auto& client_iter : entity_list.GetClientList())
@@ -895,18 +994,121 @@ void Expedition::SetLocked(
 	}
 }
 
-void Expedition::OnClientAddRemove(Client* client, bool removed, bool silent)
+void Expedition::ProcessLeaderChanged(uint32_t new_leader_id)
 {
-	if (client)
+	auto new_leader = GetDynamicZone().GetMemberData(new_leader_id);
+	if (!new_leader.IsValid())
 	{
-		client->SetExpeditionID(removed ? 0 : GetID());
+		LogExpeditions("Processed invalid new leader id [{}] for expedition [{}]", new_leader_id, m_id);
+		return;
+	}
 
-		if (!silent)
+	LogExpeditionsModerate("Replaced [{}] leader [{}] with [{}]", m_id, m_leader.name, new_leader.name);
+
+	m_leader = new_leader;
+	m_dynamiczone.SetLeader(m_leader);
+
+	// update each client's expedition window in this zone
+	auto outapp_leader = CreateLeaderNamePacket();
+	for (const auto& member : GetDynamicZone().GetMembers())
+	{
+		Client* member_client = entity_list.GetClientByCharID(member.id);
+		if (member_client)
 		{
-			auto string_id = removed ? EXPEDITION_REMOVED : EXPEDITION_MEMBER_ADDED;
-			client->MessageString(Chat::Yellow, string_id, client->GetCleanName(), GetName().c_str());
+			member_client->QueuePacket(outapp_leader.get());
+
+			if (member.id == new_leader_id && RuleB(Expedition, AlwaysNotifyNewLeaderOnChange))
+			{
+				member_client->MessageString(Chat::Yellow, DZMAKELEADER_YOU);
+			}
 		}
 	}
+}
+
+void Expedition::ProcessMakeLeader(Client* old_leader_client, Client* new_leader_client,
+	const std::string& new_leader_name, bool is_success, bool is_online)
+{
+	if (old_leader_client)
+	{
+		// success flag is set by world to indicate new leader set to an online member
+		if (is_success)
+		{
+			old_leader_client->MessageString(Chat::Yellow, DZMAKELEADER_NAME, new_leader_name.c_str());
+		}
+		else if (!is_online)
+		{
+			old_leader_client->MessageString(Chat::Red, DZMAKELEADER_NOT_ONLINE, new_leader_name.c_str());
+		}
+		else
+		{
+			old_leader_client->MessageString(Chat::Red, EXPEDITION_NOT_MEMBER, new_leader_name.c_str());
+		}
+	}
+
+	if (is_success && new_leader_client && !RuleB(Expedition, AlwaysNotifyNewLeaderOnChange))
+	{
+		new_leader_client->MessageString(Chat::Yellow, DZMAKELEADER_YOU);
+	}
+}
+
+void Expedition::ProcessMemberAdded(const std::string& char_name, uint32_t added_char_id)
+{
+	GetDynamicZone().AddInternalMember({ added_char_id, char_name, DynamicZoneMemberStatus::Online });
+
+	// adds the member to this expedition and notifies both leader and new member
+	Client* leader_client = entity_list.GetClientByCharID(m_leader.id);
+	if (leader_client)
+	{
+		leader_client->MessageString(Chat::Yellow, EXPEDITION_MEMBER_ADDED, char_name.c_str(), m_expedition_name.c_str());
+	}
+
+	Client* member_client = entity_list.GetClientByCharID(added_char_id);
+	if (member_client)
+	{
+		member_client->SetExpeditionID(GetID());
+		member_client->SendDzCompassUpdate();
+		member_client->QueuePacket(CreateInfoPacket().get());
+		member_client->MessageString(Chat::Yellow, EXPEDITION_MEMBER_ADDED, char_name.c_str(), m_expedition_name.c_str());
+	}
+
+	SendMemberListToZoneMembers();
+}
+
+void Expedition::ProcessMemberRemoved(const std::string& removed_char_name, uint32_t removed_char_id)
+{
+	if (GetDynamicZone().GetMembers().empty())
+	{
+		return;
+	}
+
+	auto outapp_member_name = CreateMemberListNamePacket(removed_char_name, true);
+
+	for (const auto& member : GetDynamicZone().GetMembers())
+	{
+		Client* member_client = entity_list.GetClientByCharID(member.id);
+		if (member_client)
+		{
+			// all members receive the removed player name packet
+			member_client->QueuePacket(outapp_member_name.get());
+
+			if (member.id == removed_char_id)
+			{
+				// live doesn't clear expedition info on clients removed while inside dz.
+				// it instead let's the dz kick timer do it even if character zones out
+				// before it triggers. for simplicity we'll always clear immediately
+				member_client->SetExpeditionID(0);
+				member_client->SendDzCompassUpdate();
+				member_client->QueuePacket(CreateInfoPacket(true).get());
+				member_client->MessageString(Chat::Yellow, EXPEDITION_REMOVED,
+					member.name.c_str(), m_expedition_name.c_str());
+			}
+		}
+	}
+
+	GetDynamicZone().RemoveInternalMember(removed_char_id);
+
+	LogExpeditionsDetail("Processed member [{}] ({}) removal from [{}], cache member count: [{}]",
+		removed_char_name, removed_char_id, m_id, GetDynamicZone().GetMemberCount());
 }
 
 void Expedition::ProcessLockoutDuration(
@@ -925,17 +1127,17 @@ void Expedition::ProcessLockoutDuration(
 		}
 	}
 
-	for (const auto& member : GetDynamicZone()->GetMembers())
+	for (const auto& member : GetDynamicZone().GetMembers())
 	{
 		Client* member_client = entity_list.GetClientByCharID(member.id);
 		if (member_client)
 		{
-			member_client->AddExpeditionLockoutDuration(GetName(),
-				lockout.GetEventName(), seconds, GetDynamicZone()->GetUUID());
+			member_client->AddExpeditionLockoutDuration(m_expedition_name,
+				lockout.GetEventName(), seconds, m_uuid);
 		}
 	}
 
-	if (GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		AddLockoutDurationClients(lockout, seconds, GetID());
 	}
@@ -951,8 +1153,8 @@ void Expedition::AddLockoutDurationClients(
 		if (client && (exclude_id == 0 || client->GetExpeditionID() != exclude_id))
 		{
 			lockout_clients.emplace_back(client->CharacterID(), client->GetName());
-			client->AddExpeditionLockoutDuration(GetName(),
-				lockout.GetEventName(), seconds, GetDynamicZone()->GetUUID());
+			client->AddExpeditionLockoutDuration(m_expedition_name,
+				lockout.GetEventName(), seconds, m_uuid);
 		}
 	}
 
@@ -978,7 +1180,7 @@ void Expedition::ProcessLockoutUpdate(
 		}
 	}
 
-	for (const auto& member : GetDynamicZone()->GetMembers())
+	for (const auto& member : GetDynamicZone().GetMembers())
 	{
 		Client* member_client = entity_list.GetClientByCharID(member.id);
 		if (member_client)
@@ -989,7 +1191,7 @@ void Expedition::ProcessLockoutUpdate(
 			}
 			else
 			{
-				member_client->RemoveExpeditionLockout(GetName(), lockout.GetEventName());
+				member_client->RemoveExpeditionLockout(m_expedition_name, lockout.GetEventName());
 			}
 		}
 	}
@@ -997,7 +1199,7 @@ void Expedition::ProcessLockoutUpdate(
 	// if this is the expedition's dz instance, all clients inside the zone need
 	// to receive added lockouts. this is done on live to avoid exploits where
 	// members leave the expedition but haven't been kicked from zone yet
-	if (!remove && GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (!remove && m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		AddLockoutClients(lockout, GetID());
 	}
@@ -1023,6 +1225,56 @@ void Expedition::AddLockoutClients(
 	}
 }
 
+void Expedition::SendMemberListToZoneMembers()
+{
+	auto outapp_members = CreateMemberListPacket(false);
+
+	for (const auto& member : GetDynamicZone().GetMembers())
+	{
+		Client* member_client = entity_list.GetClientByCharID(member.id);
+		if (member_client)
+		{
+			member_client->QueuePacket(outapp_members.get());
+		}
+	}
+}
+
+void Expedition::SendUpdatesToZoneMembers(bool clear, bool message_on_clear)
+{
+	if (GetDynamicZone().HasMembers())
+	{
+		auto outapp_info = CreateInfoPacket(clear);
+		auto outapp_members = CreateMemberListPacket(clear);
+
+		for (const auto& member : GetDynamicZone().GetMembers())
+		{
+			Client* member_client = entity_list.GetClientByCharID(member.id);
+			if (member_client)
+			{
+				member_client->SetExpeditionID(clear ? 0 : GetID());
+				member_client->SendDzCompassUpdate();
+				member_client->QueuePacket(outapp_info.get());
+				member_client->QueuePacket(outapp_members.get());
+				member_client->SendExpeditionLockoutTimers();
+				if (clear && message_on_clear)
+				{
+					member_client->MessageString(Chat::Yellow, EXPEDITION_REMOVED,
+						member_client->GetName(), m_expedition_name.c_str());
+				}
+			}
+		}
+	}
+}
+
+void Expedition::SendClientExpeditionInfo(Client* client)
+{
+	if (client)
+	{
+		client->QueuePacket(CreateInfoPacket().get());
+		client->QueuePacket(CreateMemberListPacket().get());
+	}
+}
+
 void Expedition::SendWorldPendingInvite(const ExpeditionInvite& invite, const std::string& add_name)
 {
 	LogExpeditions(
@@ -1033,6 +1285,30 @@ void Expedition::SendWorldPendingInvite(const ExpeditionInvite& invite, const st
 	SendWorldAddPlayerInvite(invite.inviter_name, invite.swap_remove_name, add_name, true);
 }
 
+std::unique_ptr<EQApplicationPacket> Expedition::CreateExpireWarningPacket(uint32_t minutes_remaining)
+{
+	uint32_t outsize = sizeof(ExpeditionExpireWarning);
+	auto outapp = std::make_unique<EQApplicationPacket>(OP_DzExpeditionEndsWarning, outsize);
+	auto buf = reinterpret_cast<ExpeditionExpireWarning*>(outapp->pBuffer);
+	buf->minutes_remaining = minutes_remaining;
+	return outapp;
+}
+
+std::unique_ptr<EQApplicationPacket> Expedition::CreateInfoPacket(bool clear)
+{
+	uint32_t outsize = sizeof(DynamicZoneInfo_Struct);
+	auto outapp = std::make_unique<EQApplicationPacket>(OP_DzExpeditionInfo, outsize);
+	auto info = reinterpret_cast<DynamicZoneInfo_Struct*>(outapp->pBuffer);
+	if (!clear)
+	{
+		info->assigned = true;
+		strn0cpy(info->dz_name, m_expedition_name.c_str(), sizeof(info->dz_name));
+		strn0cpy(info->leader_name, m_leader.name.c_str(), sizeof(info->leader_name));
+		info->max_players = GetDynamicZone().GetMaxPlayers();
+	}
+	return outapp;
+}
+
 std::unique_ptr<EQApplicationPacket> Expedition::CreateInvitePacket(
 	const std::string& inviter_name, const std::string& swap_remove_name)
 {
@@ -1040,11 +1316,70 @@ std::unique_ptr<EQApplicationPacket> Expedition::CreateInvitePacket(
 	auto outapp = std::make_unique<EQApplicationPacket>(OP_DzExpeditionInvite, outsize);
 	auto outbuf = reinterpret_cast<ExpeditionInvite_Struct*>(outapp->pBuffer);
 	strn0cpy(outbuf->inviter_name, inviter_name.c_str(), sizeof(outbuf->inviter_name));
-	strn0cpy(outbuf->expedition_name, GetName().c_str(), sizeof(outbuf->expedition_name));
+	strn0cpy(outbuf->expedition_name, m_expedition_name.c_str(), sizeof(outbuf->expedition_name));
 	strn0cpy(outbuf->swap_name, swap_remove_name.c_str(), sizeof(outbuf->swap_name));
 	outbuf->swapping = !swap_remove_name.empty();
-	outbuf->dz_zone_id = GetDynamicZone()->GetZoneID();
-	outbuf->dz_instance_id = GetDynamicZone()->GetInstanceID();
+	outbuf->dz_zone_id = m_dynamiczone.GetZoneID();
+	outbuf->dz_instance_id = m_dynamiczone.GetInstanceID();
+	return outapp;
+}
+
+std::unique_ptr<EQApplicationPacket> Expedition::CreateMemberListPacket(bool clear)
+{
+	uint32_t member_count = clear ? 0 : static_cast<uint32_t>(GetDynamicZone().GetMemberCount());
+	uint32_t member_entries_size = sizeof(DynamicZoneMemberEntry_Struct) * member_count;
+	uint32_t outsize = sizeof(DynamicZoneMemberList_Struct) + member_entries_size;
+	auto outapp = std::make_unique<EQApplicationPacket>(OP_DzMemberList, outsize);
+	auto buf = reinterpret_cast<DynamicZoneMemberList_Struct*>(outapp->pBuffer);
+
+	buf->member_count = member_count;
+
+	if (!clear)
+	{
+		const auto& members = GetDynamicZone().GetMembers();
+		for (auto i = 0; i < members.size(); ++i)
+		{
+			strn0cpy(buf->members[i].name, members[i].name.c_str(), sizeof(buf->members[i].name));
+			buf->members[i].online_status = static_cast<uint8_t>(members[i].status);
+		}
+	}
+
+	return outapp;
+}
+
+std::unique_ptr<EQApplicationPacket> Expedition::CreateMemberListNamePacket(
+	const std::string& name, bool remove_name)
+{
+	uint32_t outsize = sizeof(DynamicZoneMemberListName_Struct);
+	auto outapp = std::make_unique<EQApplicationPacket>(OP_DzMemberListName, outsize);
+	auto buf = reinterpret_cast<DynamicZoneMemberListName_Struct*>(outapp->pBuffer);
+	buf->add_name = !remove_name;
+	strn0cpy(buf->name, name.c_str(), sizeof(buf->name));
+	return outapp;
+}
+
+std::unique_ptr<EQApplicationPacket> Expedition::CreateMemberListStatusPacket(
+	const std::string& name, DynamicZoneMemberStatus status)
+{
+	// member list status uses member list struct with a single entry
+	uint32_t outsize = sizeof(DynamicZoneMemberList_Struct) + sizeof(DynamicZoneMemberEntry_Struct);
+	auto outapp = std::make_unique<EQApplicationPacket>(OP_DzMemberListStatus, outsize);
+	auto buf = reinterpret_cast<DynamicZoneMemberList_Struct*>(outapp->pBuffer);
+	buf->member_count = 1;
+
+	auto entry = static_cast<DynamicZoneMemberEntry_Struct*>(buf->members);
+	strn0cpy(entry->name, name.c_str(), sizeof(entry->name));
+	entry->online_status = static_cast<uint8_t>(status);
+
+	return outapp;
+}
+
+std::unique_ptr<EQApplicationPacket> Expedition::CreateLeaderNamePacket()
+{
+	uint32_t outsize = sizeof(DynamicZoneLeaderName_Struct);
+	auto outapp = std::make_unique<EQApplicationPacket>(OP_DzSetLeaderName, outsize);
+	auto buf = reinterpret_cast<DynamicZoneLeaderName_Struct*>(outapp->pBuffer);
+	strn0cpy(buf->leader_name, m_leader.name.c_str(), sizeof(buf->leader_name));
 	return outapp;
 }
 
@@ -1113,9 +1448,53 @@ void Expedition::SendWorldMakeLeaderRequest(uint32_t requester_id, const std::st
 	uint32_t pack_size = sizeof(ServerDzCommandMakeLeader_Struct);
 	auto pack = std::make_unique<ServerPacket>(ServerOP_ExpeditionDzMakeLeader, pack_size);
 	auto buf = reinterpret_cast<ServerDzCommandMakeLeader_Struct*>(pack->pBuffer);
-	buf->dz_id = GetDynamicZone()->GetID();
+	buf->expedition_id = GetID();
 	buf->requester_id = requester_id;
 	strn0cpy(buf->new_leader_name, new_leader_name.c_str(), sizeof(buf->new_leader_name));
+	worldserver.SendPacket(pack.get());
+}
+
+void Expedition::SendWorldMemberChanged(const std::string& char_name, uint32_t char_id, bool remove)
+{
+	// notify other zones of added or removed member
+	uint32_t pack_size = sizeof(ServerExpeditionMemberChange_Struct);
+	auto pack = std::make_unique<ServerPacket>(ServerOP_ExpeditionMemberChange, pack_size);
+	auto buf = reinterpret_cast<ServerExpeditionMemberChange_Struct*>(pack->pBuffer);
+	buf->expedition_id = GetID();
+	buf->sender_zone_id = zone ? zone->GetZoneID() : 0;
+	buf->sender_instance_id = zone ? zone->GetInstanceID() : 0;
+	buf->removed = remove;
+	buf->char_id = char_id;
+	strn0cpy(buf->char_name, char_name.c_str(), sizeof(buf->char_name));
+	worldserver.SendPacket(pack.get());
+}
+
+void Expedition::SendWorldMemberStatus(uint32_t character_id, DynamicZoneMemberStatus status)
+{
+	uint32_t pack_size = sizeof(ServerExpeditionMemberStatus_Struct);
+	auto pack = std::make_unique<ServerPacket>(ServerOP_ExpeditionMemberStatus, pack_size);
+	auto buf = reinterpret_cast<ServerExpeditionMemberStatus_Struct*>(pack->pBuffer);
+	buf->expedition_id = GetID();
+	buf->sender_zone_id = zone ? zone->GetZoneID() : 0;
+	buf->sender_instance_id = zone ? zone->GetInstanceID() : 0;
+	buf->status = static_cast<uint8_t>(status);
+	buf->character_id = character_id;
+	worldserver.SendPacket(pack.get());
+}
+
+void Expedition::SendWorldMemberSwapped(
+	const std::string& remove_char_name, uint32_t remove_char_id, const std::string& add_char_name, uint32_t add_char_id)
+{
+	uint32_t pack_size = sizeof(ServerExpeditionMemberSwap_Struct);
+	auto pack = std::make_unique<ServerPacket>(ServerOP_ExpeditionMemberSwap, pack_size);
+	auto buf = reinterpret_cast<ServerExpeditionMemberSwap_Struct*>(pack->pBuffer);
+	buf->expedition_id = GetID();
+	buf->sender_zone_id = zone ? zone->GetZoneID() : 0;
+	buf->sender_instance_id = zone ? zone->GetInstanceID() : 0;
+	buf->add_char_id = add_char_id;
+	buf->remove_char_id = remove_char_id;
+	strn0cpy(buf->add_char_name, add_char_name.c_str(), sizeof(buf->add_char_name));
+	strn0cpy(buf->remove_char_name, remove_char_name.c_str(), sizeof(buf->remove_char_name));
 	worldserver.SendPacket(pack.get());
 }
 
@@ -1236,6 +1615,44 @@ void Expedition::HandleWorldMessage(ServerPacket* pack)
 		}
 		break;
 	}
+	case ServerOP_ExpeditionDeleted:
+	{
+		// sent by world when it deletes expired or empty expeditions
+		auto buf = reinterpret_cast<ServerExpeditionID_Struct*>(pack->pBuffer);
+		auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+		if (zone && expedition)
+		{
+			expedition->SendUpdatesToZoneMembers(true, false); // any members silently removed
+
+			LogExpeditionsModerate("Deleting expedition [{}] from zone cache", buf->expedition_id);
+			zone->expedition_cache.erase(buf->expedition_id);
+		}
+		break;
+	}
+	case ServerOP_ExpeditionMembersRemoved:
+	{
+		auto buf = reinterpret_cast<ServerExpeditionID_Struct*>(pack->pBuffer);
+		if (zone && !zone->IsZone(buf->sender_zone_id, buf->sender_instance_id))
+		{
+			auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+			if (expedition)
+			{
+				expedition->SendUpdatesToZoneMembers(true);
+				expedition->GetDynamicZone().ClearInternalMembers();
+			}
+		}
+		break;
+	}
+	case ServerOP_ExpeditionLeaderChanged:
+	{
+		auto buf = reinterpret_cast<ServerExpeditionLeaderID_Struct*>(pack->pBuffer);
+		auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+		if (expedition)
+		{
+			expedition->ProcessLeaderChanged(buf->leader_id);
+		}
+		break;
+	}
 	case ServerOP_ExpeditionLockout:
 	case ServerOP_ExpeditionLockoutDuration:
 	{
@@ -1245,7 +1662,7 @@ void Expedition::HandleWorldMessage(ServerPacket* pack)
 			auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
 			if (expedition)
 			{
-				ExpeditionLockoutTimer lockout{ expedition->GetDynamicZone()->GetUUID(), expedition->GetName(),
+				ExpeditionLockoutTimer lockout{ expedition->GetUUID(), expedition->GetName(),
 					buf->event_name, buf->expire_time, buf->duration };
 
 				if (pack->opcode == ServerOP_ExpeditionLockout)
@@ -1256,6 +1673,54 @@ void Expedition::HandleWorldMessage(ServerPacket* pack)
 				{
 					expedition->ProcessLockoutDuration(lockout, buf->seconds_adjust, buf->members_only);
 				}
+			}
+		}
+		break;
+	}
+	case ServerOP_ExpeditionMemberChange:
+	{
+		auto buf = reinterpret_cast<ServerExpeditionMemberChange_Struct*>(pack->pBuffer);
+		if (zone && !zone->IsZone(buf->sender_zone_id, buf->sender_instance_id))
+		{
+			auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+			if (expedition)
+			{
+				if (buf->removed)
+				{
+					expedition->ProcessMemberRemoved(buf->char_name, buf->char_id);
+				}
+				else
+				{
+					expedition->ProcessMemberAdded(buf->char_name, buf->char_id);
+				}
+			}
+		}
+		break;
+	}
+	case ServerOP_ExpeditionMemberSwap:
+	{
+		auto buf = reinterpret_cast<ServerExpeditionMemberSwap_Struct*>(pack->pBuffer);
+		if (zone && !zone->IsZone(buf->sender_zone_id, buf->sender_instance_id))
+		{
+			auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+			if (expedition)
+			{
+				expedition->ProcessMemberRemoved(buf->remove_char_name, buf->remove_char_id);
+				expedition->ProcessMemberAdded(buf->add_char_name, buf->add_char_id);
+			}
+		}
+		break;
+	}
+	case ServerOP_ExpeditionMemberStatus:
+	{
+		auto buf = reinterpret_cast<ServerExpeditionMemberStatus_Struct*>(pack->pBuffer);
+		if (zone && !zone->IsZone(buf->sender_zone_id, buf->sender_instance_id))
+		{
+			auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+			if (expedition)
+			{
+				auto status = static_cast<DynamicZoneMemberStatus>(buf->status);
+				expedition->SendMemberStatusToZoneMembers(buf->character_id, status);
 			}
 		}
 		break;
@@ -1286,6 +1751,22 @@ void Expedition::HandleWorldMessage(ServerPacket* pack)
 		}
 		break;
 	}
+	case ServerOP_ExpeditionGetMemberStatuses:
+	{
+		// reply from world for online member statuses request
+		auto buf = reinterpret_cast<ServerExpeditionMemberStatuses_Struct*>(pack->pBuffer);
+		auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+		if (expedition)
+		{
+			for (uint32_t i = 0; i < buf->count; ++i)
+			{
+				auto status = static_cast<DynamicZoneMemberStatus>(buf->entries[i].online_status);
+				expedition->GetDynamicZone().SetInternalMemberStatus(buf->entries[i].character_id, status);
+			}
+			expedition->SendMemberListToZoneMembers();
+		}
+		break;
+	}
 	case ServerOP_ExpeditionDzAddPlayer:
 	{
 		auto buf = reinterpret_cast<ServerDzCommand_Struct*>(pack->pBuffer);
@@ -1312,24 +1793,13 @@ void Expedition::HandleWorldMessage(ServerPacket* pack)
 	case ServerOP_ExpeditionDzMakeLeader:
 	{
 		auto buf = reinterpret_cast<ServerDzCommandMakeLeader_Struct*>(pack->pBuffer);
-		auto old_leader_client = entity_list.GetClientByCharID(buf->requester_id);
-		auto new_leader_client = entity_list.GetClientByName(buf->new_leader_name);
-
-		if (old_leader_client)
+		auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+		if (expedition)
 		{
-			// success flag is set by world to indicate new leader set to an online member
-			if (buf->is_success) {
-				old_leader_client->MessageString(Chat::Yellow, DZMAKELEADER_NAME, buf->new_leader_name);
-			} else if (!buf->is_online) {
-				old_leader_client->MessageString(Chat::Red, DZMAKELEADER_NOT_ONLINE, buf->new_leader_name);
-			} else {
-				old_leader_client->MessageString(Chat::Red, EXPEDITION_NOT_MEMBER, buf->new_leader_name);
-			}
-		}
-
-		if (buf->is_success && new_leader_client && !RuleB(Expedition, AlwaysNotifyNewLeaderOnChange))
-		{
-			new_leader_client->MessageString(Chat::Yellow, DZMAKELEADER_YOU);
+			auto old_leader_client = entity_list.GetClientByCharID(buf->requester_id);
+			auto new_leader_client = entity_list.GetClientByName(buf->new_leader_name);
+			expedition->ProcessMakeLeader(old_leader_client, new_leader_client,
+				buf->new_leader_name, buf->is_success, buf->is_online);
 		}
 		break;
 	}
@@ -1356,12 +1826,22 @@ void Expedition::HandleWorldMessage(ServerPacket* pack)
 		}
 		break;
 	}
+	case ServerOP_ExpeditionExpireWarning:
+	{
+		auto buf = reinterpret_cast<ServerExpeditionExpireWarning_Struct*>(pack->pBuffer);
+		auto expedition = Expedition::FindCachedExpeditionByID(buf->expedition_id);
+		if (expedition)
+		{
+			expedition->SendMembersExpireWarning(buf->minutes_remaining);
+		}
+		break;
+	}
 	}
 }
 
 bool Expedition::CanClientLootCorpse(Client* client, uint32_t npc_type_id, uint32_t spawn_id)
 {
-	if (client && GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (client && m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		// entity id takes priority, falls back to checking by npc type if not set
 		std::string event_name = GetLootEventBySpawnID(spawn_id);
@@ -1373,7 +1853,7 @@ bool Expedition::CanClientLootCorpse(Client* client, uint32_t npc_type_id, uint3
 		if (!event_name.empty())
 		{
 			auto client_lockout = client->GetExpeditionLockout(GetName(), event_name);
-			if (!client_lockout || client_lockout->GetExpeditionUUID() != GetDynamicZone()->GetUUID())
+			if (!client_lockout || client_lockout->GetExpeditionUUID() != GetUUID())
 			{
 				// client lockout not received in this expedition, prevent looting
 				LogExpeditions(
@@ -1390,7 +1870,7 @@ bool Expedition::CanClientLootCorpse(Client* client, uint32_t npc_type_id, uint3
 
 void Expedition::SetLootEventByNPCTypeID(uint32_t npc_type_id, const std::string& event_name)
 {
-	if (npc_type_id && GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (npc_type_id && m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		LogExpeditions("Setting loot event [{}] for npc type id [{}]", event_name, npc_type_id);
 		m_npc_loot_events[npc_type_id] = event_name;
@@ -1399,7 +1879,7 @@ void Expedition::SetLootEventByNPCTypeID(uint32_t npc_type_id, const std::string
 
 void Expedition::SetLootEventBySpawnID(uint32_t spawn_id, const std::string& event_name)
 {
-	if (spawn_id && GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (spawn_id && m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		LogExpeditions("Setting loot event [{}] for entity id [{}]", event_name, spawn_id);
 		m_spawn_loot_events[spawn_id] = event_name;
@@ -1410,7 +1890,7 @@ std::string Expedition::GetLootEventByNPCTypeID(uint32_t npc_type_id)
 {
 	std::string event_name;
 
-	if (npc_type_id && GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (npc_type_id && m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		auto it = m_npc_loot_events.find(npc_type_id);
 		if (it != m_npc_loot_events.end())
@@ -1426,7 +1906,7 @@ std::string Expedition::GetLootEventBySpawnID(uint32_t spawn_id)
 {
 	std::string event_name;
 
-	if (spawn_id && GetDynamicZone()->IsCurrentZoneDzInstance())
+	if (spawn_id && m_dynamiczone.IsCurrentZoneDzInstance())
 	{
 		auto it = m_spawn_loot_events.find(spawn_id);
 		if (it != m_spawn_loot_events.end())
@@ -1459,6 +1939,22 @@ std::vector<ExpeditionLockoutTimer> Expedition::GetExpeditionLockoutsByCharacter
 	return lockouts;
 }
 
+void Expedition::SendMembersExpireWarning(uint32_t minutes_remaining)
+{
+	// expeditions warn members in all zones not just the dz
+	auto outapp = CreateExpireWarningPacket(minutes_remaining);
+	for (const auto& member : GetDynamicZone().GetMembers())
+	{
+		Client* member_client = entity_list.GetClientByCharID(member.id);
+		if (member_client)
+		{
+			member_client->QueuePacket(outapp.get());
+			member_client->MessageString(Chat::Yellow, EXPEDITION_MIN_REMAIN,
+				fmt::format_int(minutes_remaining).c_str());
+		}
+	}
+}
+
 void Expedition::SyncCharacterLockouts(
 	uint32_t character_id, std::vector<ExpeditionLockoutTimer>& client_lockouts)
 {
@@ -1471,8 +1967,7 @@ void Expedition::SyncCharacterLockouts(
 	for (const auto& lockout_iter : m_lockouts)
 	{
 		const ExpeditionLockoutTimer& lockout = lockout_iter.second;
-		if (lockout.IsReplayTimer() || lockout.IsExpired() ||
-		    lockout.GetExpeditionUUID() != GetDynamicZone()->GetUUID())
+		if (lockout.IsReplayTimer() || lockout.IsExpired() || lockout.GetExpeditionUUID() != m_uuid)
 		{
 			continue;
 		}
@@ -1488,7 +1983,7 @@ void Expedition::SyncCharacterLockouts(
 			client_lockouts.emplace_back(lockout); // insert missing
 		}
 		else if (client_lockout_iter->GetSecondsRemaining() < lockout.GetSecondsRemaining() &&
-		         client_lockout_iter->GetExpeditionUUID() != GetDynamicZone()->GetUUID())
+		         client_lockout_iter->GetExpeditionUUID() != m_uuid)
 		{
 			// only update lockout timer not uuid so loot event apis still work
 			modified = true;

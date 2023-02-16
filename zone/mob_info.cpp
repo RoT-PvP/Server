@@ -22,23 +22,45 @@
 #include "mob.h"
 #include "../common/races.h"
 #include "../common/say_link.h"
-#include "../common/strings.h"
 #include "npc_scale_manager.h"
+
+std::string commify(const std::string &number)
+{
+	std::string temp_string;
+
+	auto string_length = static_cast<int>(number.length());
+
+	int i = 0;
+	for (i = string_length - 3; i >= 0; i -= 3) {
+		if (i > 0) {
+			temp_string = "," + number.substr(static_cast<unsigned long>(i), 3) + temp_string;
+		}
+		else {
+			temp_string = number.substr(static_cast<unsigned long>(i), 3) + temp_string;
+		}
+	}
+
+	if (i < 0) {
+		temp_string = number.substr(0, static_cast<unsigned long>(3 + i)) + temp_string;
+	}
+
+	return temp_string;
+}
 
 inline std::string GetMobAttributeByString(Mob *mob, const std::string &attribute)
 {
 	std::string entity_variable = "modify_stat_" + attribute;
 	std::string scaling_modified;
-	if (mob->EntityVariableExists(entity_variable)) {
+	if (mob->GetEntityVariable(entity_variable.c_str())) {
 		scaling_modified = " *";
 	}
 
 	if (attribute == "ac") {
-		if (mob->EntityVariableExists("modify_stat_max_hp")) {
+		if (mob->GetEntityVariable(std::string("modify_stat_max_hp").c_str())) {
 			scaling_modified = " *";
 		}
 
-		return Strings::Commify(std::to_string(mob->GetAC())) + scaling_modified;
+		return commify(std::to_string(mob->GetAC())) + scaling_modified;
 	}
 
 	if (attribute == "atk") {
@@ -51,129 +73,127 @@ inline std::string GetMobAttributeByString(Mob *mob, const std::string &attribut
 			endurance = mob->CastToClient()->GetEndurance();
 		}
 
-		return Strings::Commify(std::to_string(endurance));
+		return commify(std::to_string(endurance));
 	}
 
 	if (attribute == "hp") {
-		return Strings::Commify(std::to_string(mob->GetHP()));
+		return commify(std::to_string(mob->GetHP()));
 	}
 
 	if (attribute == "hp_min_max") {
-		if (mob->EntityVariableExists("modify_stat_max_hp")) {
+		if (mob->GetEntityVariable(std::string("modify_stat_max_hp").c_str())) {
 			scaling_modified = " *";
 		}
 
-		return Strings::Commify(std::to_string(mob->GetHP())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxHP())) + " (" +
+		return commify(std::to_string(mob->GetHP())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxHP())) + " (" +
 			   std::to_string((int) mob->GetHPRatio()) + "%)";
 	}
 
 	if (attribute == "mana") {
-		return Strings::Commify(std::to_string(mob->GetMana()));
+		return commify(std::to_string(mob->GetMana()));
 	}
 
 	if (attribute == "mp_min_max") {
-		return Strings::Commify(std::to_string(mob->GetMana())) + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxMana())) + " (" +
+		return commify(std::to_string(mob->GetMana())) + " / " + commify(std::to_string(mob->GetMaxMana())) + " (" +
 			   std::to_string((int) mob->GetManaPercent()) + "%)";
 	}
 
 	if (attribute == "end_min_max") {
-		return Strings::Commify(std::to_string(mob->GetEndurance())) + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxEndurance())) + " (" +
+		return commify(std::to_string(mob->GetEndurance())) + " / " + commify(std::to_string(mob->GetMaxEndurance())) + " (" +
 			   std::to_string((int)mob->GetEndurancePercent()) + "%)";
 	}
 
 	if (attribute == "str") {
-		return Strings::Commify(std::to_string(mob->GetSTR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxSTR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicSTR()));
+		return commify(std::to_string(mob->GetSTR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxSTR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicSTR()));
 	}
 
 	if (attribute == "sta") {
-		return Strings::Commify(std::to_string(mob->GetSTA())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxSTA())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicSTA()));
+		return commify(std::to_string(mob->GetSTA())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxSTA())) + " +" +
+			   commify(std::to_string(mob->GetHeroicSTA()));
 	}
 
 	if (attribute == "dex") {
-		return Strings::Commify(std::to_string(mob->GetDEX())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxDEX())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicDEX()));
+		return commify(std::to_string(mob->GetDEX())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxDEX())) + " +" +
+			   commify(std::to_string(mob->GetHeroicDEX()));
 	}
 
 	if (attribute == "agi") {
-		return Strings::Commify(std::to_string(mob->GetAGI())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxAGI())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicAGI()));
+		return commify(std::to_string(mob->GetAGI())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxAGI())) + " +" +
+			   commify(std::to_string(mob->GetHeroicAGI()));
 	}
 
 	if (attribute == "int") {
-		return Strings::Commify(std::to_string(mob->GetINT())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxINT())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicINT()));
+		return commify(std::to_string(mob->GetINT())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxINT())) + " +" +
+			   commify(std::to_string(mob->GetHeroicINT()));
 	}
 
 	if (attribute == "wis") {
-		return Strings::Commify(std::to_string(mob->GetWIS())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxWIS())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicWIS()));
+		return commify(std::to_string(mob->GetWIS())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxWIS())) + " +" +
+			   commify(std::to_string(mob->GetHeroicWIS()));
 	}
 
 	if (attribute == "cha") {
-		return Strings::Commify(std::to_string(mob->GetCHA())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxCHA())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicCHA()));
+		return commify(std::to_string(mob->GetCHA())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxCHA())) + " +" +
+			   commify(std::to_string(mob->GetHeroicCHA()));
 	}
 
 	if (attribute == "mr") {
-		return Strings::Commify(std::to_string(mob->GetMR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxMR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicMR()));
+		return commify(std::to_string(mob->GetMR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxMR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicMR()));
 	}
 
 	if (attribute == "cr") {
-		return Strings::Commify(std::to_string(mob->GetCR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxCR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicCR()));
+		return commify(std::to_string(mob->GetCR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxCR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicCR()));
 	}
 
 	if (attribute == "fr") {
-		return Strings::Commify(std::to_string(mob->GetFR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxFR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicFR()));
+		return commify(std::to_string(mob->GetFR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxFR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicFR()));
 	}
 
 	if (attribute == "pr") {
-		return Strings::Commify(std::to_string(mob->GetPR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxPR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicPR()));
+		return commify(std::to_string(mob->GetPR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxPR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicPR()));
 	}
 
 	if (attribute == "dr") {
-		return Strings::Commify(std::to_string(mob->GetDR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxDR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicDR()));
+		return commify(std::to_string(mob->GetDR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxDR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicDR()));
 	}
 
 	if (attribute == "cr") {
-		return Strings::Commify(std::to_string(mob->GetCR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxCR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicCR()));
+		return commify(std::to_string(mob->GetCR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxCR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicCR()));
 	}
 
 	if (attribute == "pr") {
-		return Strings::Commify(std::to_string(mob->GetPR())) + scaling_modified + " / " +
-			   Strings::Commify(std::to_string(mob->GetMaxPR())) + " +" +
-			   Strings::Commify(std::to_string(mob->GetHeroicPR()));
+		return commify(std::to_string(mob->GetPR())) + scaling_modified + " / " +
+			   commify(std::to_string(mob->GetMaxPR())) + " +" +
+			   commify(std::to_string(mob->GetHeroicPR()));
 	}
 
 	if (attribute == "cor") {
-		return Strings::Commify(std::to_string(mob->GetCorrup())) + scaling_modified;
+		return commify(std::to_string(mob->GetCorrup())) + scaling_modified;
 	}
 
 	if (attribute == "phy") {
-		return Strings::Commify(std::to_string(mob->GetPhR())) + scaling_modified;
+		return commify(std::to_string(mob->GetPhR())) + scaling_modified;
 	}
 
 	if (attribute == "name") {
@@ -352,56 +372,56 @@ inline std::string GetMobAttributeByString(Mob *mob, const std::string &attribut
 			return std::to_string((int)npc->GetAccuracyRating()) + scaling_modified;
 		}
 		if (attribute == "slow_mitigation") {
-			if (mob->EntityVariableExists("modify_stat_slow_mitigation")) {
+			if (mob->GetEntityVariable(std::string("modify_stat_slow_mitigation").c_str())) {
 				scaling_modified = " *";
 			}
 
 			return std::to_string((int)npc->GetSlowMitigation()) + scaling_modified;
 		}
 		if (attribute == "min_hit") {
-			if (mob->EntityVariableExists("modify_stat_min_hit")) {
+			if (mob->GetEntityVariable(std::string("modify_stat_min_hit").c_str())) {
 				scaling_modified = " *";
 			}
 
-			return Strings::Commify(std::to_string((int) npc->GetMinDMG())) + scaling_modified;
+			return commify(std::to_string((int)npc->GetMinDMG())) + scaling_modified;
 		}
 		if (attribute == "max_hit") {
-			if (mob->EntityVariableExists("modify_stat_max_hit")) {
+			if (mob->GetEntityVariable(std::string("modify_stat_max_hit").c_str())) {
 				scaling_modified = " *";
 			}
 
-			return Strings::Commify(std::to_string((int) npc->GetMaxDMG())) + scaling_modified;
+			return commify(std::to_string((int)npc->GetMaxDMG())) + scaling_modified;
 		}
 		if (attribute == "hp_regen") {
-			if (mob->EntityVariableExists("modify_stat_hp_regen")) {
+			if (mob->GetEntityVariable(std::string("modify_stat_hp_regen").c_str())) {
 				scaling_modified = " *";
 			}
 
-			return Strings::Commify(std::to_string((int) npc->GetHPRegen())) + scaling_modified;
+			return commify(std::to_string((int)npc->GetHPRegen())) + scaling_modified;
 		}
 		if (attribute == "attack_delay") {
-			if (mob->EntityVariableExists("modify_stat_attack_delay")) {
+			if (mob->GetEntityVariable(std::string("modify_stat_attack_delay").c_str())) {
 				scaling_modified = " *";
 			}
 
-			return Strings::Commify(std::to_string(npc->GetAttackDelay())) + scaling_modified;
+			return commify(std::to_string(npc->GetAttackDelay())) + scaling_modified;
 		}
 		if (attribute == "spell_scale") {
-			if (mob->EntityVariableExists("modify_stat_spell_scale")) {
+			if (mob->GetEntityVariable(std::string("modify_stat_spell_scale").c_str())) {
 				scaling_modified = " *";
 			}
 
-			return Strings::Commify(std::to_string((int) npc->GetSpellScale())) + scaling_modified;
+			return commify(std::to_string((int)npc->GetSpellScale())) + scaling_modified;
 		}
 		if (attribute == "heal_scale") {
-			if (mob->EntityVariableExists("modify_stat_heal_scale")) {
+			if (mob->GetEntityVariable(std::string("modify_stat_heal_scale").c_str())) {
 				scaling_modified = " *";
 			}
 
-			return Strings::Commify(std::to_string((int) npc->GetHealScale())) + scaling_modified;
+			return commify(std::to_string((int)npc->GetHealScale())) + scaling_modified;
 		}
 		if (attribute == "avoidance") {
-			return Strings::Commify(std::to_string((int) npc->GetAvoidanceRating())) + scaling_modified;
+			return commify(std::to_string((int)npc->GetAvoidanceRating())) + scaling_modified;
 		}
 
 		npc->GetNPCEmote(npc->GetEmoteID(), 0);
@@ -411,68 +431,68 @@ inline std::string GetMobAttributeByString(Mob *mob, const std::string &attribut
 		Client *client = mob->CastToClient();
 
 		if (attribute == "shielding") {
-			return Strings::Commify(std::to_string((int) client->GetShielding())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemShieldingCap)));
+			return commify(std::to_string((int)client->GetShielding())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemShieldingCap)));
 		}
 		if (attribute == "spell_shielding") {
-			return Strings::Commify(std::to_string((int) client->GetSpellShield())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemSpellShieldingCap)));
+			return commify(std::to_string((int)client->GetSpellShield())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemSpellShieldingCap)));
 		}
 		if (attribute == "dot_shielding") {
-			return Strings::Commify(std::to_string((int) client->GetDoTShield())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemDoTShieldingCap)));
+			return commify(std::to_string((int)client->GetDoTShield())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemDoTShieldingCap)));
 		}
 		if (attribute == "stun_resist") {
-			return Strings::Commify(std::to_string((int) client->GetStunResist())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemStunResistCap)));
+			return commify(std::to_string((int)client->GetStunResist())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemStunResistCap)));
 		}
 		if (attribute == "damage_shield") {
-			return Strings::Commify(std::to_string((int) client->GetDS())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemDamageShieldCap)));
+			return commify(std::to_string((int)client->GetDS())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemDamageShieldCap)));
 		}
 		if (attribute == "avoidance") {
-			return Strings::Commify(std::to_string((int) client->GetAvoidance())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemAvoidanceCap)));
+			return commify(std::to_string((int) client->GetAvoidance())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemAvoidanceCap)));
 		}
 		if (attribute == "strikethrough") {
-			return Strings::Commify(std::to_string((int) client->GetStrikeThrough())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemStrikethroughCap)));
+			return commify(std::to_string((int) client->GetStrikeThrough())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemStrikethroughCap)));
 		}
 		if (attribute == "accuracy") {
-			return Strings::Commify(std::to_string((int) client->GetAccuracy())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemAccuracyCap)));
+			return commify(std::to_string((int) client->GetAccuracy())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemAccuracyCap)));
 		}
 		if (attribute == "combat_effects") {
-			return Strings::Commify(std::to_string((int) client->GetCombatEffects())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemCombatEffectsCap)));
+			return commify(std::to_string((int) client->GetCombatEffects())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemCombatEffectsCap)));
 		}
 		if (attribute == "heal_amount") {
-			return Strings::Commify(std::to_string((int) client->GetHealAmt())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemHealAmtCap)));
+			return commify(std::to_string((int) client->GetHealAmt())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemHealAmtCap)));
 		}
 		if (attribute == "spell_dmg") {
-			return Strings::Commify(std::to_string((int) client->GetSpellDmg())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemSpellDmgCap)));
+			return commify(std::to_string((int) client->GetSpellDmg())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemSpellDmgCap)));
 		}
 		if (attribute == "clairvoyance") {
-			return Strings::Commify(std::to_string((int) client->GetClair())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemClairvoyanceCap)));
+			return commify(std::to_string((int) client->GetClair())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemClairvoyanceCap)));
 		}
 		if (attribute == "ds_mitigation") {
-			return Strings::Commify(std::to_string((int) client->GetDSMit())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemDSMitigationCap)));
+			return commify(std::to_string((int) client->GetDSMit())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemDSMitigationCap)));
 		}
 		if (attribute == "hp_regen") {
-			return Strings::Commify(std::to_string((int64) client->GetHPRegen())) + " / " +
-				   Strings::Commify(std::to_string((int) RuleI(Character, ItemHealthRegenCap)));
+			return commify(std::to_string((int) client->GetHPRegen())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemHealthRegenCap)));
 		}
 		if (attribute == "mana_regen") {
-			return Strings::Commify(std::to_string((int64) client->GetManaRegen())) + " / " +
-				   Strings::Commify(std::to_string((int64) RuleI(Character, ItemManaRegenCap)));
+			return commify(std::to_string((int) client->GetManaRegen())) + " / " +
+				   commify(std::to_string((int) RuleI(Character, ItemManaRegenCap)));
 		}
 		if (attribute == "end_regen") {
-			return Strings::Commify(std::to_string((int) client->CalcEnduranceRegen())) + " / " +
-				   Strings::Commify(std::to_string((int) client->CalcEnduranceRegenCap()));
+			return commify(std::to_string((int) client->CalcEnduranceRegen())) + " / " +
+				   commify(std::to_string((int) client->CalcEnduranceRegenCap()));
 		}
 	}
 
@@ -530,17 +550,17 @@ inline std::string WriteDisplayInfoSection(
 
 		std::string attribute_name = attribute;
 
-		Strings::FindReplace(attribute_name, "_min_max", std::string(""));
+		find_replace(attribute_name, "_min_max", std::string(""));
 
 		/**
 		 * Translate attribute names with underscores
 		 *     "total_to_hit" = "Total To Hit"
 		 */
 		if (attribute_name.find('_') != std::string::npos) {
-			auto split_string = Strings::Split(attribute_name, '_');
+			auto split_string = SplitString(attribute_name, '_');
 			std::string new_attribute_name;
 			for (std::string &string_value : split_string) {
-				new_attribute_name += Strings::UcFirst(string_value) + " ";
+				new_attribute_name += ucfirst(string_value) + " ";
 			}
 			attribute_name = new_attribute_name;
 		}
@@ -550,7 +570,7 @@ inline std::string WriteDisplayInfoSection(
 		 *     "hp" = "HP"
 		 */
 		if (attribute_name.length() <= 3) {
-			attribute_name = Strings::ToUpper(attribute_name);
+			attribute_name = str_toupper(attribute_name);
 		}
 
 		/**
@@ -558,11 +578,11 @@ inline std::string WriteDisplayInfoSection(
 		 *     "avoidance" = "Avoidance"
 		 */
 		if (attribute_name.length() > 3) {
-			attribute_name = Strings::UcFirst(attribute_name);
+			attribute_name = ucfirst(attribute_name);
 		}
 
-		Strings::FindReplace(attribute_name, "Proximity", std::string(""));
-		Strings::FindReplace(attribute_name, "Roambox", std::string(""));
+		find_replace(attribute_name, "Proximity", std::string(""));
+		find_replace(attribute_name, "Roambox", std::string(""));
 
 		std::string attribute_value = GetMobAttributeByString(mob, attribute);
 
@@ -590,31 +610,25 @@ inline void NPCCommandsMenu(Client* client, NPC* npc)
 	std::string menu_commands;
 
 	if (npc->GetGrid() > 0) {
-		menu_commands += "[" + Saylink::Silent("#grid show", "Grid Points") + "] ";
+		menu_commands += "[" + EQ::SayLinkEngine::GenerateQuestSaylink("#grid show", false, "Grid Points") + "] ";
 	}
 
 	if (npc->GetEmoteID() > 0) {
-		menu_commands += "[" + Saylink::Silent(fmt::format("#emotesearch {}", npc->GetEmoteID()), "Emotes") + "] ";
+		std::string saylink = StringFormat("#emotesearch %u", npc->GetEmoteID());
+		menu_commands += "[" + EQ::SayLinkEngine::GenerateQuestSaylink(saylink, false, "Emotes") + "] ";
 	}
 
 	if (npc->GetLoottableID() > 0) {
-		menu_commands += "[" + Saylink::Silent("#npcloot show", "Loot") + "] ";
+		menu_commands += "[" + EQ::SayLinkEngine::GenerateQuestSaylink("#npcloot show", false, "Loot") + "] ";
 	}
 
 	if (npc->IsProximitySet()) {
-		menu_commands += "[" + Saylink::Silent("#proximity show", "Proximity") + "] ";
+		menu_commands += "[" + EQ::SayLinkEngine::GenerateQuestSaylink("#proximity show", false, "Proximity") + "] ";
 	}
 
 	if (menu_commands.length() > 0) {
-		const auto& dev_menu = Saylink::Silent("#devtools", "DevTools");
-		client->Message(
-			Chat::White,
-			fmt::format(
-				"| [{}] [Show Commands] {}",
-				dev_menu,
-				menu_commands
-			).c_str()
-		);
+		std::string dev_menu = "[" + EQ::SayLinkEngine::GenerateQuestSaylink("#devtools", false, "DevTools") + "] ";;
+		client->Message(Chat::White, "| %s [Show Commands] %s", dev_menu.c_str(), menu_commands.c_str());
 	}
 }
 
@@ -624,11 +638,11 @@ void Mob::DisplayInfo(Mob *mob)
 		return;
 	}
 
-	if (IsClient()) {
+	if (this->IsClient()) {
 
 		std::string window_text = "<c \"#FFFF66\">*Drag window open vertically to see all</c><br>";
 
-		Client *client = CastToClient();
+		Client *client = this->CastToClient();
 
 		if (!client->IsDevToolsEnabled()) {
 			return;

@@ -13,4 +13,7 @@
 #include "beacon.h"
 #include "horse.h"
 
+#ifdef BOTS
 #include "bot.h"
+#endif
+

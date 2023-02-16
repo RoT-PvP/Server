@@ -29,7 +29,7 @@ public:
 		int type;
 		int level;
 		int ac;
-		int64 hp;
+		int hp;
 		int accuracy;
 		int slow_mitigation;
 		int attack;
@@ -49,7 +49,7 @@ public:
 		int physical_resist;
 		int min_dmg;
 		int max_dmg;
-		int64 hp_regen_rate;
+		int hp_regen_rate;
 		int attack_delay;
 		int spell_scale;
 		int heal_scale;
@@ -86,9 +86,9 @@ public:
 		"special_abilities"
 	};
 
-	void ScaleNPC(NPC* npc, bool always_scale = false, bool override_special_abilities = false);
-	void ResetNPCScaling(NPC* npc);
-	bool IsAutoScaled(NPC* npc);
+	void ScaleNPC(NPC * npc);
+	void ResetNPCScaling(NPC * npc);
+	bool IsAutoScaled(NPC * npc);
 	bool LoadScaleData();
 
 	global_npc_scale GetGlobalScaleDataForTypeLevel(int8 npc_type, int npc_level);

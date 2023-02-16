@@ -13,15 +13,14 @@
 #define EQEMU_BASE_IP_EXEMPTIONS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseIpExemptionsRepository {
 public:
 	struct IpExemptions {
-		int32_t     exemption_id;
+		int         exemption_id;
 		std::string exemption_ip;
-		int32_t     exemption_amount;
+		int         exemption_amount;
 	};
 
 	static std::string PrimaryKey()
@@ -38,23 +37,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"exemption_id",
-			"exemption_ip",
-			"exemption_amount",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -66,7 +51,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -82,16 +67,16 @@ public:
 
 	static IpExemptions NewEntity()
 	{
-		IpExemptions e{};
+		IpExemptions entry{};
 
-		e.exemption_id     = 0;
-		e.exemption_ip     = "";
-		e.exemption_amount = 0;
+		entry.exemption_id     = 0;
+		entry.exemption_ip     = "";
+		entry.exemption_amount = 0;
 
-		return e;
+		return entry;
 	}
 
-	static IpExemptions GetIpExemptions(
+	static IpExemptions GetIpExemptionsEntry(
 		const std::vector<IpExemptions> &ip_exemptionss,
 		int ip_exemptions_id
 	)
@@ -120,13 +105,13 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			IpExemptions e{};
+			IpExemptions entry{};
 
-			e.exemption_id     = static_cast<int32_t>(atoi(row[0]));
-			e.exemption_ip     = row[1] ? row[1] : "";
-			e.exemption_amount = static_cast<int32_t>(atoi(row[2]));
+			entry.exemption_id     = atoi(row[0]);
+			entry.exemption_ip     = row[1] ? row[1] : "";
+			entry.exemption_amount = atoi(row[2]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -151,23 +136,23 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const IpExemptions &e
+		IpExemptions ip_exemptions_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.exemption_ip) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.exemption_amount));
+		update_values.push_back(columns[1] + " = '" + EscapeString(ip_exemptions_entry.exemption_ip) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(ip_exemptions_entry.exemption_amount));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.exemption_id
+				ip_exemptions_entry.exemption_id
 			)
 		);
 
@@ -176,57 +161,57 @@ public:
 
 	static IpExemptions InsertOne(
 		Database& db,
-		IpExemptions e
+		IpExemptions ip_exemptions_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.exemption_id));
-		v.push_back("'" + Strings::Escape(e.exemption_ip) + "'");
-		v.push_back(std::to_string(e.exemption_amount));
+		insert_values.push_back(std::to_string(ip_exemptions_entry.exemption_id));
+		insert_values.push_back("'" + EscapeString(ip_exemptions_entry.exemption_ip) + "'");
+		insert_values.push_back(std::to_string(ip_exemptions_entry.exemption_amount));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.exemption_id = results.LastInsertedID();
-			return e;
+			ip_exemptions_entry.exemption_id = results.LastInsertedID();
+			return ip_exemptions_entry;
 		}
 
-		e = NewEntity();
+		ip_exemptions_entry = NewEntity();
 
-		return e;
+		return ip_exemptions_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<IpExemptions> &entries
+		std::vector<IpExemptions> ip_exemptions_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &ip_exemptions_entry: ip_exemptions_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.exemption_id));
-			v.push_back("'" + Strings::Escape(e.exemption_ip) + "'");
-			v.push_back(std::to_string(e.exemption_amount));
+			insert_values.push_back(std::to_string(ip_exemptions_entry.exemption_id));
+			insert_values.push_back("'" + EscapeString(ip_exemptions_entry.exemption_ip) + "'");
+			insert_values.push_back(std::to_string(ip_exemptions_entry.exemption_amount));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -247,19 +232,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			IpExemptions e{};
+			IpExemptions entry{};
 
-			e.exemption_id     = static_cast<int32_t>(atoi(row[0]));
-			e.exemption_ip     = row[1] ? row[1] : "";
-			e.exemption_amount = static_cast<int32_t>(atoi(row[2]));
+			entry.exemption_id     = atoi(row[0]);
+			entry.exemption_ip     = row[1] ? row[1] : "";
+			entry.exemption_amount = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<IpExemptions> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<IpExemptions> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<IpExemptions> all_entries;
 
@@ -274,19 +259,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			IpExemptions e{};
+			IpExemptions entry{};
 
-			e.exemption_id     = static_cast<int32_t>(atoi(row[0]));
-			e.exemption_ip     = row[1] ? row[1] : "";
-			e.exemption_amount = static_cast<int32_t>(atoi(row[2]));
+			entry.exemption_id     = atoi(row[0]);
+			entry.exemption_ip     = row[1] ? row[1] : "";
+			entry.exemption_amount = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -309,32 +294,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

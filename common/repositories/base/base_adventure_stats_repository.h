@@ -13,23 +13,22 @@
 #define EQEMU_BASE_ADVENTURE_STATS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseAdventureStatsRepository {
 public:
 	struct AdventureStats {
-		uint32_t player_id;
-		uint32_t guk_wins;
-		uint32_t mir_wins;
-		uint32_t mmc_wins;
-		uint32_t ruj_wins;
-		uint32_t tak_wins;
-		uint32_t guk_losses;
-		uint32_t mir_losses;
-		uint32_t mmc_losses;
-		uint32_t ruj_losses;
-		uint32_t tak_losses;
+		int player_id;
+		int guk_wins;
+		int mir_wins;
+		int mmc_wins;
+		int ruj_wins;
+		int tak_wins;
+		int guk_losses;
+		int mir_losses;
+		int mmc_losses;
+		int ruj_losses;
+		int tak_losses;
 	};
 
 	static std::string PrimaryKey()
@@ -54,31 +53,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"player_id",
-			"guk_wins",
-			"mir_wins",
-			"mmc_wins",
-			"ruj_wins",
-			"tak_wins",
-			"guk_losses",
-			"mir_losses",
-			"mmc_losses",
-			"ruj_losses",
-			"tak_losses",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -90,7 +67,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -106,24 +83,24 @@ public:
 
 	static AdventureStats NewEntity()
 	{
-		AdventureStats e{};
+		AdventureStats entry{};
 
-		e.player_id  = 0;
-		e.guk_wins   = 0;
-		e.mir_wins   = 0;
-		e.mmc_wins   = 0;
-		e.ruj_wins   = 0;
-		e.tak_wins   = 0;
-		e.guk_losses = 0;
-		e.mir_losses = 0;
-		e.mmc_losses = 0;
-		e.ruj_losses = 0;
-		e.tak_losses = 0;
+		entry.player_id  = 0;
+		entry.guk_wins   = 0;
+		entry.mir_wins   = 0;
+		entry.mmc_wins   = 0;
+		entry.ruj_wins   = 0;
+		entry.tak_wins   = 0;
+		entry.guk_losses = 0;
+		entry.mir_losses = 0;
+		entry.mmc_losses = 0;
+		entry.ruj_losses = 0;
+		entry.tak_losses = 0;
 
-		return e;
+		return entry;
 	}
 
-	static AdventureStats GetAdventureStats(
+	static AdventureStats GetAdventureStatsEntry(
 		const std::vector<AdventureStats> &adventure_statss,
 		int adventure_stats_id
 	)
@@ -152,21 +129,21 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			AdventureStats e{};
+			AdventureStats entry{};
 
-			e.player_id  = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.guk_wins   = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.mir_wins   = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.mmc_wins   = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.ruj_wins   = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.tak_wins   = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.guk_losses = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.mir_losses = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.mmc_losses = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
-			e.ruj_losses = static_cast<uint32_t>(strtoul(row[9], nullptr, 10));
-			e.tak_losses = static_cast<uint32_t>(strtoul(row[10], nullptr, 10));
+			entry.player_id  = atoi(row[0]);
+			entry.guk_wins   = atoi(row[1]);
+			entry.mir_wins   = atoi(row[2]);
+			entry.mmc_wins   = atoi(row[3]);
+			entry.ruj_wins   = atoi(row[4]);
+			entry.tak_wins   = atoi(row[5]);
+			entry.guk_losses = atoi(row[6]);
+			entry.mir_losses = atoi(row[7]);
+			entry.mmc_losses = atoi(row[8]);
+			entry.ruj_losses = atoi(row[9]);
+			entry.tak_losses = atoi(row[10]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -191,32 +168,32 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const AdventureStats &e
+		AdventureStats adventure_stats_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.player_id));
-		v.push_back(columns[1] + " = " + std::to_string(e.guk_wins));
-		v.push_back(columns[2] + " = " + std::to_string(e.mir_wins));
-		v.push_back(columns[3] + " = " + std::to_string(e.mmc_wins));
-		v.push_back(columns[4] + " = " + std::to_string(e.ruj_wins));
-		v.push_back(columns[5] + " = " + std::to_string(e.tak_wins));
-		v.push_back(columns[6] + " = " + std::to_string(e.guk_losses));
-		v.push_back(columns[7] + " = " + std::to_string(e.mir_losses));
-		v.push_back(columns[8] + " = " + std::to_string(e.mmc_losses));
-		v.push_back(columns[9] + " = " + std::to_string(e.ruj_losses));
-		v.push_back(columns[10] + " = " + std::to_string(e.tak_losses));
+		update_values.push_back(columns[0] + " = " + std::to_string(adventure_stats_entry.player_id));
+		update_values.push_back(columns[1] + " = " + std::to_string(adventure_stats_entry.guk_wins));
+		update_values.push_back(columns[2] + " = " + std::to_string(adventure_stats_entry.mir_wins));
+		update_values.push_back(columns[3] + " = " + std::to_string(adventure_stats_entry.mmc_wins));
+		update_values.push_back(columns[4] + " = " + std::to_string(adventure_stats_entry.ruj_wins));
+		update_values.push_back(columns[5] + " = " + std::to_string(adventure_stats_entry.tak_wins));
+		update_values.push_back(columns[6] + " = " + std::to_string(adventure_stats_entry.guk_losses));
+		update_values.push_back(columns[7] + " = " + std::to_string(adventure_stats_entry.mir_losses));
+		update_values.push_back(columns[8] + " = " + std::to_string(adventure_stats_entry.mmc_losses));
+		update_values.push_back(columns[9] + " = " + std::to_string(adventure_stats_entry.ruj_losses));
+		update_values.push_back(columns[10] + " = " + std::to_string(adventure_stats_entry.tak_losses));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.player_id
+				adventure_stats_entry.player_id
 			)
 		);
 
@@ -225,73 +202,73 @@ public:
 
 	static AdventureStats InsertOne(
 		Database& db,
-		AdventureStats e
+		AdventureStats adventure_stats_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.player_id));
-		v.push_back(std::to_string(e.guk_wins));
-		v.push_back(std::to_string(e.mir_wins));
-		v.push_back(std::to_string(e.mmc_wins));
-		v.push_back(std::to_string(e.ruj_wins));
-		v.push_back(std::to_string(e.tak_wins));
-		v.push_back(std::to_string(e.guk_losses));
-		v.push_back(std::to_string(e.mir_losses));
-		v.push_back(std::to_string(e.mmc_losses));
-		v.push_back(std::to_string(e.ruj_losses));
-		v.push_back(std::to_string(e.tak_losses));
+		insert_values.push_back(std::to_string(adventure_stats_entry.player_id));
+		insert_values.push_back(std::to_string(adventure_stats_entry.guk_wins));
+		insert_values.push_back(std::to_string(adventure_stats_entry.mir_wins));
+		insert_values.push_back(std::to_string(adventure_stats_entry.mmc_wins));
+		insert_values.push_back(std::to_string(adventure_stats_entry.ruj_wins));
+		insert_values.push_back(std::to_string(adventure_stats_entry.tak_wins));
+		insert_values.push_back(std::to_string(adventure_stats_entry.guk_losses));
+		insert_values.push_back(std::to_string(adventure_stats_entry.mir_losses));
+		insert_values.push_back(std::to_string(adventure_stats_entry.mmc_losses));
+		insert_values.push_back(std::to_string(adventure_stats_entry.ruj_losses));
+		insert_values.push_back(std::to_string(adventure_stats_entry.tak_losses));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.player_id = results.LastInsertedID();
-			return e;
+			adventure_stats_entry.player_id = results.LastInsertedID();
+			return adventure_stats_entry;
 		}
 
-		e = NewEntity();
+		adventure_stats_entry = NewEntity();
 
-		return e;
+		return adventure_stats_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<AdventureStats> &entries
+		std::vector<AdventureStats> adventure_stats_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &adventure_stats_entry: adventure_stats_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.player_id));
-			v.push_back(std::to_string(e.guk_wins));
-			v.push_back(std::to_string(e.mir_wins));
-			v.push_back(std::to_string(e.mmc_wins));
-			v.push_back(std::to_string(e.ruj_wins));
-			v.push_back(std::to_string(e.tak_wins));
-			v.push_back(std::to_string(e.guk_losses));
-			v.push_back(std::to_string(e.mir_losses));
-			v.push_back(std::to_string(e.mmc_losses));
-			v.push_back(std::to_string(e.ruj_losses));
-			v.push_back(std::to_string(e.tak_losses));
+			insert_values.push_back(std::to_string(adventure_stats_entry.player_id));
+			insert_values.push_back(std::to_string(adventure_stats_entry.guk_wins));
+			insert_values.push_back(std::to_string(adventure_stats_entry.mir_wins));
+			insert_values.push_back(std::to_string(adventure_stats_entry.mmc_wins));
+			insert_values.push_back(std::to_string(adventure_stats_entry.ruj_wins));
+			insert_values.push_back(std::to_string(adventure_stats_entry.tak_wins));
+			insert_values.push_back(std::to_string(adventure_stats_entry.guk_losses));
+			insert_values.push_back(std::to_string(adventure_stats_entry.mir_losses));
+			insert_values.push_back(std::to_string(adventure_stats_entry.mmc_losses));
+			insert_values.push_back(std::to_string(adventure_stats_entry.ruj_losses));
+			insert_values.push_back(std::to_string(adventure_stats_entry.tak_losses));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -312,27 +289,27 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			AdventureStats e{};
+			AdventureStats entry{};
 
-			e.player_id  = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.guk_wins   = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.mir_wins   = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.mmc_wins   = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.ruj_wins   = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.tak_wins   = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.guk_losses = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.mir_losses = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.mmc_losses = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
-			e.ruj_losses = static_cast<uint32_t>(strtoul(row[9], nullptr, 10));
-			e.tak_losses = static_cast<uint32_t>(strtoul(row[10], nullptr, 10));
+			entry.player_id  = atoi(row[0]);
+			entry.guk_wins   = atoi(row[1]);
+			entry.mir_wins   = atoi(row[2]);
+			entry.mmc_wins   = atoi(row[3]);
+			entry.ruj_wins   = atoi(row[4]);
+			entry.tak_wins   = atoi(row[5]);
+			entry.guk_losses = atoi(row[6]);
+			entry.mir_losses = atoi(row[7]);
+			entry.mmc_losses = atoi(row[8]);
+			entry.ruj_losses = atoi(row[9]);
+			entry.tak_losses = atoi(row[10]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<AdventureStats> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<AdventureStats> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<AdventureStats> all_entries;
 
@@ -347,27 +324,27 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			AdventureStats e{};
+			AdventureStats entry{};
 
-			e.player_id  = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.guk_wins   = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.mir_wins   = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.mmc_wins   = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.ruj_wins   = static_cast<uint32_t>(strtoul(row[4], nullptr, 10));
-			e.tak_wins   = static_cast<uint32_t>(strtoul(row[5], nullptr, 10));
-			e.guk_losses = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.mir_losses = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.mmc_losses = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
-			e.ruj_losses = static_cast<uint32_t>(strtoul(row[9], nullptr, 10));
-			e.tak_losses = static_cast<uint32_t>(strtoul(row[10], nullptr, 10));
+			entry.player_id  = atoi(row[0]);
+			entry.guk_wins   = atoi(row[1]);
+			entry.mir_wins   = atoi(row[2]);
+			entry.mmc_wins   = atoi(row[3]);
+			entry.ruj_wins   = atoi(row[4]);
+			entry.tak_wins   = atoi(row[5]);
+			entry.guk_losses = atoi(row[6]);
+			entry.mir_losses = atoi(row[7]);
+			entry.mmc_losses = atoi(row[8]);
+			entry.ruj_losses = atoi(row[9]);
+			entry.tak_losses = atoi(row[10]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -390,32 +367,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

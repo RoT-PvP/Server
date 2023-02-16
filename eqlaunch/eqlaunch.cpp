@@ -21,7 +21,6 @@
 #include "../common/proc_launcher.h"
 #include "../common/eqemu_config.h"
 #include "../common/servertalk.h"
-#include "../common/path_manager.h"
 #include "../common/platform.h"
 #include "../common/crash.h"
 #include "../common/unix.h"
@@ -34,7 +33,6 @@
 #include <time.h>
 
 EQEmuLogSys LogSys;
-PathManager path;
 
 bool RunLoops = false;
 
@@ -44,8 +42,6 @@ int main(int argc, char *argv[]) {
 	RegisterExecutablePlatform(ExePlatformLaunch);
 	LogSys.LoadLogSettingsDefaults();
 	set_exception_handler();
-
-	path.LoadPaths();
 
 	std::string launcher_name;
 	if(argc == 2) {
@@ -105,16 +101,10 @@ int main(int argc, char *argv[]) {
 	Log(Logs::Detail, Logs::Launcher, "Starting main loop...");
 
 	ProcLauncher *launch = ProcLauncher::get();
-
 	RunLoops = true;
-	auto loop_fn = [&](EQ::Timer* t) {
+	while(RunLoops) {
 		//Advance the timer to our current point in time
 		Timer::SetCurrentTime();
-
-		if (!RunLoops) {
-			EQ::EventLoop::Get().Shutdown();
-			return;
-		}
 
 		/*
 		* Let the process manager look for dead children
@@ -126,31 +116,29 @@ int main(int argc, char *argv[]) {
 		*/
 		zone = zones.begin();
 		zend = zones.end();
-		for (; zone != zend; ++zone) {
-			if (!zone->second->Process())
+		for(; zone != zend; ++zone) {
+			if(!zone->second->Process())
 				to_remove.insert(zone->first);
 		}
 
 		/*
 		* Kill off any zones which have stopped
 		*/
-		while (!to_remove.empty()) {
+		while(!to_remove.empty()) {
 			std::string rem = *to_remove.begin();
 			to_remove.erase(rem);
 			zone = zones.find(rem);
-			if (zone == zones.end()) {
+			if(zone == zones.end()) {
 				//wtf...
 				continue;
 			}
 			delete zone->second;
 			zones.erase(rem);
 		}
-	};
 
-	EQ::Timer process_timer(loop_fn);
-	process_timer.Start(32, true);
-
-	EQ::EventLoop::Get().Run();
+		EQ::EventLoop::Get().Process();
+		Sleep(5);
+	}
 
 	//try to be semi-nice about this... without waiting too long
 	zone = zones.begin();

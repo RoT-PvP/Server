@@ -13,9 +13,8 @@
 #define EQEMU_BASE_{{TABLE_NAME_UPPER}}_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
+#include "../../string_util.h"
 #include <ctime>
-{{ADDITIONAL_INCLUDES}}
 
 class Base{{TABLE_NAME_CLASS}}Repository {
 public:
@@ -44,12 +43,12 @@ public:
 
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string SelectColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", SelectColumns()));
 	}
 
 	static std::string TableName()
@@ -77,14 +76,14 @@ public:
 
 	static {{TABLE_NAME_STRUCT}} NewEntity()
 	{
-		{{TABLE_NAME_STRUCT}} e{};
+		{{TABLE_NAME_STRUCT}} entry{};
 
 {{DEFAULT_ENTRIES}}
 
-		return e;
+		return entry;
 	}
 
-	static {{TABLE_NAME_STRUCT}} Get{{TABLE_NAME_STRUCT}}(
+	static {{TABLE_NAME_STRUCT}} Get{{TABLE_NAME_STRUCT}}Entry(
 		const std::vector<{{TABLE_NAME_STRUCT}}> &{{TABLE_NAME_VAR}}s,
 		int {{TABLE_NAME_VAR}}_id
 	)
@@ -105,19 +104,18 @@ public:
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
-				"{} WHERE {} = {} LIMIT 1",
+				"{} WHERE id = {} LIMIT 1",
 				BaseSelect(),
-				PrimaryKey(),
 				{{TABLE_NAME_VAR}}_id
 			)
 		);
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			{{TABLE_NAME_STRUCT}} e{};
+			{{TABLE_NAME_STRUCT}} entry{};
 
 {{FIND_ONE_ENTRIES}}
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -142,10 +140,10 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const {{TABLE_NAME_STRUCT}} &e
+		{{TABLE_NAME_STRUCT}} {{TABLE_NAME_VAR}}_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
@@ -155,9 +153,9 @@ public:
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.{{PRIMARY_KEY_STRING}}
+				{{TABLE_NAME_VAR}}_entry.{{PRIMARY_KEY_STRING}}
 			)
 		);
 
@@ -166,10 +164,10 @@ public:
 
 	static {{TABLE_NAME_STRUCT}} InsertOne(
 		Database& db,
-		{{TABLE_NAME_STRUCT}} e
+		{{TABLE_NAME_STRUCT}} {{TABLE_NAME_VAR}}_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 {{INSERT_ONE_ENTRIES}}
 
@@ -177,42 +175,42 @@ public:
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.{{PRIMARY_KEY_STRING}} = results.LastInsertedID();
-			return e;
+			{{TABLE_NAME_VAR}}_entry.{{PRIMARY_KEY_STRING}} = results.LastInsertedID();
+			return {{TABLE_NAME_VAR}}_entry;
 		}
 
-		e = NewEntity();
+		{{TABLE_NAME_VAR}}_entry = NewEntity();
 
-		return e;
+		return {{TABLE_NAME_VAR}}_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<{{TABLE_NAME_STRUCT}}> &entries
+		std::vector<{{TABLE_NAME_STRUCT}}> {{TABLE_NAME_VAR}}_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &{{TABLE_NAME_VAR}}_entry: {{TABLE_NAME_VAR}}_entries) {
+			std::vector<std::string> insert_values;
 
 {{INSERT_MANY_ENTRIES}}
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -233,17 +231,17 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			{{TABLE_NAME_STRUCT}} e{};
+			{{TABLE_NAME_STRUCT}} entry{};
 
 {{ALL_ENTRIES}}
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<{{TABLE_NAME_STRUCT}}> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<{{TABLE_NAME_STRUCT}}> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<{{TABLE_NAME_STRUCT}}> all_entries;
 
@@ -258,17 +256,17 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			{{TABLE_NAME_STRUCT}} e{};
+			{{TABLE_NAME_STRUCT}} entry{};
 
 {{ALL_ENTRIES}}
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -291,32 +289,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

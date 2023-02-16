@@ -13,35 +13,34 @@
 #define EQEMU_BASE_TRAPS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseTrapsRepository {
 public:
 	struct Traps {
-		int32_t     id;
+		int         id;
 		std::string zone;
-		uint16_t    version;
-		int32_t     x;
-		int32_t     y;
-		int32_t     z;
-		int8_t      chance;
+		int         version;
+		int         x;
+		int         y;
+		int         z;
+		int         chance;
 		float       maxzdiff;
 		float       radius;
-		int32_t     effect;
-		int32_t     effectvalue;
-		int32_t     effectvalue2;
+		int         effect;
+		int         effectvalue;
+		int         effectvalue2;
 		std::string message;
-		int32_t     skill;
-		uint32_t    level;
-		uint32_t    respawn_time;
-		uint32_t    respawn_var;
-		int8_t      triggered_number;
-		int8_t      group;
-		int8_t      despawn_when_triggered;
-		int8_t      undetectable;
-		int8_t      min_expansion;
-		int8_t      max_expansion;
+		int         skill;
+		int         level;
+		int         respawn_time;
+		int         respawn_var;
+		int         triggered_number;
+		int         group;
+		int         despawn_when_triggered;
+		int         undetectable;
+		int         min_expansion;
+		int         max_expansion;
 		std::string content_flags;
 		std::string content_flags_disabled;
 	};
@@ -82,45 +81,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"zone",
-			"version",
-			"x",
-			"y",
-			"z",
-			"chance",
-			"maxzdiff",
-			"radius",
-			"effect",
-			"effectvalue",
-			"effectvalue2",
-			"message",
-			"skill",
-			"level",
-			"respawn_time",
-			"respawn_var",
-			"triggered_number",
-			"group",
-			"despawn_when_triggered",
-			"undetectable",
-			"min_expansion",
-			"max_expansion",
-			"content_flags",
-			"content_flags_disabled",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -132,7 +95,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -148,38 +111,38 @@ public:
 
 	static Traps NewEntity()
 	{
-		Traps e{};
+		Traps entry{};
 
-		e.id                     = 0;
-		e.zone                   = "";
-		e.version                = 0;
-		e.x                      = 0;
-		e.y                      = 0;
-		e.z                      = 0;
-		e.chance                 = 0;
-		e.maxzdiff               = 0;
-		e.radius                 = 0;
-		e.effect                 = 0;
-		e.effectvalue            = 0;
-		e.effectvalue2           = 0;
-		e.message                = "";
-		e.skill                  = 0;
-		e.level                  = 1;
-		e.respawn_time           = 60;
-		e.respawn_var            = 0;
-		e.triggered_number       = 0;
-		e.group                  = 0;
-		e.despawn_when_triggered = 0;
-		e.undetectable           = 0;
-		e.min_expansion          = -1;
-		e.max_expansion          = -1;
-		e.content_flags          = "";
-		e.content_flags_disabled = "";
+		entry.id                     = 0;
+		entry.zone                   = "";
+		entry.version                = 0;
+		entry.x                      = 0;
+		entry.y                      = 0;
+		entry.z                      = 0;
+		entry.chance                 = 0;
+		entry.maxzdiff               = 0;
+		entry.radius                 = 0;
+		entry.effect                 = 0;
+		entry.effectvalue            = 0;
+		entry.effectvalue2           = 0;
+		entry.message                = "";
+		entry.skill                  = 0;
+		entry.level                  = 1;
+		entry.respawn_time           = 60;
+		entry.respawn_var            = 0;
+		entry.triggered_number       = 0;
+		entry.group                  = 0;
+		entry.despawn_when_triggered = 0;
+		entry.undetectable           = 0;
+		entry.min_expansion          = 0;
+		entry.max_expansion          = 0;
+		entry.content_flags          = "";
+		entry.content_flags_disabled = "";
 
-		return e;
+		return entry;
 	}
 
-	static Traps GetTraps(
+	static Traps GetTrapsEntry(
 		const std::vector<Traps> &trapss,
 		int traps_id
 	)
@@ -208,35 +171,35 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			Traps e{};
+			Traps entry{};
 
-			e.id                     = static_cast<int32_t>(atoi(row[0]));
-			e.zone                   = row[1] ? row[1] : "";
-			e.version                = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.x                      = static_cast<int32_t>(atoi(row[3]));
-			e.y                      = static_cast<int32_t>(atoi(row[4]));
-			e.z                      = static_cast<int32_t>(atoi(row[5]));
-			e.chance                 = static_cast<int8_t>(atoi(row[6]));
-			e.maxzdiff               = strtof(row[7], nullptr);
-			e.radius                 = strtof(row[8], nullptr);
-			e.effect                 = static_cast<int32_t>(atoi(row[9]));
-			e.effectvalue            = static_cast<int32_t>(atoi(row[10]));
-			e.effectvalue2           = static_cast<int32_t>(atoi(row[11]));
-			e.message                = row[12] ? row[12] : "";
-			e.skill                  = static_cast<int32_t>(atoi(row[13]));
-			e.level                  = static_cast<uint32_t>(strtoul(row[14], nullptr, 10));
-			e.respawn_time           = static_cast<uint32_t>(strtoul(row[15], nullptr, 10));
-			e.respawn_var            = static_cast<uint32_t>(strtoul(row[16], nullptr, 10));
-			e.triggered_number       = static_cast<int8_t>(atoi(row[17]));
-			e.group                  = static_cast<int8_t>(atoi(row[18]));
-			e.despawn_when_triggered = static_cast<int8_t>(atoi(row[19]));
-			e.undetectable           = static_cast<int8_t>(atoi(row[20]));
-			e.min_expansion          = static_cast<int8_t>(atoi(row[21]));
-			e.max_expansion          = static_cast<int8_t>(atoi(row[22]));
-			e.content_flags          = row[23] ? row[23] : "";
-			e.content_flags_disabled = row[24] ? row[24] : "";
+			entry.id                     = atoi(row[0]);
+			entry.zone                   = row[1] ? row[1] : "";
+			entry.version                = atoi(row[2]);
+			entry.x                      = atoi(row[3]);
+			entry.y                      = atoi(row[4]);
+			entry.z                      = atoi(row[5]);
+			entry.chance                 = atoi(row[6]);
+			entry.maxzdiff               = static_cast<float>(atof(row[7]));
+			entry.radius                 = static_cast<float>(atof(row[8]));
+			entry.effect                 = atoi(row[9]);
+			entry.effectvalue            = atoi(row[10]);
+			entry.effectvalue2           = atoi(row[11]);
+			entry.message                = row[12] ? row[12] : "";
+			entry.skill                  = atoi(row[13]);
+			entry.level                  = atoi(row[14]);
+			entry.respawn_time           = atoi(row[15]);
+			entry.respawn_var            = atoi(row[16]);
+			entry.triggered_number       = atoi(row[17]);
+			entry.group                  = atoi(row[18]);
+			entry.despawn_when_triggered = atoi(row[19]);
+			entry.undetectable           = atoi(row[20]);
+			entry.min_expansion          = atoi(row[21]);
+			entry.max_expansion          = atoi(row[22]);
+			entry.content_flags          = row[23] ? row[23] : "";
+			entry.content_flags_disabled = row[24] ? row[24] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -261,45 +224,45 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const Traps &e
+		Traps traps_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.zone) + "'");
-		v.push_back(columns[2] + " = " + std::to_string(e.version));
-		v.push_back(columns[3] + " = " + std::to_string(e.x));
-		v.push_back(columns[4] + " = " + std::to_string(e.y));
-		v.push_back(columns[5] + " = " + std::to_string(e.z));
-		v.push_back(columns[6] + " = " + std::to_string(e.chance));
-		v.push_back(columns[7] + " = " + std::to_string(e.maxzdiff));
-		v.push_back(columns[8] + " = " + std::to_string(e.radius));
-		v.push_back(columns[9] + " = " + std::to_string(e.effect));
-		v.push_back(columns[10] + " = " + std::to_string(e.effectvalue));
-		v.push_back(columns[11] + " = " + std::to_string(e.effectvalue2));
-		v.push_back(columns[12] + " = '" + Strings::Escape(e.message) + "'");
-		v.push_back(columns[13] + " = " + std::to_string(e.skill));
-		v.push_back(columns[14] + " = " + std::to_string(e.level));
-		v.push_back(columns[15] + " = " + std::to_string(e.respawn_time));
-		v.push_back(columns[16] + " = " + std::to_string(e.respawn_var));
-		v.push_back(columns[17] + " = " + std::to_string(e.triggered_number));
-		v.push_back(columns[18] + " = " + std::to_string(e.group));
-		v.push_back(columns[19] + " = " + std::to_string(e.despawn_when_triggered));
-		v.push_back(columns[20] + " = " + std::to_string(e.undetectable));
-		v.push_back(columns[21] + " = " + std::to_string(e.min_expansion));
-		v.push_back(columns[22] + " = " + std::to_string(e.max_expansion));
-		v.push_back(columns[23] + " = '" + Strings::Escape(e.content_flags) + "'");
-		v.push_back(columns[24] + " = '" + Strings::Escape(e.content_flags_disabled) + "'");
+		update_values.push_back(columns[1] + " = '" + EscapeString(traps_entry.zone) + "'");
+		update_values.push_back(columns[2] + " = " + std::to_string(traps_entry.version));
+		update_values.push_back(columns[3] + " = " + std::to_string(traps_entry.x));
+		update_values.push_back(columns[4] + " = " + std::to_string(traps_entry.y));
+		update_values.push_back(columns[5] + " = " + std::to_string(traps_entry.z));
+		update_values.push_back(columns[6] + " = " + std::to_string(traps_entry.chance));
+		update_values.push_back(columns[7] + " = " + std::to_string(traps_entry.maxzdiff));
+		update_values.push_back(columns[8] + " = " + std::to_string(traps_entry.radius));
+		update_values.push_back(columns[9] + " = " + std::to_string(traps_entry.effect));
+		update_values.push_back(columns[10] + " = " + std::to_string(traps_entry.effectvalue));
+		update_values.push_back(columns[11] + " = " + std::to_string(traps_entry.effectvalue2));
+		update_values.push_back(columns[12] + " = '" + EscapeString(traps_entry.message) + "'");
+		update_values.push_back(columns[13] + " = " + std::to_string(traps_entry.skill));
+		update_values.push_back(columns[14] + " = " + std::to_string(traps_entry.level));
+		update_values.push_back(columns[15] + " = " + std::to_string(traps_entry.respawn_time));
+		update_values.push_back(columns[16] + " = " + std::to_string(traps_entry.respawn_var));
+		update_values.push_back(columns[17] + " = " + std::to_string(traps_entry.triggered_number));
+		update_values.push_back(columns[18] + " = " + std::to_string(traps_entry.group));
+		update_values.push_back(columns[19] + " = " + std::to_string(traps_entry.despawn_when_triggered));
+		update_values.push_back(columns[20] + " = " + std::to_string(traps_entry.undetectable));
+		update_values.push_back(columns[21] + " = " + std::to_string(traps_entry.min_expansion));
+		update_values.push_back(columns[22] + " = " + std::to_string(traps_entry.max_expansion));
+		update_values.push_back(columns[23] + " = '" + EscapeString(traps_entry.content_flags) + "'");
+		update_values.push_back(columns[24] + " = '" + EscapeString(traps_entry.content_flags_disabled) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				traps_entry.id
 			)
 		);
 
@@ -308,101 +271,101 @@ public:
 
 	static Traps InsertOne(
 		Database& db,
-		Traps e
+		Traps traps_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.zone) + "'");
-		v.push_back(std::to_string(e.version));
-		v.push_back(std::to_string(e.x));
-		v.push_back(std::to_string(e.y));
-		v.push_back(std::to_string(e.z));
-		v.push_back(std::to_string(e.chance));
-		v.push_back(std::to_string(e.maxzdiff));
-		v.push_back(std::to_string(e.radius));
-		v.push_back(std::to_string(e.effect));
-		v.push_back(std::to_string(e.effectvalue));
-		v.push_back(std::to_string(e.effectvalue2));
-		v.push_back("'" + Strings::Escape(e.message) + "'");
-		v.push_back(std::to_string(e.skill));
-		v.push_back(std::to_string(e.level));
-		v.push_back(std::to_string(e.respawn_time));
-		v.push_back(std::to_string(e.respawn_var));
-		v.push_back(std::to_string(e.triggered_number));
-		v.push_back(std::to_string(e.group));
-		v.push_back(std::to_string(e.despawn_when_triggered));
-		v.push_back(std::to_string(e.undetectable));
-		v.push_back(std::to_string(e.min_expansion));
-		v.push_back(std::to_string(e.max_expansion));
-		v.push_back("'" + Strings::Escape(e.content_flags) + "'");
-		v.push_back("'" + Strings::Escape(e.content_flags_disabled) + "'");
+		insert_values.push_back(std::to_string(traps_entry.id));
+		insert_values.push_back("'" + EscapeString(traps_entry.zone) + "'");
+		insert_values.push_back(std::to_string(traps_entry.version));
+		insert_values.push_back(std::to_string(traps_entry.x));
+		insert_values.push_back(std::to_string(traps_entry.y));
+		insert_values.push_back(std::to_string(traps_entry.z));
+		insert_values.push_back(std::to_string(traps_entry.chance));
+		insert_values.push_back(std::to_string(traps_entry.maxzdiff));
+		insert_values.push_back(std::to_string(traps_entry.radius));
+		insert_values.push_back(std::to_string(traps_entry.effect));
+		insert_values.push_back(std::to_string(traps_entry.effectvalue));
+		insert_values.push_back(std::to_string(traps_entry.effectvalue2));
+		insert_values.push_back("'" + EscapeString(traps_entry.message) + "'");
+		insert_values.push_back(std::to_string(traps_entry.skill));
+		insert_values.push_back(std::to_string(traps_entry.level));
+		insert_values.push_back(std::to_string(traps_entry.respawn_time));
+		insert_values.push_back(std::to_string(traps_entry.respawn_var));
+		insert_values.push_back(std::to_string(traps_entry.triggered_number));
+		insert_values.push_back(std::to_string(traps_entry.group));
+		insert_values.push_back(std::to_string(traps_entry.despawn_when_triggered));
+		insert_values.push_back(std::to_string(traps_entry.undetectable));
+		insert_values.push_back(std::to_string(traps_entry.min_expansion));
+		insert_values.push_back(std::to_string(traps_entry.max_expansion));
+		insert_values.push_back("'" + EscapeString(traps_entry.content_flags) + "'");
+		insert_values.push_back("'" + EscapeString(traps_entry.content_flags_disabled) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			traps_entry.id = results.LastInsertedID();
+			return traps_entry;
 		}
 
-		e = NewEntity();
+		traps_entry = NewEntity();
 
-		return e;
+		return traps_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<Traps> &entries
+		std::vector<Traps> traps_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &traps_entry: traps_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.zone) + "'");
-			v.push_back(std::to_string(e.version));
-			v.push_back(std::to_string(e.x));
-			v.push_back(std::to_string(e.y));
-			v.push_back(std::to_string(e.z));
-			v.push_back(std::to_string(e.chance));
-			v.push_back(std::to_string(e.maxzdiff));
-			v.push_back(std::to_string(e.radius));
-			v.push_back(std::to_string(e.effect));
-			v.push_back(std::to_string(e.effectvalue));
-			v.push_back(std::to_string(e.effectvalue2));
-			v.push_back("'" + Strings::Escape(e.message) + "'");
-			v.push_back(std::to_string(e.skill));
-			v.push_back(std::to_string(e.level));
-			v.push_back(std::to_string(e.respawn_time));
-			v.push_back(std::to_string(e.respawn_var));
-			v.push_back(std::to_string(e.triggered_number));
-			v.push_back(std::to_string(e.group));
-			v.push_back(std::to_string(e.despawn_when_triggered));
-			v.push_back(std::to_string(e.undetectable));
-			v.push_back(std::to_string(e.min_expansion));
-			v.push_back(std::to_string(e.max_expansion));
-			v.push_back("'" + Strings::Escape(e.content_flags) + "'");
-			v.push_back("'" + Strings::Escape(e.content_flags_disabled) + "'");
+			insert_values.push_back(std::to_string(traps_entry.id));
+			insert_values.push_back("'" + EscapeString(traps_entry.zone) + "'");
+			insert_values.push_back(std::to_string(traps_entry.version));
+			insert_values.push_back(std::to_string(traps_entry.x));
+			insert_values.push_back(std::to_string(traps_entry.y));
+			insert_values.push_back(std::to_string(traps_entry.z));
+			insert_values.push_back(std::to_string(traps_entry.chance));
+			insert_values.push_back(std::to_string(traps_entry.maxzdiff));
+			insert_values.push_back(std::to_string(traps_entry.radius));
+			insert_values.push_back(std::to_string(traps_entry.effect));
+			insert_values.push_back(std::to_string(traps_entry.effectvalue));
+			insert_values.push_back(std::to_string(traps_entry.effectvalue2));
+			insert_values.push_back("'" + EscapeString(traps_entry.message) + "'");
+			insert_values.push_back(std::to_string(traps_entry.skill));
+			insert_values.push_back(std::to_string(traps_entry.level));
+			insert_values.push_back(std::to_string(traps_entry.respawn_time));
+			insert_values.push_back(std::to_string(traps_entry.respawn_var));
+			insert_values.push_back(std::to_string(traps_entry.triggered_number));
+			insert_values.push_back(std::to_string(traps_entry.group));
+			insert_values.push_back(std::to_string(traps_entry.despawn_when_triggered));
+			insert_values.push_back(std::to_string(traps_entry.undetectable));
+			insert_values.push_back(std::to_string(traps_entry.min_expansion));
+			insert_values.push_back(std::to_string(traps_entry.max_expansion));
+			insert_values.push_back("'" + EscapeString(traps_entry.content_flags) + "'");
+			insert_values.push_back("'" + EscapeString(traps_entry.content_flags_disabled) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -423,41 +386,41 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Traps e{};
+			Traps entry{};
 
-			e.id                     = static_cast<int32_t>(atoi(row[0]));
-			e.zone                   = row[1] ? row[1] : "";
-			e.version                = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.x                      = static_cast<int32_t>(atoi(row[3]));
-			e.y                      = static_cast<int32_t>(atoi(row[4]));
-			e.z                      = static_cast<int32_t>(atoi(row[5]));
-			e.chance                 = static_cast<int8_t>(atoi(row[6]));
-			e.maxzdiff               = strtof(row[7], nullptr);
-			e.radius                 = strtof(row[8], nullptr);
-			e.effect                 = static_cast<int32_t>(atoi(row[9]));
-			e.effectvalue            = static_cast<int32_t>(atoi(row[10]));
-			e.effectvalue2           = static_cast<int32_t>(atoi(row[11]));
-			e.message                = row[12] ? row[12] : "";
-			e.skill                  = static_cast<int32_t>(atoi(row[13]));
-			e.level                  = static_cast<uint32_t>(strtoul(row[14], nullptr, 10));
-			e.respawn_time           = static_cast<uint32_t>(strtoul(row[15], nullptr, 10));
-			e.respawn_var            = static_cast<uint32_t>(strtoul(row[16], nullptr, 10));
-			e.triggered_number       = static_cast<int8_t>(atoi(row[17]));
-			e.group                  = static_cast<int8_t>(atoi(row[18]));
-			e.despawn_when_triggered = static_cast<int8_t>(atoi(row[19]));
-			e.undetectable           = static_cast<int8_t>(atoi(row[20]));
-			e.min_expansion          = static_cast<int8_t>(atoi(row[21]));
-			e.max_expansion          = static_cast<int8_t>(atoi(row[22]));
-			e.content_flags          = row[23] ? row[23] : "";
-			e.content_flags_disabled = row[24] ? row[24] : "";
+			entry.id                     = atoi(row[0]);
+			entry.zone                   = row[1] ? row[1] : "";
+			entry.version                = atoi(row[2]);
+			entry.x                      = atoi(row[3]);
+			entry.y                      = atoi(row[4]);
+			entry.z                      = atoi(row[5]);
+			entry.chance                 = atoi(row[6]);
+			entry.maxzdiff               = static_cast<float>(atof(row[7]));
+			entry.radius                 = static_cast<float>(atof(row[8]));
+			entry.effect                 = atoi(row[9]);
+			entry.effectvalue            = atoi(row[10]);
+			entry.effectvalue2           = atoi(row[11]);
+			entry.message                = row[12] ? row[12] : "";
+			entry.skill                  = atoi(row[13]);
+			entry.level                  = atoi(row[14]);
+			entry.respawn_time           = atoi(row[15]);
+			entry.respawn_var            = atoi(row[16]);
+			entry.triggered_number       = atoi(row[17]);
+			entry.group                  = atoi(row[18]);
+			entry.despawn_when_triggered = atoi(row[19]);
+			entry.undetectable           = atoi(row[20]);
+			entry.min_expansion          = atoi(row[21]);
+			entry.max_expansion          = atoi(row[22]);
+			entry.content_flags          = row[23] ? row[23] : "";
+			entry.content_flags_disabled = row[24] ? row[24] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<Traps> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<Traps> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<Traps> all_entries;
 
@@ -472,41 +435,41 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			Traps e{};
+			Traps entry{};
 
-			e.id                     = static_cast<int32_t>(atoi(row[0]));
-			e.zone                   = row[1] ? row[1] : "";
-			e.version                = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.x                      = static_cast<int32_t>(atoi(row[3]));
-			e.y                      = static_cast<int32_t>(atoi(row[4]));
-			e.z                      = static_cast<int32_t>(atoi(row[5]));
-			e.chance                 = static_cast<int8_t>(atoi(row[6]));
-			e.maxzdiff               = strtof(row[7], nullptr);
-			e.radius                 = strtof(row[8], nullptr);
-			e.effect                 = static_cast<int32_t>(atoi(row[9]));
-			e.effectvalue            = static_cast<int32_t>(atoi(row[10]));
-			e.effectvalue2           = static_cast<int32_t>(atoi(row[11]));
-			e.message                = row[12] ? row[12] : "";
-			e.skill                  = static_cast<int32_t>(atoi(row[13]));
-			e.level                  = static_cast<uint32_t>(strtoul(row[14], nullptr, 10));
-			e.respawn_time           = static_cast<uint32_t>(strtoul(row[15], nullptr, 10));
-			e.respawn_var            = static_cast<uint32_t>(strtoul(row[16], nullptr, 10));
-			e.triggered_number       = static_cast<int8_t>(atoi(row[17]));
-			e.group                  = static_cast<int8_t>(atoi(row[18]));
-			e.despawn_when_triggered = static_cast<int8_t>(atoi(row[19]));
-			e.undetectable           = static_cast<int8_t>(atoi(row[20]));
-			e.min_expansion          = static_cast<int8_t>(atoi(row[21]));
-			e.max_expansion          = static_cast<int8_t>(atoi(row[22]));
-			e.content_flags          = row[23] ? row[23] : "";
-			e.content_flags_disabled = row[24] ? row[24] : "";
+			entry.id                     = atoi(row[0]);
+			entry.zone                   = row[1] ? row[1] : "";
+			entry.version                = atoi(row[2]);
+			entry.x                      = atoi(row[3]);
+			entry.y                      = atoi(row[4]);
+			entry.z                      = atoi(row[5]);
+			entry.chance                 = atoi(row[6]);
+			entry.maxzdiff               = static_cast<float>(atof(row[7]));
+			entry.radius                 = static_cast<float>(atof(row[8]));
+			entry.effect                 = atoi(row[9]);
+			entry.effectvalue            = atoi(row[10]);
+			entry.effectvalue2           = atoi(row[11]);
+			entry.message                = row[12] ? row[12] : "";
+			entry.skill                  = atoi(row[13]);
+			entry.level                  = atoi(row[14]);
+			entry.respawn_time           = atoi(row[15]);
+			entry.respawn_var            = atoi(row[16]);
+			entry.triggered_number       = atoi(row[17]);
+			entry.group                  = atoi(row[18]);
+			entry.despawn_when_triggered = atoi(row[19]);
+			entry.undetectable           = atoi(row[20]);
+			entry.min_expansion          = atoi(row[21]);
+			entry.max_expansion          = atoi(row[22]);
+			entry.content_flags          = row[23] ? row[23] : "";
+			entry.content_flags_disabled = row[24] ? row[24] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -529,32 +492,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

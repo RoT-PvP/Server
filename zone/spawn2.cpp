@@ -17,7 +17,7 @@
 */
 
 #include "../common/global_define.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 
 #include "client.h"
 #include "entity.h"
@@ -26,7 +26,7 @@
 #include "worldserver.h"
 #include "zone.h"
 #include "zonedb.h"
-#include "../common/zone_store.h"
+#include "zone_store.h"
 
 extern EntityList entity_list;
 extern Zone* zone;
@@ -157,13 +157,13 @@ bool Spawn2::Process() {
 	if (timer.Check()) {
 		timer.Disable();
 
-		LogSpawns("[{}]: Timer has triggered", spawn2_id);
+		LogSpawns("Spawn2 [{}]: Timer has triggered", spawn2_id);
 
 		//first check our spawn condition, if this isnt active
 		//then we reset the timer and try again next time.
 		if (condition_id != SC_AlwaysEnabled
 			&& !zone->spawn_conditions.Check(condition_id, condition_min_value)) {
-			LogSpawns("[{}]: spawning prevented by spawn condition [{}]", spawn2_id, condition_id);
+			LogSpawns("Spawn2 [{}]: spawning prevented by spawn condition [{}]", spawn2_id, condition_id);
 			Reset();
 			return (true);
 		}
@@ -203,11 +203,6 @@ bool Spawn2::Process() {
 			LogSpawns("Spawn2 [{}]: Spawn group [{}] yeilded an invalid NPC type [{}]", spawn2_id, spawngroup_id_, npcid);
 			Reset();    //try again later
 			return (true);
-		}
-
-		if (tmp->npc_id == 0) {
-			LogError("NPC type did not load for npc_id [{}]", npcid);
-			return true;
 		}
 
 		if (tmp->unique_spawn_by_name) {
@@ -259,6 +254,8 @@ bool Spawn2::Process() {
 		}
 
 		NPC *npc = new NPC(tmp, this, glm::vec4(x, y, z, heading), GravityBehavior::Water);
+
+		npc->mod_prespawn(this);
 
 		npcthis = npc;
 		npc->AddLootTable();
@@ -538,7 +535,7 @@ bool ZoneDatabase::PopulateZoneSpawnListClose(uint32 zoneid, LinkedList<Spawn2*>
 	return true;
 }
 
-bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spawn2_list, int16 version) {
+bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spawn2_list, int16 version, uint32 repopdelay) {
 
 	std::unordered_map<uint32, uint32> spawn_times;
 
@@ -572,8 +569,6 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 			spawn_times[atoi(row[0])] = ((start_duration + end_duration) - tv.tv_sec) * 1000;
 		}
 	}
-
-	LogInfo("Loaded [{}] respawn timer(s)", Strings::Commify(results.RowCount()));
 
 	const char *zone_name = ZoneName(zoneid);
 	std::string query = StringFormat(
@@ -633,8 +628,6 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 
 		spawn2_list.Insert(new_spawn);
 	}
-
-	LogInfo("Loaded [{}] spawn2 entries", Strings::Commify(results.RowCount()));
 
 	NPC::SpawnZoneController();
 
@@ -1008,8 +1001,6 @@ bool SpawnConditionManager::LoadSpawnConditions(const char* zone_name, uint32 in
     LogSpawns("Loaded spawn condition [{}] with value [{}] and on_change [{}]", cond.condition_id, cond.value, cond.on_change);
     }
 
-	LogInfo("Loaded [{}] spawn_conditions", Strings::Commify(std::to_string(results.RowCount())));
-
 	//load values
 	query = StringFormat("SELECT id, value FROM spawn_condition_values "
                         "WHERE zone = '%s' AND instance_id = %u",
@@ -1035,8 +1026,6 @@ bool SpawnConditionManager::LoadSpawnConditions(const char* zone_name, uint32 in
     if (!results.Success()) {
 		return false;
     }
-
-	LogInfo("Loaded [{}] spawn_events", Strings::Commify(std::to_string(results.RowCount())));
 
 	for (auto row = results.begin(); row != results.end(); ++row) {
 		SpawnEvent event;

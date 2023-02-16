@@ -20,7 +20,7 @@
 #include "../common/eqemu_logsys.h"
 #include "../common/misc_functions.h"
 #include "../common/rulesys.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 
 #include "entity.h"
 #include "forage.h"
@@ -30,12 +30,8 @@
 #include "titles.h"
 #include "water_map.h"
 #include "zonedb.h"
-#include "../common/zone_store.h"
+#include "zone_store.h"
 #include "../common/repositories/criteria/content_filter_criteria.h"
-#include "../common/events/player_event_logs.h"
-#include "worldserver.h"
-
-extern WorldServer worldserver;
 
 #include <iostream>
 
@@ -371,26 +367,16 @@ void Client::GoFish()
 					PushItemOnCursor(*inst);
 					SendItemPacket(EQ::invslot::slotCursor, inst, ItemPacketLimbo);
 					if (RuleB(TaskSystem, EnableTaskSystem))
-						UpdateTasksForItem(TaskActivityType::Fish, food_id);
+						UpdateTasksForItem(ActivityFish, food_id);
 
 					safe_delete(inst);
 					inst = m_inv.GetItem(EQ::invslot::slotCursor);
 				}
 
 				if (inst) {
-					if (player_event_logs.IsEventEnabled(PlayerEvent::FISH_SUCCESS)) {
-						auto e = PlayerEvent::FishSuccessEvent{
-							.item_id = inst->GetItem()->ID,
-							.item_name = inst->GetItem()->Name,
-						};
-
-						RecordPlayerEventLog(PlayerEvent::FISH_SUCCESS, e);
-					}
-
-					if (parse->PlayerHasQuestSub(EVENT_FISH_SUCCESS)) {
-						std::vector<std::any> args = { inst };
-						parse->EventPlayer(EVENT_FISH_SUCCESS, this, "", inst->GetID(), &args);
-					}
+					std::vector<EQ::Any> args;
+					args.push_back(inst);
+					parse->EventPlayer(EVENT_FISH_SUCCESS, this, "", inst->GetID(), &args);
 				}
 			}
 		}
@@ -409,10 +395,7 @@ void Client::GoFish()
 				MessageString(Chat::Skills, FISHING_FAILED);	//You didn't catch anything.
 		}
 
-		RecordPlayerEventLog(PlayerEvent::FISH_FAILURE, PlayerEvent::EmptyEvent{});
-		if (parse->PlayerHasQuestSub(EVENT_FISH_FAILURE)) {
-			parse->EventPlayer(EVENT_FISH_FAILURE, this, "", 0);
-		}
+		parse->EventPlayer(EVENT_FISH_FAILURE, this, "", 0);
 	}
 
 	//chance to break fishing pole...
@@ -436,6 +419,7 @@ void Client::GoFish()
 }
 
 void Client::ForageItem(bool guarantee) {
+
 	int skill_level = GetSkill(EQ::skills::SkillForage);
 
 	//be wary of the string ids in switch below when changing this.
@@ -455,12 +439,12 @@ void Client::ForageItem(bool guarantee) {
 		uint32 foragedfood = 0;
 		uint32 stringid = FORAGE_NOEAT;
 
-		if (zone->random.Roll(RuleI(Zone, ForageChance))) {
+		if (zone->random.Roll(25)) {
 			foragedfood = content_db.GetZoneForage(m_pp.zone_id, skill_level);
 		}
 
 		//not an else in case theres no DB food
-		if (foragedfood == 0) {
+		if(foragedfood == 0) {
 			uint8 index = 0;
 			index = zone->random.Int(0, MAX_COMMON_FOOD_IDS-1);
 			foragedfood = common_food_ids[index];
@@ -468,77 +452,66 @@ void Client::ForageItem(bool guarantee) {
 
 		const EQ::ItemData* food_item = database.GetItem(foragedfood);
 
-		if (!food_item) {
+		if(!food_item) {
 			LogError("nullptr returned from database.GetItem in ClientForageItem");
 			return;
 		}
 
-		if (foragedfood == 13106) {
+		if(foragedfood == 13106)
 			stringid = FORAGE_GRUBS;
-		} else {
+		else
 			switch(food_item->ItemType) {
 			case EQ::item::ItemTypeFood:
 				stringid = FORAGE_FOOD;
 				break;
 			case EQ::item::ItemTypeDrink:
-				if (strstr(food_item->Name, "ater")) {
+				if(strstr(food_item->Name, "ater"))
 					stringid = FORAGE_WATER;
-				} else {
+				else
 					stringid = FORAGE_DRINK;
-				}
 				break;
 			default:
 				break;
 			}
-		}
 
 		MessageString(Chat::Skills, stringid);
 		EQ::ItemInstance* inst = database.CreateItem(food_item, 1);
-		if (inst != nullptr) {
+		if(inst != nullptr) {
 			// check to make sure it isn't a foraged lore item
-			if (CheckLoreConflict(inst->GetItem())) {
+			if(CheckLoreConflict(inst->GetItem()))
+			{
 				MessageString(Chat::White, DUP_LORE);
 				safe_delete(inst);
-			} else {
+			}
+			else {
 				PushItemOnCursor(*inst);
 				SendItemPacket(EQ::invslot::slotCursor, inst, ItemPacketLimbo);
-				if(RuleB(TaskSystem, EnableTaskSystem)) {
-					UpdateTasksForItem(TaskActivityType::Forage, foragedfood);
-				}
+				if(RuleB(TaskSystem, EnableTaskSystem))
+					UpdateTasksForItem(ActivityForage, foragedfood);
 
 				safe_delete(inst);
 				inst = m_inv.GetItem(EQ::invslot::slotCursor);
 			}
 
-			if (inst) {
-				if (player_event_logs.IsEventEnabled(PlayerEvent::FORAGE_SUCCESS)) {
-					auto e = PlayerEvent::ForageSuccessEvent{
-						.item_id = inst->GetItem()->ID,
-						.item_name = inst->GetItem()->Name
-					};
-					RecordPlayerEventLog(PlayerEvent::FORAGE_SUCCESS, e);
-				}
-
-				if (parse->PlayerHasQuestSub(EVENT_FORAGE_SUCCESS)) {
-					std::vector<std::any> args = { inst };
-					parse->EventPlayer(EVENT_FORAGE_SUCCESS, this, "", inst->GetID(), &args);
-				}
+			if(inst) {
+				std::vector<EQ::Any> args;
+				args.push_back(inst);
+				parse->EventPlayer(EVENT_FORAGE_SUCCESS, this, "", inst->GetID(), &args);
 			}
 		}
 
 		int ChanceSecondForage = aabonuses.ForageAdditionalItems + itembonuses.ForageAdditionalItems + spellbonuses.ForageAdditionalItems;
-		if (!guarantee && zone->random.Roll(ChanceSecondForage)) {
+		if(!guarantee && zone->random.Roll(ChanceSecondForage)) {
 			MessageString(Chat::Skills, FORAGE_MASTERY);
 			ForageItem(true);
 		}
+
 	} else {
 		MessageString(Chat::Skills, FORAGE_FAILED);
-		RecordPlayerEventLog(PlayerEvent::FORAGE_FAILURE, PlayerEvent::EmptyEvent{});
-
-		if (parse->PlayerHasQuestSub(EVENT_FORAGE_FAILURE)) {
-			parse->EventPlayer(EVENT_FORAGE_FAILURE, this, "", 0);
-		}
+		parse->EventPlayer(EVENT_FORAGE_FAILURE, this, "", 0);
 	}
 
 	CheckIncreaseSkill(EQ::skills::SkillForage, nullptr, 5);
+
 }
+

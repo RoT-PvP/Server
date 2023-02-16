@@ -102,11 +102,10 @@ public:
 	Raid(uint32 raidID);
 	~Raid();
 
-	void SetLeader(Client* c) { leader = c; }
+	void SetLeader(Client *newLeader) { leader = newLeader; }
 	Client* GetLeader() { return leader; }
-	std::string GetLeaderName() { return leadername; }
-	bool IsLeader(Client* c) { return c == leader; }
-	bool IsLeader(const char* name) { return !strcmp(leadername, name); }
+	bool IsLeader(Client *c) { return leader==c; }
+	bool IsLeader(const char* name) { return (strcmp(leadername, name)==0); }
 	void SetRaidLeader(const char *wasLead, const char *name);
 
 	bool	Process();
@@ -119,10 +118,8 @@ public:
 	void	SetGroupLeader(const char *who, bool glFlag = true);
 	Client	*GetGroupLeader(uint32 group_id);
 	void	RemoveGroupLeader(const char *who);
-	bool	IsGroupLeader(const char* name);
-	bool	IsGroupLeader(Client *c);
-	bool	IsRaidMember(const char* name);
-	bool	IsRaidMember(Client *c);
+	bool	IsGroupLeader(const char *who);
+	bool	IsRaidMember(const char *name);
 	void	UpdateLevel(const char *name, int newLevel);
 
 	uint32	GetFreeGroup();
@@ -157,12 +154,13 @@ public:
 
 	void	RaidMessageString(Mob* sender, uint32 type, uint32 string_id, const char* message,const char* message2=0,const char* message3=0,const char* message4=0,const char* message5=0,const char* message6=0,const char* message7=0,const char* message8=0,const char* message9=0, uint32 distance = 0);
 	void	CastGroupSpell(Mob* caster,uint16 spellid, uint32 gid);
-	void	SplitExp(const uint64 exp, Mob* other);
+	void	SplitExp(uint32 exp, Mob* other);
 	uint32	GetTotalRaidDamage(Mob* other);
 	void	BalanceHP(int32 penalty, uint32 gid, float range = 0, Mob* caster = nullptr, int32 limit = 0);
 	void	BalanceMana(int32 penalty, uint32 gid,  float range = 0, Mob* caster = nullptr, int32 limit = 0);
 	void	HealGroup(uint32 heal_amt, Mob* caster, uint32 gid, float range = 0);
 	void	SplitMoney(uint32 gid, uint32 copper, uint32 silver, uint32 gold, uint32 platinum, Client *splitter = nullptr);
+	void	GroupBardPulse(Mob* caster, uint16 spellid, uint32 gid);
 
 	void	TeleportGroup(Mob* sender, uint32 zoneID, uint16 instance_id, float x, float y, float z, float heading, uint32 gid);
 	void	TeleportRaid(Mob* sender, uint32 zoneID, uint16 instance_id, float x, float y, float z, float heading);

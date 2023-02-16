@@ -22,25 +22,19 @@ Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 #include "../common/eq_packet_structs.h"
 #include "../common/races.h"
 #include "../common/spdat.h"
-#include "../common/strings.h"
-#include "../common/events/player_event_logs.h"
+#include "../common/string_util.h"
 #include "aa.h"
 #include "client.h"
 #include "corpse.h"
 #include "groups.h"
 #include "mob.h"
 #include "queryserv.h"
-#include "quest_parser_collection.h"
 #include "raids.h"
 #include "string_ids.h"
 #include "titles.h"
 #include "zonedb.h"
-#include "../common/zone_store.h"
-#include "worldserver.h"
+#include "zone_store.h"
 
-#include "bot.h"
-
-extern WorldServer worldserver;
 extern QueryServ* QServ;
 
 void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, uint32 duration_override, bool followme, bool sticktarg, uint16 *eye_id) {
@@ -56,11 +50,9 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 	// yep, even these need pet power!
 	int act_power = 0;
 
-	if (IsOfClientBot()) {
-		act_power = GetFocusEffect(focusPetPower, spell_id);
-		if (IsClient()) {
-			act_power = CastToClient()->GetFocusEffect(focusPetPower, spell_id);
-		}
+	if (IsClient()) {
+		act_power = CastToClient()->GetFocusEffect(focusPetPower, spell_id);
+		act_power = CastToClient()->mod_pet_power(act_power, spell_id);
 	}
 
 	PetRecord record;
@@ -77,10 +69,10 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 
 	for (int x = 0; x < MAX_SWARM_PETS; x++)
 	{
-		if (spells[spell_id].effect_id[x] == SE_TemporaryPets)
+		if (spells[spell_id].effectid[x] == SE_TemporaryPets)
 		{
-			pet.count = spells[spell_id].base_value[x];
-			pet.duration = spells[spell_id].max_value[x];
+			pet.count = spells[spell_id].base[x];
+			pet.duration = spells[spell_id].max[x];
 		}
 	}
 
@@ -159,14 +151,10 @@ void Mob::TemporaryPets(uint16 spell_id, Mob *targ, const char *name_override, u
 		//give the pets somebody to "love"
 		if (targ != nullptr) {
 			swarm_pet_npc->AddToHateList(targ, 1000, 1000);
-			if (RuleB(Spells, SwarmPetTargetLock) || sticktarg) {
+			if (RuleB(Spells, SwarmPetTargetLock) || sticktarg)
 				swarm_pet_npc->GetSwarmInfo()->target = targ->GetID();
-				swarm_pet_npc->SetPetTargetLockID(targ->GetID());
-				swarm_pet_npc->SetSpecialAbility(IMMUNE_AGGRO, 1);
-			}
-			else {
+			else
 				swarm_pet_npc->GetSwarmInfo()->target = 0;
-			}
 		}
 
 		//we allocated a new NPC type object, give the NPC ownership of that memory
@@ -225,7 +213,7 @@ void Mob::TypesTemporaryPets(uint32 typesid, Mob *targ, const char *name_overrid
 		glm::vec2(5, 5), glm::vec2(-5, 5), glm::vec2(5, -5), glm::vec2(-5, -5),
 		glm::vec2(10, 10), glm::vec2(-10, 10), glm::vec2(10, -10), glm::vec2(-10, -10),
 		glm::vec2(8, 8), glm::vec2(-8, 8), glm::vec2(8, -8), glm::vec2(-8, -8)
-	};
+	};;
 
 	while(summon_count > 0) {
 		int pet_duration = pet.duration;
@@ -267,14 +255,10 @@ void Mob::TypesTemporaryPets(uint32 typesid, Mob *targ, const char *name_overrid
 		if(targ != nullptr){
 			swarm_pet_npc->AddToHateList(targ, 1000, 1000);
 
-			if (RuleB(Spells, SwarmPetTargetLock) || sticktarg) {
+			if (RuleB(Spells, SwarmPetTargetLock) || sticktarg)
 				swarm_pet_npc->GetSwarmInfo()->target = targ->GetID();
-				swarm_pet_npc->SetPetTargetLockID(targ->GetID());
-				swarm_pet_npc->SetSpecialAbility(IMMUNE_AGGRO, 1);
-			}
-			else {
+			else
 				swarm_pet_npc->GetSwarmInfo()->target = 0;
-			}
 		}
 
 		//we allocated a new NPC type object, give the NPC ownership of that memory
@@ -289,85 +273,63 @@ void Mob::TypesTemporaryPets(uint32 typesid, Mob *targ, const char *name_overrid
 	delete made_npc;
 }
 
-void Mob::WakeTheDead(uint16 spell_id, Corpse *corpse_to_use, Mob *target, uint32 duration) {
+void Mob::WakeTheDead(uint16 spell_id, Mob *target, uint32 duration)
+{
+	Corpse *CorpseToUse = nullptr;
+	CorpseToUse = entity_list.GetClosestCorpse(this, nullptr);
 
-	/*
-		SPA 299 Wake The Dead, 'animateDead' should be temp pet, always spawns 1 pet from corpse, max value is duration
-		SPA 306 Wake The Dead, 'animateDead#' should be temp pet, base is amount of pets from indivual corpses, max value is duration
-		Max range for closet corpse is 250 units.
-		TODO: Should use temp pets
-	*/
-
-	if (!corpse_to_use) {
+	if(!CorpseToUse)
 		return;
-	}
 
-	SwarmPet_Struct pet;
-	pet.count = 1;
-	pet.duration = 1;
-
-	//pet.duration += GetFocusEffect(focusSwarmPetDuration, spell_id) / 1000; //TODO: Does WTD use pet focus?
-
-	pet.npc_id = WAKE_THE_DEAD_NPCTYPEID;
-
-	NPCType *made_npc = nullptr;
-
-	const NPCType *npc_type = content_db.LoadNPCTypesData(WAKE_THE_DEAD_NPCTYPEID);
-	if (npc_type == nullptr) {
-		//log write
-		LogError("Unknown npc type for 'Wake the Dead' swarm pet spell id: [{}]", spell_id);
-		Message(0, "Unable to find pet!");
-		return;
-	}
-
-	made_npc = new NPCType;
-	memcpy(made_npc, npc_type, sizeof(NPCType));
-
-	char NewName[64];
-	sprintf(NewName, "%s`s Animated Corpse", GetCleanName());
-	strcpy(made_npc->name, NewName);
-	npc_type = made_npc;
+	//assuming we have pets in our table; we take the first pet as a base type.
+	const NPCType *base_type = content_db.LoadNPCTypesData(500);
+	auto make_npc = new NPCType;
+	memcpy(make_npc, base_type, sizeof(NPCType));
 
 	//combat stats
-	made_npc->AC = ((GetLevel() * 7) + 550);
-	made_npc->ATK = GetLevel();
-	made_npc->max_dmg = (GetLevel() * 4) + 2;
-	made_npc->min_dmg = 1;
+	make_npc->AC = ((GetLevel() * 7) + 550);
+	make_npc->ATK = GetLevel();
+	make_npc->max_dmg = (GetLevel() * 4) + 2;
+	make_npc->min_dmg = 1;
 
 	//base stats
-	made_npc->current_hp = (GetLevel() * 55);
-	made_npc->max_hp = (GetLevel() * 55);
-	made_npc->STR = 85 + (GetLevel() * 3);
-	made_npc->STA = 85 + (GetLevel() * 3);
-	made_npc->DEX = 85 + (GetLevel() * 3);
-	made_npc->AGI = 85 + (GetLevel() * 3);
-	made_npc->INT = 85 + (GetLevel() * 3);
-	made_npc->WIS = 85 + (GetLevel() * 3);
-	made_npc->CHA = 85 + (GetLevel() * 3);
-	made_npc->MR = 25;
-	made_npc->FR = 25;
-	made_npc->CR = 25;
-	made_npc->DR = 25;
-	made_npc->PR = 25;
+	make_npc->current_hp = (GetLevel() * 55);
+	make_npc->max_hp = (GetLevel() * 55);
+	make_npc->STR = 85 + (GetLevel() * 3);
+	make_npc->STA = 85 + (GetLevel() * 3);
+	make_npc->DEX = 85 + (GetLevel() * 3);
+	make_npc->AGI = 85 + (GetLevel() * 3);
+	make_npc->INT = 85 + (GetLevel() * 3);
+	make_npc->WIS = 85 + (GetLevel() * 3);
+	make_npc->CHA = 85 + (GetLevel() * 3);
+	make_npc->MR = 25;
+	make_npc->FR = 25;
+	make_npc->CR = 25;
+	make_npc->DR = 25;
+	make_npc->PR = 25;
 
 	//level class and gender
-	made_npc->level = GetLevel();
-	made_npc->class_ = corpse_to_use->class_;
-	made_npc->race = corpse_to_use->race;
-	made_npc->gender = corpse_to_use->gender;
-	made_npc->loottable_id = 0;
+	make_npc->level = GetLevel();
+	make_npc->class_ = CorpseToUse->class_;
+	make_npc->race = CorpseToUse->race;
+	make_npc->gender = CorpseToUse->gender;
+	make_npc->loottable_id = 0;
+	//name
+	char NewName[64];
+	sprintf(NewName, "%s`s Animated Corpse", GetCleanName());
+	strcpy(make_npc->name, NewName);
 
 	//appearance
-	made_npc->beard = corpse_to_use->beard;
-	made_npc->beardcolor = corpse_to_use->beardcolor;
-	made_npc->eyecolor1 = corpse_to_use->eyecolor1;
-	made_npc->eyecolor2 = corpse_to_use->eyecolor2;
-	made_npc->haircolor = corpse_to_use->haircolor;
-	made_npc->hairstyle = corpse_to_use->hairstyle;
-	made_npc->helmtexture = corpse_to_use->helmtexture;
-	made_npc->luclinface = corpse_to_use->luclinface;
-	made_npc->size = corpse_to_use->size;
-	made_npc->texture = corpse_to_use->texture;
+	make_npc->beard = CorpseToUse->beard;
+	make_npc->beardcolor = CorpseToUse->beardcolor;
+	make_npc->eyecolor1 = CorpseToUse->eyecolor1;
+	make_npc->eyecolor2 = CorpseToUse->eyecolor2;
+	make_npc->haircolor = CorpseToUse->haircolor;
+	make_npc->hairstyle = CorpseToUse->hairstyle;
+	make_npc->helmtexture = CorpseToUse->helmtexture;
+	make_npc->luclinface = CorpseToUse->luclinface;
+	make_npc->size = CorpseToUse->size;
+	make_npc->texture = CorpseToUse->texture;
 
 	//cast stuff.. based off of PEQ's if you want to change
 	//it you'll have to mod this code, but most likely
@@ -375,144 +337,130 @@ void Mob::WakeTheDead(uint16 spell_id, Corpse *corpse_to_use, Mob *target, uint3
 	//part of their spell list; can't think of any smooth
 	//way to do this
 	//some basic combat mods here too since it's convienent
-	switch (corpse_to_use->class_)
+	switch(CorpseToUse->class_)
 	{
 	case CLERIC:
-		made_npc->npc_spells_id = 1;
+		make_npc->npc_spells_id = 1;
 		break;
 	case WIZARD:
-		made_npc->npc_spells_id = 2;
+		make_npc->npc_spells_id = 2;
 		break;
 	case NECROMANCER:
-		made_npc->npc_spells_id = 3;
+		make_npc->npc_spells_id = 3;
 		break;
 	case MAGICIAN:
-		made_npc->npc_spells_id = 4;
+		make_npc->npc_spells_id = 4;
 		break;
 	case ENCHANTER:
-		made_npc->npc_spells_id = 5;
+		make_npc->npc_spells_id = 5;
 		break;
 	case SHAMAN:
-		made_npc->npc_spells_id = 6;
+		make_npc->npc_spells_id = 6;
 		break;
 	case DRUID:
-		made_npc->npc_spells_id = 7;
+		make_npc->npc_spells_id = 7;
 		break;
 	case PALADIN:
 		//SPECATK_TRIPLE
-		strcpy(made_npc->special_abilities, "6,1");
-		made_npc->current_hp = made_npc->current_hp * 150 / 100;
-		made_npc->max_hp = made_npc->max_hp * 150 / 100;
-		made_npc->npc_spells_id = 8;
+		strcpy(make_npc->special_abilities, "6,1");
+		make_npc->current_hp = make_npc->current_hp * 150 / 100;
+		make_npc->max_hp = make_npc->max_hp * 150 / 100;
+		make_npc->npc_spells_id = 8;
 		break;
 	case SHADOWKNIGHT:
-		strcpy(made_npc->special_abilities, "6,1");
-		made_npc->current_hp = made_npc->current_hp * 150 / 100;
-		made_npc->max_hp = made_npc->max_hp * 150 / 100;
-		made_npc->npc_spells_id = 9;
+		strcpy(make_npc->special_abilities, "6,1");
+		make_npc->current_hp = make_npc->current_hp * 150 / 100;
+		make_npc->max_hp = make_npc->max_hp * 150 / 100;
+		make_npc->npc_spells_id = 9;
 		break;
 	case RANGER:
-		strcpy(made_npc->special_abilities, "7,1");
-		made_npc->current_hp = made_npc->current_hp * 135 / 100;
-		made_npc->max_hp = made_npc->max_hp * 135 / 100;
-		made_npc->npc_spells_id = 10;
+		strcpy(make_npc->special_abilities, "7,1");
+		make_npc->current_hp = make_npc->current_hp * 135 / 100;
+		make_npc->max_hp = make_npc->max_hp * 135 / 100;
+		make_npc->npc_spells_id = 10;
 		break;
 	case BARD:
-		strcpy(made_npc->special_abilities, "6,1");
-		made_npc->current_hp = made_npc->current_hp * 110 / 100;
-		made_npc->max_hp = made_npc->max_hp * 110 / 100;
-		made_npc->npc_spells_id = 11;
+		strcpy(make_npc->special_abilities, "6,1");
+		make_npc->current_hp = make_npc->current_hp * 110 / 100;
+		make_npc->max_hp = make_npc->max_hp * 110 / 100;
+		make_npc->npc_spells_id = 11;
 		break;
 	case BEASTLORD:
-		strcpy(made_npc->special_abilities, "7,1");
-		made_npc->current_hp = made_npc->current_hp * 110 / 100;
-		made_npc->max_hp = made_npc->max_hp * 110 / 100;
-		made_npc->npc_spells_id = 12;
+		strcpy(make_npc->special_abilities, "7,1");
+		make_npc->current_hp = make_npc->current_hp * 110 / 100;
+		make_npc->max_hp = make_npc->max_hp * 110 / 100;
+		make_npc->npc_spells_id = 12;
 		break;
 	case ROGUE:
-		strcpy(made_npc->special_abilities, "7,1");
-		made_npc->max_dmg = made_npc->max_dmg * 150 / 100;
-		made_npc->current_hp = made_npc->current_hp * 110 / 100;
-		made_npc->max_hp = made_npc->max_hp * 110 / 100;
+		strcpy(make_npc->special_abilities, "7,1");
+		make_npc->max_dmg = make_npc->max_dmg * 150 /100;
+		make_npc->current_hp = make_npc->current_hp * 110 / 100;
+		make_npc->max_hp = make_npc->max_hp * 110 / 100;
 		break;
 	case MONK:
-		strcpy(made_npc->special_abilities, "7,1");
-		made_npc->max_dmg = made_npc->max_dmg * 150 / 100;
-		made_npc->current_hp = made_npc->current_hp * 135 / 100;
-		made_npc->max_hp = made_npc->max_hp * 135 / 100;
+		strcpy(make_npc->special_abilities, "7,1");
+		make_npc->max_dmg = make_npc->max_dmg * 150 /100;
+		make_npc->current_hp = make_npc->current_hp * 135 / 100;
+		make_npc->max_hp = make_npc->max_hp * 135 / 100;
 		break;
 	case WARRIOR:
 	case BERSERKER:
-		strcpy(made_npc->special_abilities, "7,1");
-		made_npc->max_dmg = made_npc->max_dmg * 150 / 100;
-		made_npc->current_hp = made_npc->current_hp * 175 / 100;
-		made_npc->max_hp = made_npc->max_hp * 175 / 100;
+		strcpy(make_npc->special_abilities, "7,1");
+		make_npc->max_dmg = make_npc->max_dmg * 150 /100;
+		make_npc->current_hp = make_npc->current_hp * 175 / 100;
+		make_npc->max_hp = make_npc->max_hp * 175 / 100;
 		break;
 	default:
-		made_npc->npc_spells_id = 0;
+		make_npc->npc_spells_id = 0;
 		break;
 	}
 
-	made_npc->loottable_id = 0;
-	made_npc->merchanttype = 0;
-	made_npc->d_melee_texture1 = 0;
-	made_npc->d_melee_texture2 = 0;
+	make_npc->loottable_id = 0;
+	make_npc->merchanttype = 0;
+	make_npc->d_melee_texture1 = 0;
+	make_npc->d_melee_texture2 = 0;
 
+	auto npca = new NPC(make_npc, 0, GetPosition(), GravityBehavior::Water);
 
-	int summon_count = 0;
-	summon_count = pet.count;
-
-	NPC* swarm_pet_npc = nullptr;
-	//TODO: potenitally add support for multiple pets per corpse
-	while (summon_count > 0) {
-		int pet_duration = duration;
-
-		NPCType *npc_dup = nullptr;
-		if (made_npc != nullptr) {
-			npc_dup = new NPCType;
-			memcpy(npc_dup, made_npc, sizeof(NPCType));
-		}
-
-		swarm_pet_npc = new NPC(
-			(npc_dup != nullptr) ? npc_dup : npc_type,
-			0, corpse_to_use->GetPosition(),GravityBehavior::Water);
-
-		swarm_pet_npc->SetFollowID(GetID());
-
-		if (!swarm_pet_npc->GetSwarmInfo()) {
-			auto nSI = new SwarmPet;
-			swarm_pet_npc->SetSwarmInfo(nSI);
-			swarm_pet_npc->GetSwarmInfo()->duration = new Timer(pet_duration * 1000);
-		}
-		else {
-			swarm_pet_npc->GetSwarmInfo()->duration->Start(pet_duration * 1000);
-		}
-
-		swarm_pet_npc->StartSwarmTimer(pet_duration * 1000);
-
-		//removing this prevents the pet from attacking
-		swarm_pet_npc->GetSwarmInfo()->owner_id = GetID();
-
-		//give the pets somebody to "love"
-		if (target != nullptr) {
-			swarm_pet_npc->AddToHateList(target, 10000, 1000);
-			swarm_pet_npc->GetSwarmInfo()->target = 0;
-		}
-
-		//we allocated a new NPC type object, give the NPC ownership of that memory
-		if (npc_dup != nullptr)
-			swarm_pet_npc->GiveNPCTypeData(npc_dup);
-
-		entity_list.AddNPC(swarm_pet_npc, true, true);
-		summon_count--;
+	if(!npca->GetSwarmInfo()){
+		auto nSI = new SwarmPet;
+		npca->SetSwarmInfo(nSI);
+		npca->GetSwarmInfo()->duration = new Timer(duration*1000);
+	}
+	else{
+		npca->GetSwarmInfo()->duration->Start(duration*1000);
 	}
 
-	//the target of these swarm pets will take offense to being cast on...
-	if (target != nullptr)
-		target->AddToHateList(this, 1, 0);
+	npca->StartSwarmTimer(duration * 1000);
+	npca->GetSwarmInfo()->owner_id = GetID();
 
-	// The other pointers we make are handled elsewhere.
-	delete made_npc;
+	//give the pet somebody to "love"
+	if(target != nullptr){
+		npca->AddToHateList(target, 100000);
+		npca->GetSwarmInfo()->target = target->GetID();
+	}
+
+	//gear stuff, need to make sure there's
+	//no situation where this stuff can be duped
+	for (int x = EQ::invslot::EQUIPMENT_BEGIN; x <= EQ::invslot::EQUIPMENT_END; x++)
+	{
+		uint32 sitem = 0;
+		sitem = CorpseToUse->GetWornItem(x);
+		if(sitem){
+			const EQ::ItemData * itm = database.GetItem(sitem);
+			npca->AddLootDrop(itm, &npca->itemlist, NPC::NewLootDropEntry(), true);
+		}
+	}
+
+	//we allocated a new NPC type object, give the NPC ownership of that memory
+	if(make_npc != nullptr)
+		npca->GiveNPCTypeData(make_npc);
+
+	entity_list.AddNPC(npca, true, true);
+
+	//the target of these swarm pets will take offense to being cast on...
+	if(target != nullptr)
+		target->AddToHateList(this, 1, 0);
 }
 
 void Client::ResetAA() {
@@ -545,25 +493,14 @@ void Client::ResetAA() {
 	m_pp.group_leadership_exp = 0;
 	m_pp.raid_leadership_exp = 0;
 
-	database.DeleteCharacterAAs(CharacterID());
 	database.DeleteCharacterLeadershipAAs(CharacterID());
 }
 
 void Client::SendClearAA()
 {
-	SendClearLeadershipAA();
-	SendClearPlayerAA();
-}
-
-void Client::SendClearPlayerAA()
-{
-	auto outapp = new EQApplicationPacket(OP_ClearAA, 0);
-	FastQueuePacket(&outapp);
-}
-
-void Client::SendClearLeadershipAA()
-{
 	auto outapp = new EQApplicationPacket(OP_ClearLeadershipAbilities, 0);
+	FastQueuePacket(&outapp);
+	outapp = new EQApplicationPacket(OP_ClearAA, 0);
 	FastQueuePacket(&outapp);
 }
 
@@ -827,7 +764,7 @@ void Client::InspectBuffs(Client* Inspector, int Rank)
 			continue;
 		ib->spell_id[packet_index] = buffs[i].spellid;
 		if (Rank > 1)
-			ib->tics_remaining[packet_index] = spells[buffs[i].spellid].buff_duration_formula == DF_Permanent ? 0xFFFFFFFF : buffs[i].ticsremaining;
+			ib->tics_remaining[packet_index] = spells[buffs[i].spellid].buffdurationformula == DF_Permanent ? 0xFFFFFFFF : buffs[i].ticsremaining;
 		packet_index++;
 	}
 
@@ -967,8 +904,8 @@ void Client::SendAlternateAdvancementRank(int aa_id, int level) {
 	outapp->SetWritePosition(sizeof(AARankInfo_Struct));
 	for(auto &effect : rank->effects) {
 		outapp->WriteSInt32(effect.effect_id);
-		outapp->WriteSInt32(effect.base_value);
-		outapp->WriteSInt32(effect.limit_value);
+		outapp->WriteSInt32(effect.base1);
+		outapp->WriteSInt32(effect.base2);
 		outapp->WriteSInt32(effect.slot);
 	}
 
@@ -1146,108 +1083,65 @@ bool Client::GrantAlternateAdvancementAbility(int aa_id, int points, bool ignore
 }
 
 void Client::FinishAlternateAdvancementPurchase(AA::Rank *rank, bool ignore_cost) {
-	auto rank_id = rank->base_ability->first_rank_id;
+	int rank_id = rank->base_ability->first_rank_id;
 
-	if (rank->base_ability->charges) {
+	if(rank->base_ability->charges > 0) {
 		uint32 charges = 0;
 		GetAA(rank_id, &charges);
 
-		if (charges) {
+		if(charges > 0) {
 			return;
 		}
 
 		SetAA(rank_id, rank->current_value, rank->base_ability->charges);
-	} else {
+	}
+	else {
 		SetAA(rank_id, rank->current_value, 0);
 
 		//if not max then send next aa
-		if (rank->next) {
+		if(rank->next) {
 			SendAlternateAdvancementRank(rank->base_ability->id, rank->next->current_value);
 		}
 	}
 
-	auto cost = !ignore_cost ? rank->cost : 0;
+	int cost = !ignore_cost ? rank->cost : 0;
 
-	m_pp.aapoints -= static_cast<uint32>(cost);
+	m_pp.aapoints -= cost ;
 	SaveAA();
 
 	SendAlternateAdvancementPoints();
 	SendAlternateAdvancementStats();
 
-	if (player_event_logs.IsEventEnabled(PlayerEvent::AA_PURCHASE)) {
-		auto e = PlayerEvent::AAPurchasedEvent{
-			.aa_id = rank->id,
-			.aa_cost = cost,
-			.aa_previous_id = rank->prev_id,
-			.aa_next_id = rank->next_id
-		};
-
-		RecordPlayerEventLog(PlayerEvent::AA_PURCHASE, e);
-	}
-
-	if (rank->prev) {
-		MessageString(
-			Chat::Yellow,
-			AA_IMPROVE,
-			std::to_string(rank->title_sid).c_str(),
-			std::to_string(rank->prev->current_value).c_str(),
-			std::to_string(cost).c_str(),
-			cost == 1 ? std::to_string(AA_POINT).c_str() : std::to_string(AA_POINTS).c_str()
-		);
+	if(rank->prev) {
+		MessageString(Chat::Yellow, AA_IMPROVE,
+						 std::to_string(rank->title_sid).c_str(),
+						 std::to_string(rank->prev->current_value).c_str(),
+						 std::to_string(cost).c_str(),
+						 cost == 1 ? std::to_string(AA_POINT).c_str() : std::to_string(AA_POINTS).c_str());
 
 		/* QS: Player_Log_AA_Purchases */
-		if (RuleB(QueryServ, PlayerLogAAPurchases)) {
-			const auto event_desc = fmt::format(
-				"Ranked AA Purchase :: aa_id:{} at cost:{} in zoneid:{} instid:{}",
-				rank->id,
-				cost,
-				GetZoneID(),
-				GetInstanceID()
-			);
-
-			QServ->PlayerLogEvent(Player_Log_AA_Purchases, CharacterID(), event_desc);
-		}
-	} else {
-		MessageString(
-			Chat::Yellow,
-			AA_GAIN_ABILITY,
-			std::to_string(rank->title_sid).c_str(),
-			std::to_string(cost).c_str(),
-			cost == 1 ? std::to_string(AA_POINT).c_str() : std::to_string(AA_POINTS).c_str()
-		);
-
-		/* QS: Player_Log_AA_Purchases */
-		if (RuleB(QueryServ, PlayerLogAAPurchases)) {
-			const auto event_desc = fmt::format(
-				"Initial AA Purchase :: aa_id:{} at cost:{} in zoneid:{} instid:{}",
-				rank->id,
-				cost,
-				GetZoneID(),
-				GetInstanceID()
-			);
-
+		if(RuleB(QueryServ, PlayerLogAAPurchases)) {
+			std::string event_desc = StringFormat("Ranked AA Purchase :: aa_id:%i at cost:%i in zoneid:%i instid:%i", rank->id, cost, GetZoneID(), GetInstanceID());
 			QServ->PlayerLogEvent(Player_Log_AA_Purchases, CharacterID(), event_desc);
 		}
 	}
-
-	if (parse->PlayerHasQuestSub(EVENT_AA_BUY)) {
-		const auto& export_string = fmt::format(
-			"{} {} {} {}",
-			cost,
-			rank->id,
-			rank->prev_id,
-			rank->next_id
-		);
-
-		parse->EventPlayer(EVENT_AA_BUY, this, export_string, 0);
+	else {
+		MessageString(Chat::Yellow, AA_GAIN_ABILITY,
+						 std::to_string(rank->title_sid).c_str(),
+						 std::to_string(cost).c_str(),
+						 cost == 1 ? std::to_string(AA_POINT).c_str() : std::to_string(AA_POINTS).c_str());
+		/* QS: Player_Log_AA_Purchases */
+		if(RuleB(QueryServ, PlayerLogAAPurchases)) {
+			std::string event_desc = StringFormat("Initial AA Purchase :: aa_id:%i at cost:%i in zoneid:%i instid:%i", rank->id, cost, GetZoneID(), GetInstanceID());
+			QServ->PlayerLogEvent(Player_Log_AA_Purchases, CharacterID(), event_desc);
+		}
 	}
 
 	CalcBonuses();
 
-	if (cost) {
-		if (title_manager.IsNewAATitleAvailable(m_pp.aapoints_spent, GetBaseClass())) {
+	if(cost > 0) {
+		if(title_manager.IsNewAATitleAvailable(m_pp.aapoints_spent, GetBaseClass()))
 			NotifyNewTitlesAvailable();
-		}
 	}
 }
 
@@ -1269,27 +1163,27 @@ void Client::IncrementAlternateAdvancementRank(int rank_id) {
 void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 	AA::Rank *rank = zone->GetAlternateAdvancementRank(rank_id);
 
-	if (!rank) {
+	if(!rank) {
 		return;
 	}
 
 	AA::Ability *ability = rank->base_ability;
-	if (!ability) {
+	if(!ability) {
 		return;
 	}
 
-	if (!IsValidSpell(rank->spell)) {
+	if(!IsValidSpell(rank->spell)) {
 		return;
 	}
 
-	if (!CanUseAlternateAdvancementRank(rank)) {
+	if(!CanUseAlternateAdvancementRank(rank)) {
 		return;
 	}
-
+	
 	bool use_toggle_passive_hotkey = UseTogglePassiveHotkey(*rank);
 
 	//make sure it is not a passive
-	if (!rank->effects.empty() && !use_toggle_passive_hotkey) {
+	if(!rank->effects.empty() && !use_toggle_passive_hotkey) {
 		return;
 	}
 
@@ -1298,23 +1192,23 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 	if (!GetAA(rank_id, &charges))
 		return;
 	//if expendable make sure we have charges
-	if (ability->charges > 0 && charges < 1)
+	if(ability->charges > 0 && charges < 1)
 		return;
 
 	//check cooldown
-	if (!p_timers.Expired(&database, rank->spell_type + pTimerAAStart, false)) {
+	if(!p_timers.Expired(&database, rank->spell_type + pTimerAAStart, false)) {
 		uint32 aaremain = p_timers.GetRemainingTime(rank->spell_type + pTimerAAStart);
 		uint32 aaremain_hr = aaremain / (60 * 60);
 		uint32 aaremain_min = (aaremain / 60) % 60;
 		uint32 aaremain_sec = aaremain % 60;
 
-		if (aaremain_hr >= 1) {
+		if(aaremain_hr >= 1) {
 			Message(Chat::Red, "You can use this ability again in %u hour(s) %u minute(s) %u seconds",
-				aaremain_hr, aaremain_min, aaremain_sec);
+			aaremain_hr, aaremain_min, aaremain_sec);
 		}
 		else {
 			Message(Chat::Red, "You can use this ability again in %u minute(s) %u seconds",
-				aaremain_min, aaremain_sec);
+			aaremain_min, aaremain_sec);
 		}
 
 		return;
@@ -1327,9 +1221,9 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 	}
 
 	//calculate cooldown
-	int timer_duration = rank->recast_time - GetAlternateAdvancementCooldownReduction(rank);
-	if (timer_duration < 0) {
-		timer_duration = 0;
+	int cooldown = rank->recast_time - GetAlternateAdvancementCooldownReduction(rank);
+	if(cooldown < 0) {
+		cooldown = 0;
 	}
 
 	if (!IsCastWhileInvis(rank->spell))
@@ -1341,11 +1235,11 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 	}
 	//
 	// Modern clients don't require pet targeted for AA casts that are ST_Pet
-	if (spells[rank->spell].target_type == ST_Pet || spells[rank->spell].target_type == ST_SummonedPet)
+	if (spells[rank->spell].targettype == ST_Pet || spells[rank->spell].targettype == ST_SummonedPet)
 		target_id = GetPetID();
 
 	// extra handling for cast_not_standing spells
-	if (!IgnoreCastingRestriction(rank->spell)) {
+	if (!spells[rank->spell].cast_not_standing) {
 		if (GetAppearance() == eaSitting) // we need to stand!
 			SetAppearance(eaStanding, false);
 
@@ -1359,23 +1253,22 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 		TogglePassiveAlternativeAdvancement(*rank, ability->id);
 	}
 	else {
-		// Bards can cast instant cast AAs while they are casting or channeling item cast.
-		if (GetClass() == BARD && IsCasting() && spells[rank->spell].cast_time == 0) {
-			if (!DoCastingChecksOnCaster(rank->spell, EQ::spells::CastingSlot::AltAbility)) {
+		// Bards can cast instant cast AAs while they are casting another song
+		if (spells[rank->spell].cast_time == 0 && GetClass() == BARD && IsBardSong(casting_spell_id)) {
+			if (!SpellFinished(rank->spell, entity_list.GetMob(target_id), EQ::spells::CastingSlot::AltAbility, spells[rank->spell].mana, -1, spells[rank->spell].ResistDiff, false)) {
 				return;
 			}
-
-			if (!SpellFinished(rank->spell, entity_list.GetMob(target_id), EQ::spells::CastingSlot::AltAbility, spells[rank->spell].mana, -1, spells[rank->spell].resist_difficulty, false, -1,
-				rank->spell_type + pTimerAAStart, timer_duration, false, rank->id)) {
-				return;
-			}
+			ExpendAlternateAdvancementCharge(ability->id);
 		}
 		else {
-			if (!CastSpell(rank->spell, target_id, EQ::spells::CastingSlot::AltAbility, -1, -1, 0, -1, rank->spell_type + pTimerAAStart, timer_duration, nullptr, rank->id)) {
+			if (!CastSpell(rank->spell, target_id, EQ::spells::CastingSlot::AltAbility, -1, -1, 0, -1, rank->spell_type + pTimerAAStart, cooldown, nullptr, rank->id)) {
 				return;
 			}
 		}
 	}
+
+	CastToClient()->GetPTimers().Start(rank->spell_type + pTimerAAStart, cooldown);
+	SendAlternateAdvancementTimer(rank->spell_type, 0, 0);
 }
 
 int Mob::GetAlternateAdvancementCooldownReduction(AA::Rank *rank_in) {
@@ -1388,7 +1281,6 @@ int Mob::GetAlternateAdvancementCooldownReduction(AA::Rank *rank_in) {
 		return 0;
 	}
 
-	int total_reduction = 0;
 	for(auto &aa : aa_ranks) {
 		auto ability_rank = zone->GetAlternateAdvancementAbilityAndRank(aa.first, aa.second.first);
 		auto ability = ability_rank.first;
@@ -1399,13 +1291,13 @@ int Mob::GetAlternateAdvancementCooldownReduction(AA::Rank *rank_in) {
 		}
 
 		for(auto &effect : rank->effects) {
-			if(effect.effect_id == SE_HastenedAASkill && effect.limit_value == ability_in->id) {
-				total_reduction += effect.base_value;
+			if(effect.effect_id == SE_HastenedAASkill && effect.base2 == ability_in->id) {
+				return effect.base1;
 			}
 		}
 	}
 
-	return total_reduction;
+	return 0;
 }
 
 void Mob::ExpendAlternateAdvancementCharge(uint32 aa_id) {
@@ -1610,11 +1502,13 @@ bool Mob::CanUseAlternateAdvancementRank(AA::Rank *rank) {
 			return false;
 		}
 	}
+#ifdef BOTS
 	else if (IsBot()) {
-		if (rank->expansion && !(CastToBot()->GetExpansionBitmask() & (1 << (rank->expansion - 1)))) {
+		if (rank->expansion && !(RuleI(Bots, BotExpansionSettings) & (1 << (rank->expansion - 1)))) {
 			return false;
 		}
 	}
+#endif
 	else {
 		if (rank->expansion && !(RuleI(World, ExpansionSettings) & (1 << (rank->expansion - 1)))) {
 			return false;
@@ -1712,6 +1606,7 @@ bool Mob::CanPurchaseAlternateAdvancementRank(AA::Rank *rank, bool check_price, 
 }
 
 void Zone::LoadAlternateAdvancement() {
+	LogInfo("Loading Alternate Advancement Data");
 	if(!content_db.LoadAlternateAdvancementAbilities(aa_abilities,
 		aa_ranks))
 	{
@@ -1721,6 +1616,7 @@ void Zone::LoadAlternateAdvancement() {
 		return;
 	}
 
+	LogInfo("Processing Alternate Advancement Data");
 	for(const auto &ability : aa_abilities) {
 		ability.second->first = GetAlternateAdvancementRank(ability.second->first_rank_id);
 
@@ -1770,11 +1666,14 @@ void Zone::LoadAlternateAdvancement() {
 			current = current->next;
 		}
 	}
+
+	LogInfo("Loaded Alternate Advancement Data");
 }
 
 bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std::unique_ptr<AA::Ability>> &abilities,
 													std::unordered_map<int, std::unique_ptr<AA::Rank>> &ranks)
 {
+	LogInfo("Loading Alternate Advancement Abilities");
 	abilities.clear();
 	std::string query = "SELECT id, name, category, classes, races, deities, drakkin_heritage, status, type, charges, "
 		"grant_only, reset_on_death, first_rank_id FROM aa_ability WHERE enabled = 1";
@@ -1805,18 +1704,12 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 		return false;
 	}
 
-	LogInfo("Loaded [{}] Alternate Advancement Abilities", Strings::Commify((int)abilities.size()));
-	int expansion = RuleI(Expansion, CurrentExpansion);
-	bool use_expansion_aa = RuleB(Expansion, UseCurrentExpansionAAOnly);
+	LogInfo("Loaded [{}] Alternate Advancement Abilities", (int)abilities.size());
 
+	LogInfo("Loading Alternate Advancement Ability Ranks");
 	ranks.clear();
-	if (use_expansion_aa && expansion >= 0) {
-		query = fmt::format("SELECT id, upper_hotkey_sid, lower_hotkey_sid, title_sid, desc_sid, cost, level_req, spell, spell_type, recast_time, "
-		"next_id, expansion FROM aa_ranks WHERE expansion <= {}", expansion);
-	} else {
-		query = "SELECT id, upper_hotkey_sid, lower_hotkey_sid, title_sid, desc_sid, cost, level_req, spell, spell_type, recast_time, "
+	query = "SELECT id, upper_hotkey_sid, lower_hotkey_sid, title_sid, desc_sid, cost, level_req, spell, spell_type, recast_time, "
 		"next_id, expansion FROM aa_ranks";
-	}
 	results = QueryDatabase(query);
 	if(results.Success()) {
 		for(auto row = results.begin(); row != results.end(); ++row) {
@@ -1846,8 +1739,9 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 		return false;
 	}
 
-	LogInfo("Loaded [{}] Alternate Advancement Ability Ranks", Strings::Commify((int)ranks.size()));
+	LogInfo("Loaded [{}] Alternate Advancement Ability Ranks", (int)ranks.size());
 
+	LogInfo("Loading Alternate Advancement Ability Rank Effects");
 	query = "SELECT rank_id, slot, effect_id, base1, base2 FROM aa_rank_effects";
 	results = QueryDatabase(query);
 	if(results.Success()) {
@@ -1856,8 +1750,8 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 			int rank_id = atoi(row[0]);
 			effect.slot = atoi(row[1]);
 			effect.effect_id = atoi(row[2]);
-			effect.base_value = atoi(row[3]);
-			effect.limit_value = atoi(row[4]);
+			effect.base1 = atoi(row[3]);
+			effect.base2 = atoi(row[4]);
 
 			if(effect.slot < 1)
 				continue;
@@ -1872,8 +1766,9 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 		return false;
 	}
 
-	LogInfo("Loaded [{}] Alternate Advancement Ability Rank Effects", Strings::Commify(results.RowCount()));
+	LogInfo("Loaded Alternate Advancement Ability Rank Effects");
 
+	LogInfo("Loading Alternate Advancement Ability Rank Prereqs");
 	query = "SELECT rank_id, aa_id, points FROM aa_rank_prereqs";
 	results = QueryDatabase(query);
 	if(results.Success()) {
@@ -1896,7 +1791,7 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 		return false;
 	}
 
-	LogInfo("Loaded [{}] Alternate Advancement Ability Rank Prereqs", Strings::Commify(results.RowCount()));
+	LogInfo("Loaded Alternate Advancement Ability Rank Prereqs");
 
 	return true;
 }
@@ -1966,9 +1861,9 @@ void Client::TogglePassiveAlternativeAdvancement(const AA::Rank &rank, uint32 ab
 		//Enable
 		TogglePurchaseAlternativeAdvancementRank(rank.next_id);
 		Message(Chat::Spells, "You enable an ability."); //Message live gives you. Should come from spell.
-
+		
 		AA::Rank *rank_next = zone->GetAlternateAdvancementRank(rank.next_id);
-
+		
 		//Add checks for any special cases for toggle.
 		if (IsEffectinAlternateAdvancementRankEffects(*rank_next, SE_Weapon_Stance)) {
 			weaponstance.aabonus_enabled = true;
@@ -2029,7 +1924,7 @@ bool Client::IsEffectinAlternateAdvancementRankEffects(const AA::Rank &rank, int
 }
 
 void Client::ResetAlternateAdvancementRank(uint32 aa_id) {
-
+	
 	/*
 		Resets your AA to baseline
 	*/
@@ -2049,7 +1944,7 @@ void Client::ResetAlternateAdvancementRank(uint32 aa_id) {
 }
 
 void Client::TogglePurchaseAlternativeAdvancementRank(int rank_id){
-
+	
 	/*
 		Stripped down version of purchasing AA. Will give no messages.
 		Used with toggle hotkey functions.

@@ -1,4 +1,25 @@
 /**
+ * EQEmulator: Everquest Server Emulator
+ * Copyright (C) 2001-2020 EQEmulator Development Team (https://github.com/EQEmu/Server)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY except by those people which sell it, which
+ * are required to give you total support for your newly bought product;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *
+ *
+ */
+
+/**
  * This repository was automatically generated and is NOT to be modified directly.
  * Any repository modifications are meant to be made to
  * the repository extending the base. Any modifications to base repositories are to
@@ -9,7 +30,7 @@
 #define EQEMU_BASE_LAUNCHER_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
+#include "../../string_util.h"
 
 class BaseLauncherRepository {
 public:
@@ -33,7 +54,7 @@ public:
 
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string InsertColumnsRaw()
@@ -48,7 +69,7 @@ public:
 			insert_columns.push_back(column);
 		}
 
-		return std::string(Strings::Implode(", ", insert_columns));
+		return std::string(implode(", ", insert_columns));
 	}
 
 	static std::string TableName()
@@ -147,14 +168,14 @@ public:
 
 		auto columns = Columns();
 
-		update_values.push_back(columns[0] + " = '" + Strings::Escape(launcher_entry.name) + "'");
+		update_values.push_back(columns[0] + " = '" + EscapeString(launcher_entry.name) + "'");
 		update_values.push_back(columns[1] + " = " + std::to_string(launcher_entry.dynamics));
 
 		auto results = database.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", update_values),
+				implode(", ", update_values),
 				PrimaryKey(),
 				launcher_entry.name
 			)
@@ -169,14 +190,14 @@ public:
 	{
 		std::vector<std::string> insert_values;
 
-		insert_values.push_back("'" + Strings::Escape(launcher_entry.name) + "'");
+		insert_values.push_back("'" + EscapeString(launcher_entry.name) + "'");
 		insert_values.push_back(std::to_string(launcher_entry.dynamics));
 
 		auto results = database.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", insert_values)
+				implode(",", insert_values)
 			)
 		);
 
@@ -199,10 +220,10 @@ public:
 		for (auto &launcher_entry: launcher_entries) {
 			std::vector<std::string> insert_values;
 
-			insert_values.push_back("'" + Strings::Escape(launcher_entry.name) + "'");
+			insert_values.push_back("'" + EscapeString(launcher_entry.name) + "'");
 			insert_values.push_back(std::to_string(launcher_entry.dynamics));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", insert_values) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
 		std::vector<std::string> insert_values;
@@ -211,7 +232,7 @@ public:
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 

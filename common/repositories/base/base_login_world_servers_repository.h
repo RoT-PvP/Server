@@ -13,21 +13,20 @@
 #define EQEMU_BASE_LOGIN_WORLD_SERVERS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseLoginWorldServersRepository {
 public:
 	struct LoginWorldServers {
-		uint32_t    id;
+		int         id;
 		std::string long_name;
 		std::string short_name;
 		std::string tag_description;
-		int32_t     login_server_list_type_id;
-		time_t      last_login_date;
+		int         login_server_list_type_id;
+		std::string last_login_date;
 		std::string last_ip_address;
-		int32_t     login_server_admin_id;
-		int32_t     is_server_trusted;
+		int         login_server_admin_id;
+		int         is_server_trusted;
 		std::string note;
 	};
 
@@ -52,30 +51,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"long_name",
-			"short_name",
-			"tag_description",
-			"login_server_list_type_id",
-			"UNIX_TIMESTAMP(last_login_date)",
-			"last_ip_address",
-			"login_server_admin_id",
-			"is_server_trusted",
-			"note",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -87,7 +65,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -103,23 +81,23 @@ public:
 
 	static LoginWorldServers NewEntity()
 	{
-		LoginWorldServers e{};
+		LoginWorldServers entry{};
 
-		e.id                        = 0;
-		e.long_name                 = "";
-		e.short_name                = "";
-		e.tag_description           = "";
-		e.login_server_list_type_id = 0;
-		e.last_login_date           = 0;
-		e.last_ip_address           = "";
-		e.login_server_admin_id     = 0;
-		e.is_server_trusted         = 0;
-		e.note                      = "";
+		entry.id                        = 0;
+		entry.long_name                 = "";
+		entry.short_name                = "";
+		entry.tag_description           = "";
+		entry.login_server_list_type_id = 0;
+		entry.last_login_date           = "";
+		entry.last_ip_address           = "";
+		entry.login_server_admin_id     = 0;
+		entry.is_server_trusted         = 0;
+		entry.note                      = "";
 
-		return e;
+		return entry;
 	}
 
-	static LoginWorldServers GetLoginWorldServers(
+	static LoginWorldServers GetLoginWorldServersEntry(
 		const std::vector<LoginWorldServers> &login_world_serverss,
 		int login_world_servers_id
 	)
@@ -148,20 +126,20 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			LoginWorldServers e{};
+			LoginWorldServers entry{};
 
-			e.id                        = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.long_name                 = row[1] ? row[1] : "";
-			e.short_name                = row[2] ? row[2] : "";
-			e.tag_description           = row[3] ? row[3] : "";
-			e.login_server_list_type_id = static_cast<int32_t>(atoi(row[4]));
-			e.last_login_date           = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
-			e.last_ip_address           = row[6] ? row[6] : "";
-			e.login_server_admin_id     = static_cast<int32_t>(atoi(row[7]));
-			e.is_server_trusted         = static_cast<int32_t>(atoi(row[8]));
-			e.note                      = row[9] ? row[9] : "";
+			entry.id                        = atoi(row[0]);
+			entry.long_name                 = row[1] ? row[1] : "";
+			entry.short_name                = row[2] ? row[2] : "";
+			entry.tag_description           = row[3] ? row[3] : "";
+			entry.login_server_list_type_id = atoi(row[4]);
+			entry.last_login_date           = row[5] ? row[5] : "";
+			entry.last_ip_address           = row[6] ? row[6] : "";
+			entry.login_server_admin_id     = atoi(row[7]);
+			entry.is_server_trusted         = atoi(row[8]);
+			entry.note                      = row[9] ? row[9] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -186,30 +164,30 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const LoginWorldServers &e
+		LoginWorldServers login_world_servers_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.long_name) + "'");
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.short_name) + "'");
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.tag_description) + "'");
-		v.push_back(columns[4] + " = " + std::to_string(e.login_server_list_type_id));
-		v.push_back(columns[5] + " = FROM_UNIXTIME(" + (e.last_login_date > 0 ? std::to_string(e.last_login_date) : "null") + ")");
-		v.push_back(columns[6] + " = '" + Strings::Escape(e.last_ip_address) + "'");
-		v.push_back(columns[7] + " = " + std::to_string(e.login_server_admin_id));
-		v.push_back(columns[8] + " = " + std::to_string(e.is_server_trusted));
-		v.push_back(columns[9] + " = '" + Strings::Escape(e.note) + "'");
+		update_values.push_back(columns[1] + " = '" + EscapeString(login_world_servers_entry.long_name) + "'");
+		update_values.push_back(columns[2] + " = '" + EscapeString(login_world_servers_entry.short_name) + "'");
+		update_values.push_back(columns[3] + " = '" + EscapeString(login_world_servers_entry.tag_description) + "'");
+		update_values.push_back(columns[4] + " = " + std::to_string(login_world_servers_entry.login_server_list_type_id));
+		update_values.push_back(columns[5] + " = '" + EscapeString(login_world_servers_entry.last_login_date) + "'");
+		update_values.push_back(columns[6] + " = '" + EscapeString(login_world_servers_entry.last_ip_address) + "'");
+		update_values.push_back(columns[7] + " = " + std::to_string(login_world_servers_entry.login_server_admin_id));
+		update_values.push_back(columns[8] + " = " + std::to_string(login_world_servers_entry.is_server_trusted));
+		update_values.push_back(columns[9] + " = '" + EscapeString(login_world_servers_entry.note) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				login_world_servers_entry.id
 			)
 		);
 
@@ -218,71 +196,71 @@ public:
 
 	static LoginWorldServers InsertOne(
 		Database& db,
-		LoginWorldServers e
+		LoginWorldServers login_world_servers_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back("'" + Strings::Escape(e.long_name) + "'");
-		v.push_back("'" + Strings::Escape(e.short_name) + "'");
-		v.push_back("'" + Strings::Escape(e.tag_description) + "'");
-		v.push_back(std::to_string(e.login_server_list_type_id));
-		v.push_back("FROM_UNIXTIME(" + (e.last_login_date > 0 ? std::to_string(e.last_login_date) : "null") + ")");
-		v.push_back("'" + Strings::Escape(e.last_ip_address) + "'");
-		v.push_back(std::to_string(e.login_server_admin_id));
-		v.push_back(std::to_string(e.is_server_trusted));
-		v.push_back("'" + Strings::Escape(e.note) + "'");
+		insert_values.push_back(std::to_string(login_world_servers_entry.id));
+		insert_values.push_back("'" + EscapeString(login_world_servers_entry.long_name) + "'");
+		insert_values.push_back("'" + EscapeString(login_world_servers_entry.short_name) + "'");
+		insert_values.push_back("'" + EscapeString(login_world_servers_entry.tag_description) + "'");
+		insert_values.push_back(std::to_string(login_world_servers_entry.login_server_list_type_id));
+		insert_values.push_back("'" + EscapeString(login_world_servers_entry.last_login_date) + "'");
+		insert_values.push_back("'" + EscapeString(login_world_servers_entry.last_ip_address) + "'");
+		insert_values.push_back(std::to_string(login_world_servers_entry.login_server_admin_id));
+		insert_values.push_back(std::to_string(login_world_servers_entry.is_server_trusted));
+		insert_values.push_back("'" + EscapeString(login_world_servers_entry.note) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			login_world_servers_entry.id = results.LastInsertedID();
+			return login_world_servers_entry;
 		}
 
-		e = NewEntity();
+		login_world_servers_entry = NewEntity();
 
-		return e;
+		return login_world_servers_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<LoginWorldServers> &entries
+		std::vector<LoginWorldServers> login_world_servers_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &login_world_servers_entry: login_world_servers_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back("'" + Strings::Escape(e.long_name) + "'");
-			v.push_back("'" + Strings::Escape(e.short_name) + "'");
-			v.push_back("'" + Strings::Escape(e.tag_description) + "'");
-			v.push_back(std::to_string(e.login_server_list_type_id));
-			v.push_back("FROM_UNIXTIME(" + (e.last_login_date > 0 ? std::to_string(e.last_login_date) : "null") + ")");
-			v.push_back("'" + Strings::Escape(e.last_ip_address) + "'");
-			v.push_back(std::to_string(e.login_server_admin_id));
-			v.push_back(std::to_string(e.is_server_trusted));
-			v.push_back("'" + Strings::Escape(e.note) + "'");
+			insert_values.push_back(std::to_string(login_world_servers_entry.id));
+			insert_values.push_back("'" + EscapeString(login_world_servers_entry.long_name) + "'");
+			insert_values.push_back("'" + EscapeString(login_world_servers_entry.short_name) + "'");
+			insert_values.push_back("'" + EscapeString(login_world_servers_entry.tag_description) + "'");
+			insert_values.push_back(std::to_string(login_world_servers_entry.login_server_list_type_id));
+			insert_values.push_back("'" + EscapeString(login_world_servers_entry.last_login_date) + "'");
+			insert_values.push_back("'" + EscapeString(login_world_servers_entry.last_ip_address) + "'");
+			insert_values.push_back(std::to_string(login_world_servers_entry.login_server_admin_id));
+			insert_values.push_back(std::to_string(login_world_servers_entry.is_server_trusted));
+			insert_values.push_back("'" + EscapeString(login_world_servers_entry.note) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -303,26 +281,26 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LoginWorldServers e{};
+			LoginWorldServers entry{};
 
-			e.id                        = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.long_name                 = row[1] ? row[1] : "";
-			e.short_name                = row[2] ? row[2] : "";
-			e.tag_description           = row[3] ? row[3] : "";
-			e.login_server_list_type_id = static_cast<int32_t>(atoi(row[4]));
-			e.last_login_date           = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
-			e.last_ip_address           = row[6] ? row[6] : "";
-			e.login_server_admin_id     = static_cast<int32_t>(atoi(row[7]));
-			e.is_server_trusted         = static_cast<int32_t>(atoi(row[8]));
-			e.note                      = row[9] ? row[9] : "";
+			entry.id                        = atoi(row[0]);
+			entry.long_name                 = row[1] ? row[1] : "";
+			entry.short_name                = row[2] ? row[2] : "";
+			entry.tag_description           = row[3] ? row[3] : "";
+			entry.login_server_list_type_id = atoi(row[4]);
+			entry.last_login_date           = row[5] ? row[5] : "";
+			entry.last_ip_address           = row[6] ? row[6] : "";
+			entry.login_server_admin_id     = atoi(row[7]);
+			entry.is_server_trusted         = atoi(row[8]);
+			entry.note                      = row[9] ? row[9] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<LoginWorldServers> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<LoginWorldServers> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<LoginWorldServers> all_entries;
 
@@ -337,26 +315,26 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			LoginWorldServers e{};
+			LoginWorldServers entry{};
 
-			e.id                        = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.long_name                 = row[1] ? row[1] : "";
-			e.short_name                = row[2] ? row[2] : "";
-			e.tag_description           = row[3] ? row[3] : "";
-			e.login_server_list_type_id = static_cast<int32_t>(atoi(row[4]));
-			e.last_login_date           = strtoll(row[5] ? row[5] : "-1", nullptr, 10);
-			e.last_ip_address           = row[6] ? row[6] : "";
-			e.login_server_admin_id     = static_cast<int32_t>(atoi(row[7]));
-			e.is_server_trusted         = static_cast<int32_t>(atoi(row[8]));
-			e.note                      = row[9] ? row[9] : "";
+			entry.id                        = atoi(row[0]);
+			entry.long_name                 = row[1] ? row[1] : "";
+			entry.short_name                = row[2] ? row[2] : "";
+			entry.tag_description           = row[3] ? row[3] : "";
+			entry.login_server_list_type_id = atoi(row[4]);
+			entry.last_login_date           = row[5] ? row[5] : "";
+			entry.last_ip_address           = row[6] ? row[6] : "";
+			entry.login_server_admin_id     = atoi(row[7]);
+			entry.is_server_trusted         = atoi(row[8]);
+			entry.note                      = row[9] ? row[9] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -379,32 +357,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

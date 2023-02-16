@@ -20,31 +20,31 @@
 #include "races.h"
 #include "rulesys.h"
 
-const char *FactionValueToString(FACTION_VALUE faction_value)
+const char *FactionValueToString(FACTION_VALUE fv)
 {
-	switch (faction_value) {
+	switch (fv) {
 		case FACTION_ALLY:
-			return "Ally";
+			return ("Ally");
 		case FACTION_WARMLY:
-			return "Warmly";
+			return ("Warmly");
 		case FACTION_KINDLY:
-			return "Kindly";
-		case FACTION_AMIABLY:
-			return "Amiably";
-		case FACTION_INDIFFERENTLY:
-			return "Indifferently";
-		case FACTION_APPREHENSIVELY:
-			return "Apprehensively";
-		case FACTION_DUBIOUSLY:
-			return "Dubiously";
-		case FACTION_THREATENINGLY:
-			return "Threateningly";
+			return ("Kindly");
+		case FACTION_AMIABLE:
+			return ("Amiable");
+		case FACTION_INDIFFERENT:
+			return ("Indifferent");
+		case FACTION_APPREHENSIVE:
+			return ("Apprehensive");
+		case FACTION_DUBIOUS:
+			return ("Dubious");
+		case FACTION_THREATENLY:
+			return ("Threatenly");
 		case FACTION_SCOWLS:
-			return "Scowls";
+			return ("Scowls, ready to attack.");
 		default:
 			break;
 	}
-	return "Unknown";
+	return ("Unknown Faction Con");
 }
 
 
@@ -70,19 +70,19 @@ FACTION_VALUE CalculateFaction(FactionMods* fm, int32 tmpCharacter_value)
 		return FACTION_KINDLY;
 	}
 	if (character_value >= RuleI(Faction, AmiablyFactionMinimum)) {
-		return FACTION_AMIABLY;
+		return FACTION_AMIABLE;
 	}
 	if (character_value >= RuleI(Faction, IndifferentlyFactionMinimum)) {
-		return FACTION_INDIFFERENTLY;
+		return FACTION_INDIFFERENT;
 	}
 	if (character_value >= RuleI(Faction, ApprehensivelyFactionMinimum)) {
-		return FACTION_APPREHENSIVELY;
+		return FACTION_APPREHENSIVE;
 	}
 	if (character_value >= RuleI(Faction, DubiouslyFactionMinimum)) {
-		return FACTION_DUBIOUSLY;
+		return FACTION_DUBIOUS;
 	}
 	if (character_value >= RuleI(Faction, ThreateninglyFactionMinimum)) {
-		return FACTION_THREATENINGLY;
+		return FACTION_THREATENLY;
 	}
 	return FACTION_SCOWLS;
 }
@@ -96,12 +96,12 @@ bool IsOfEqualRace(int r1, int r2)
 	// TODO: add more values
 	switch (r1) {
 		case DARK_ELF:
-			if (r2 == RACE_NERIAK_CITIZEN_77) {
+			if (r2 == 77) {
 				return true;
 			}
 			break;
 		case BARBARIAN:
-			if (r2 == RACE_HALAS_CITIZEN_90) {
+			if (r2 == 90) {
 				return true;
 			}
 	}

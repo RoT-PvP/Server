@@ -13,15 +13,14 @@
 #define EQEMU_BASE_CHARACTER_ALT_CURRENCY_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharacterAltCurrencyRepository {
 public:
 	struct CharacterAltCurrency {
-		uint32_t char_id;
-		uint32_t currency_id;
-		uint32_t amount;
+		int char_id;
+		int currency_id;
+		int amount;
 	};
 
 	static std::string PrimaryKey()
@@ -38,23 +37,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"char_id",
-			"currency_id",
-			"amount",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -66,7 +51,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -82,16 +67,16 @@ public:
 
 	static CharacterAltCurrency NewEntity()
 	{
-		CharacterAltCurrency e{};
+		CharacterAltCurrency entry{};
 
-		e.char_id     = 0;
-		e.currency_id = 0;
-		e.amount      = 0;
+		entry.char_id     = 0;
+		entry.currency_id = 0;
+		entry.amount      = 0;
 
-		return e;
+		return entry;
 	}
 
-	static CharacterAltCurrency GetCharacterAltCurrency(
+	static CharacterAltCurrency GetCharacterAltCurrencyEntry(
 		const std::vector<CharacterAltCurrency> &character_alt_currencys,
 		int character_alt_currency_id
 	)
@@ -120,13 +105,13 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharacterAltCurrency e{};
+			CharacterAltCurrency entry{};
 
-			e.char_id     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.currency_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.amount      = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
+			entry.char_id     = atoi(row[0]);
+			entry.currency_id = atoi(row[1]);
+			entry.amount      = atoi(row[2]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -151,24 +136,24 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharacterAltCurrency &e
+		CharacterAltCurrency character_alt_currency_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.char_id));
-		v.push_back(columns[1] + " = " + std::to_string(e.currency_id));
-		v.push_back(columns[2] + " = " + std::to_string(e.amount));
+		update_values.push_back(columns[0] + " = " + std::to_string(character_alt_currency_entry.char_id));
+		update_values.push_back(columns[1] + " = " + std::to_string(character_alt_currency_entry.currency_id));
+		update_values.push_back(columns[2] + " = " + std::to_string(character_alt_currency_entry.amount));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.char_id
+				character_alt_currency_entry.char_id
 			)
 		);
 
@@ -177,57 +162,57 @@ public:
 
 	static CharacterAltCurrency InsertOne(
 		Database& db,
-		CharacterAltCurrency e
+		CharacterAltCurrency character_alt_currency_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.char_id));
-		v.push_back(std::to_string(e.currency_id));
-		v.push_back(std::to_string(e.amount));
+		insert_values.push_back(std::to_string(character_alt_currency_entry.char_id));
+		insert_values.push_back(std::to_string(character_alt_currency_entry.currency_id));
+		insert_values.push_back(std::to_string(character_alt_currency_entry.amount));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.char_id = results.LastInsertedID();
-			return e;
+			character_alt_currency_entry.char_id = results.LastInsertedID();
+			return character_alt_currency_entry;
 		}
 
-		e = NewEntity();
+		character_alt_currency_entry = NewEntity();
 
-		return e;
+		return character_alt_currency_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharacterAltCurrency> &entries
+		std::vector<CharacterAltCurrency> character_alt_currency_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &character_alt_currency_entry: character_alt_currency_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.char_id));
-			v.push_back(std::to_string(e.currency_id));
-			v.push_back(std::to_string(e.amount));
+			insert_values.push_back(std::to_string(character_alt_currency_entry.char_id));
+			insert_values.push_back(std::to_string(character_alt_currency_entry.currency_id));
+			insert_values.push_back(std::to_string(character_alt_currency_entry.amount));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -248,19 +233,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterAltCurrency e{};
+			CharacterAltCurrency entry{};
 
-			e.char_id     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.currency_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.amount      = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
+			entry.char_id     = atoi(row[0]);
+			entry.currency_id = atoi(row[1]);
+			entry.amount      = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharacterAltCurrency> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharacterAltCurrency> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharacterAltCurrency> all_entries;
 
@@ -275,19 +260,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterAltCurrency e{};
+			CharacterAltCurrency entry{};
 
-			e.char_id     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.currency_id = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.amount      = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
+			entry.char_id     = atoi(row[0]);
+			entry.currency_id = atoi(row[1]);
+			entry.amount      = atoi(row[2]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -310,32 +295,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

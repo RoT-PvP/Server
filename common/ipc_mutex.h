@@ -37,7 +37,7 @@ namespace EQ {
 			Creates a named binary semaphore, basically a semaphore that is init S <- 1
 		\param name The name of this mutex.
 		*/
-		IPCMutex(const std::string& name);
+		IPCMutex(std::string name);
 
 		//! Destructor
 		~IPCMutex();

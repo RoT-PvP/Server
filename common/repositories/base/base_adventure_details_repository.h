@@ -13,21 +13,20 @@
 #define EQEMU_BASE_ADVENTURE_DETAILS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseAdventureDetailsRepository {
 public:
 	struct AdventureDetails {
-		uint32_t id;
-		uint16_t adventure_id;
-		int32_t  instance_id;
-		uint16_t count;
-		uint16_t assassinate_count;
-		uint8_t  status;
-		uint32_t time_created;
-		uint32_t time_zoned;
-		uint32_t time_completed;
+		int id;
+		int adventure_id;
+		int instance_id;
+		int count;
+		int assassinate_count;
+		int status;
+		int time_created;
+		int time_zoned;
+		int time_completed;
 	};
 
 	static std::string PrimaryKey()
@@ -50,29 +49,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"adventure_id",
-			"instance_id",
-			"count",
-			"assassinate_count",
-			"status",
-			"time_created",
-			"time_zoned",
-			"time_completed",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -84,7 +63,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -100,22 +79,22 @@ public:
 
 	static AdventureDetails NewEntity()
 	{
-		AdventureDetails e{};
+		AdventureDetails entry{};
 
-		e.id                = 0;
-		e.adventure_id      = 0;
-		e.instance_id       = -1;
-		e.count             = 0;
-		e.assassinate_count = 0;
-		e.status            = 0;
-		e.time_created      = 0;
-		e.time_zoned        = 0;
-		e.time_completed    = 0;
+		entry.id                = 0;
+		entry.adventure_id      = 0;
+		entry.instance_id       = -1;
+		entry.count             = 0;
+		entry.assassinate_count = 0;
+		entry.status            = 0;
+		entry.time_created      = 0;
+		entry.time_zoned        = 0;
+		entry.time_completed    = 0;
 
-		return e;
+		return entry;
 	}
 
-	static AdventureDetails GetAdventureDetails(
+	static AdventureDetails GetAdventureDetailsEntry(
 		const std::vector<AdventureDetails> &adventure_detailss,
 		int adventure_details_id
 	)
@@ -144,19 +123,19 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			AdventureDetails e{};
+			AdventureDetails entry{};
 
-			e.id                = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.adventure_id      = static_cast<uint16_t>(strtoul(row[1], nullptr, 10));
-			e.instance_id       = static_cast<int32_t>(atoi(row[2]));
-			e.count             = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
-			e.assassinate_count = static_cast<uint16_t>(strtoul(row[4], nullptr, 10));
-			e.status            = static_cast<uint8_t>(strtoul(row[5], nullptr, 10));
-			e.time_created      = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.time_zoned        = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.time_completed    = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
+			entry.id                = atoi(row[0]);
+			entry.adventure_id      = atoi(row[1]);
+			entry.instance_id       = atoi(row[2]);
+			entry.count             = atoi(row[3]);
+			entry.assassinate_count = atoi(row[4]);
+			entry.status            = atoi(row[5]);
+			entry.time_created      = atoi(row[6]);
+			entry.time_zoned        = atoi(row[7]);
+			entry.time_completed    = atoi(row[8]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -181,29 +160,29 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const AdventureDetails &e
+		AdventureDetails adventure_details_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.adventure_id));
-		v.push_back(columns[2] + " = " + std::to_string(e.instance_id));
-		v.push_back(columns[3] + " = " + std::to_string(e.count));
-		v.push_back(columns[4] + " = " + std::to_string(e.assassinate_count));
-		v.push_back(columns[5] + " = " + std::to_string(e.status));
-		v.push_back(columns[6] + " = " + std::to_string(e.time_created));
-		v.push_back(columns[7] + " = " + std::to_string(e.time_zoned));
-		v.push_back(columns[8] + " = " + std::to_string(e.time_completed));
+		update_values.push_back(columns[1] + " = " + std::to_string(adventure_details_entry.adventure_id));
+		update_values.push_back(columns[2] + " = " + std::to_string(adventure_details_entry.instance_id));
+		update_values.push_back(columns[3] + " = " + std::to_string(adventure_details_entry.count));
+		update_values.push_back(columns[4] + " = " + std::to_string(adventure_details_entry.assassinate_count));
+		update_values.push_back(columns[5] + " = " + std::to_string(adventure_details_entry.status));
+		update_values.push_back(columns[6] + " = " + std::to_string(adventure_details_entry.time_created));
+		update_values.push_back(columns[7] + " = " + std::to_string(adventure_details_entry.time_zoned));
+		update_values.push_back(columns[8] + " = " + std::to_string(adventure_details_entry.time_completed));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				adventure_details_entry.id
 			)
 		);
 
@@ -212,69 +191,69 @@ public:
 
 	static AdventureDetails InsertOne(
 		Database& db,
-		AdventureDetails e
+		AdventureDetails adventure_details_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.adventure_id));
-		v.push_back(std::to_string(e.instance_id));
-		v.push_back(std::to_string(e.count));
-		v.push_back(std::to_string(e.assassinate_count));
-		v.push_back(std::to_string(e.status));
-		v.push_back(std::to_string(e.time_created));
-		v.push_back(std::to_string(e.time_zoned));
-		v.push_back(std::to_string(e.time_completed));
+		insert_values.push_back(std::to_string(adventure_details_entry.id));
+		insert_values.push_back(std::to_string(adventure_details_entry.adventure_id));
+		insert_values.push_back(std::to_string(adventure_details_entry.instance_id));
+		insert_values.push_back(std::to_string(adventure_details_entry.count));
+		insert_values.push_back(std::to_string(adventure_details_entry.assassinate_count));
+		insert_values.push_back(std::to_string(adventure_details_entry.status));
+		insert_values.push_back(std::to_string(adventure_details_entry.time_created));
+		insert_values.push_back(std::to_string(adventure_details_entry.time_zoned));
+		insert_values.push_back(std::to_string(adventure_details_entry.time_completed));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			adventure_details_entry.id = results.LastInsertedID();
+			return adventure_details_entry;
 		}
 
-		e = NewEntity();
+		adventure_details_entry = NewEntity();
 
-		return e;
+		return adventure_details_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<AdventureDetails> &entries
+		std::vector<AdventureDetails> adventure_details_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &adventure_details_entry: adventure_details_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.adventure_id));
-			v.push_back(std::to_string(e.instance_id));
-			v.push_back(std::to_string(e.count));
-			v.push_back(std::to_string(e.assassinate_count));
-			v.push_back(std::to_string(e.status));
-			v.push_back(std::to_string(e.time_created));
-			v.push_back(std::to_string(e.time_zoned));
-			v.push_back(std::to_string(e.time_completed));
+			insert_values.push_back(std::to_string(adventure_details_entry.id));
+			insert_values.push_back(std::to_string(adventure_details_entry.adventure_id));
+			insert_values.push_back(std::to_string(adventure_details_entry.instance_id));
+			insert_values.push_back(std::to_string(adventure_details_entry.count));
+			insert_values.push_back(std::to_string(adventure_details_entry.assassinate_count));
+			insert_values.push_back(std::to_string(adventure_details_entry.status));
+			insert_values.push_back(std::to_string(adventure_details_entry.time_created));
+			insert_values.push_back(std::to_string(adventure_details_entry.time_zoned));
+			insert_values.push_back(std::to_string(adventure_details_entry.time_completed));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -295,25 +274,25 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			AdventureDetails e{};
+			AdventureDetails entry{};
 
-			e.id                = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.adventure_id      = static_cast<uint16_t>(strtoul(row[1], nullptr, 10));
-			e.instance_id       = static_cast<int32_t>(atoi(row[2]));
-			e.count             = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
-			e.assassinate_count = static_cast<uint16_t>(strtoul(row[4], nullptr, 10));
-			e.status            = static_cast<uint8_t>(strtoul(row[5], nullptr, 10));
-			e.time_created      = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.time_zoned        = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.time_completed    = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
+			entry.id                = atoi(row[0]);
+			entry.adventure_id      = atoi(row[1]);
+			entry.instance_id       = atoi(row[2]);
+			entry.count             = atoi(row[3]);
+			entry.assassinate_count = atoi(row[4]);
+			entry.status            = atoi(row[5]);
+			entry.time_created      = atoi(row[6]);
+			entry.time_zoned        = atoi(row[7]);
+			entry.time_completed    = atoi(row[8]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<AdventureDetails> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<AdventureDetails> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<AdventureDetails> all_entries;
 
@@ -328,25 +307,25 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			AdventureDetails e{};
+			AdventureDetails entry{};
 
-			e.id                = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.adventure_id      = static_cast<uint16_t>(strtoul(row[1], nullptr, 10));
-			e.instance_id       = static_cast<int32_t>(atoi(row[2]));
-			e.count             = static_cast<uint16_t>(strtoul(row[3], nullptr, 10));
-			e.assassinate_count = static_cast<uint16_t>(strtoul(row[4], nullptr, 10));
-			e.status            = static_cast<uint8_t>(strtoul(row[5], nullptr, 10));
-			e.time_created      = static_cast<uint32_t>(strtoul(row[6], nullptr, 10));
-			e.time_zoned        = static_cast<uint32_t>(strtoul(row[7], nullptr, 10));
-			e.time_completed    = static_cast<uint32_t>(strtoul(row[8], nullptr, 10));
+			entry.id                = atoi(row[0]);
+			entry.adventure_id      = atoi(row[1]);
+			entry.instance_id       = atoi(row[2]);
+			entry.count             = atoi(row[3]);
+			entry.assassinate_count = atoi(row[4]);
+			entry.status            = atoi(row[5]);
+			entry.time_created      = atoi(row[6]);
+			entry.time_zoned        = atoi(row[7]);
+			entry.time_completed    = atoi(row[8]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -369,32 +348,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

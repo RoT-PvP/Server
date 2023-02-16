@@ -17,7 +17,7 @@
 */
 
 #include "../common/spdat.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 #include "../common/types.h"
 
 #include "client.h"
@@ -136,7 +136,7 @@ void Trap::Trigger(Mob* trigger)
 				entity_list.MessageClose(trigger,false,100,13,"%s",message.c_str());
 			}
 			if(hiddenTrigger){
-				hiddenTrigger->SpellFinished(effectvalue, trigger, EQ::spells::CastingSlot::Item, 0, -1, spells[effectvalue].resist_difficulty);
+				hiddenTrigger->SpellFinished(effectvalue, trigger, EQ::spells::CastingSlot::Item, 0, -1, spells[effectvalue].ResistDiff);
 			}
 			break;
 		case trapTypeAlarm:
@@ -214,7 +214,7 @@ void Trap::Trigger(Mob* trigger)
 			{
 				auto outapp = new EQApplicationPacket(OP_Damage, sizeof(CombatDamage_Struct));
 				CombatDamage_Struct* a = (CombatDamage_Struct*)outapp->pBuffer;
-				int64 dmg = zone->random.Int(effectvalue, effectvalue2);
+				int dmg = zone->random.Int(effectvalue, effectvalue2);
 				trigger->SetHP(trigger->GetHP() - dmg);
 				a->damage = dmg;
 				a->hit_heading = 0.0f;
@@ -366,66 +366,21 @@ void EntityList::UpdateAllTraps(bool respawn, bool repopnow)
 
 void EntityList::GetTrapInfo(Client* client)
 {
-	uint32 trap_count = 0;
-	uint32 trap_number = 1;
-
-	for (const auto& trap : trap_list) {
-		auto t = trap.second;
-		if (t->IsTrap()) {
-			bool is_set = (t->chkarea_timer.Enabled() && !t->reset_timer.Enabled());
-
-			client->Message(
-				Chat::White,
-				fmt::format(
-					"Trap {} | ID: {} Active: {} Coordinates: {:.2f}, {:.2f}, {:.2f}",
-					trap_number,
-					t->trap_id,
-					is_set ? "Yes" : "No",
-					t->m_Position.x,
-					t->m_Position.y,
-					t->m_Position.z
-				).c_str()
-			);
-
-			client->Message(
-				Chat::White,
-				fmt::format(
-					"Trap {} | Times Triggered: {} Group: {}",
-					trap_number,
-					t->times_triggered,
-					t->group
-				).c_str()
-			);
-
-			if (!t->message.empty()) {
-				client->Message(
-					Chat::White,
-					fmt::format(
-						"Trap {} | Message: {}",
-						trap_number,
-						t->message
-					).c_str()
-				);
-			}
-
-			trap_count++;
-			trap_number++;
+	uint8 count = 0;
+	auto it = trap_list.begin();
+	while (it != trap_list.end())
+	{
+		Trap* cur = it->second;
+		if (cur->IsTrap())
+		{
+			bool isset = (cur->chkarea_timer.Enabled() && !cur->reset_timer.Enabled());
+			client->Message(Chat::Default, " Trap: (%d) found at %0.2f,%0.2f,%0.2f. Times Triggered: %d Is Active: %d Group: %d Message: %s", cur->trap_id, cur->m_Position.x, cur->m_Position.y, cur->m_Position.z, cur->times_triggered, isset, cur->group, cur->message.c_str());
+			++count;
 		}
+		++it;
 	}
 
-	if (!trap_count) {
-		client->Message(Chat::White, "No traps were found in this zone.");
-		return;
-	}
-
-	client->Message(
-		Chat::White,
-		fmt::format(
-			"{} trap{} found.",
-			trap_count,
-			trap_count != 1 ? "s" : ""
-		).c_str()
-	);
+	client->Message(Chat::Default, "%d traps found.", count);
 }
 
 void EntityList::ClearTrapPointers()
@@ -494,8 +449,6 @@ bool ZoneDatabase::LoadTraps(const char* zonename, int16 version) {
 		trap->CreateHiddenTrigger();
 		Log(Logs::General, Logs::Traps, "Trap %d successfully loaded.", trap->trap_id);
 	}
-
-	LogInfo("Loaded [{}] trap(s)", Strings::Commify(results.RowCount()));
 
 	return true;
 }

@@ -17,7 +17,7 @@
 */
 
 #include "../common/global_define.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 
 #include "client.h"
 #include "entity.h"
@@ -25,11 +25,9 @@
 #include "object.h"
 
 #include "quest_parser_collection.h"
-#include "worldserver.h"
 #include "zonedb.h"
-#include "../common/zone_store.h"
+#include "zone_store.h"
 #include "../common/repositories/criteria/content_filter_criteria.h"
-#include "../common/events/player_event_logs.h"
 
 #include <iostream>
 
@@ -39,7 +37,6 @@ const char DEFAULT_OBJECT_NAME_SUFFIX[] = "_ACTORDEF";
 
 extern Zone* zone;
 extern EntityList entity_list;
-extern WorldServer worldserver;
 
 // Loading object from database
 Object::Object(uint32 id, uint32 type, uint32 icon, const Object_Struct& object, const EQ::ItemInstance* inst)
@@ -147,8 +144,8 @@ Object::Object(Client* client, const EQ::ItemInstance* inst)
 	// Set object name
 	if (inst) {
 		const EQ::ItemData* item = inst->GetItem();
-		if (item) {
-			if (item->IDFile[0] == '\0') {
+		if (item && item->IDFile) {
+			if (strlen(item->IDFile) == 0) {
 				strcpy(m_data.object_name, DEFAULT_OBJECT_NAME);
 			}
 			else {
@@ -203,8 +200,8 @@ Object::Object(const EQ::ItemInstance *inst, float x, float y, float z, float he
 	// Set object name
 	if (inst) {
 		const EQ::ItemData* item = inst->GetItem();
-		if (item) {
-			if (item->IDFile[0] == '\0') {
+		if (item && item->IDFile) {
+			if (strlen(item->IDFile) == 0) {
 				strcpy(m_data.object_name, DEFAULT_OBJECT_NAME);
 			}
 			else {
@@ -279,7 +276,7 @@ void Object::SetID(uint16 set_id)
 	Entity::SetID(set_id);
 
 	// Store new id as drop_id
-	m_data.drop_id = (uint32)GetID();
+	m_data.drop_id = (uint32)this->GetID();
 }
 
 // Reset state of object back to zero
@@ -344,7 +341,7 @@ const EQ::ItemInstance* Object::GetItem(uint8 index) {
 void Object::PutItem(uint8 index, const EQ::ItemInstance* inst)
 {
 	if (index > 9) {
-		LogError("Invalid index specified ([{}])", index);
+		LogError("Object::PutItem: Invalid index specified ([{}])", index);
 		return;
 	}
 
@@ -368,7 +365,7 @@ void Object::Close() {
 		last_user = user;
 		// put any remaining items from the world container back into the player's inventory to avoid item loss
 		// if they close the container without removing all items
-		EQ::ItemInstance* container = m_inst;
+		EQ::ItemInstance* container = this->m_inst;
 		if(container != nullptr)
 		{
 			for (uint8 i = EQ::invbag::SLOT_BEGIN; i <= EQ::invbag::SLOT_END; i++)
@@ -415,7 +412,6 @@ EQ::ItemInstance* Object::PopItem(uint8 index)
 void Object::CreateSpawnPacket(EQApplicationPacket* app)
 {
 	app->SetOpcode(OP_GroundSpawn);
-	safe_delete_array(app->pBuffer);
 	app->pBuffer = new uchar[sizeof(Object_Struct)];
 	app->size = sizeof(Object_Struct);
 	memcpy(app->pBuffer, &m_data, sizeof(Object_Struct));
@@ -424,7 +420,6 @@ void Object::CreateSpawnPacket(EQApplicationPacket* app)
 void Object::CreateDeSpawnPacket(EQApplicationPacket* app)
 {
 	app->SetOpcode(OP_ClickObject);
-	safe_delete_array(app->pBuffer);
 	app->pBuffer = new uchar[sizeof(ClickObject_Struct)];
 	app->size = sizeof(ClickObject_Struct);
 	memset(app->pBuffer, 0, sizeof(ClickObject_Struct));
@@ -480,7 +475,7 @@ void Object::RandomSpawn(bool send_packet) {
 		}
 	}
 
-	LogInfo("[{}] [{}] ([{}] [{}] [{}])", m_data.object_name, m_inst->GetID(), m_data.x, m_data.y, m_data.z);
+	LogInfo("Object::RandomSpawn([{}]): [{}] ([{}], [{}], [{}])", m_data.object_name, m_inst->GetID(), m_data.x, m_data.y, m_data.z);
 
 	respawn_timer.Disable();
 
@@ -493,80 +488,55 @@ void Object::RandomSpawn(bool send_packet) {
 
 bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 {
-	if(m_ground_spawn) {//This is a Cool Groundspawn
+	if(m_ground_spawn){//This is a Cool Groundspawn
 		respawn_timer.Start();
 	}
 	if (m_type == OT_DROPPEDITEM) {
 		bool cursordelete = false;
-		bool duplicate_lore = false;
 		if (m_inst && sender) {
 			// if there is a lore conflict, delete the offending item from the server inventory
 			// the client updates itself and takes care of sending "duplicate lore item" messages
 			auto item = m_inst->GetItem();
-			if (sender->CheckLoreConflict(item)) {
-				duplicate_lore = true;
+			if(sender->CheckLoreConflict(item)) {
 				int16 loreslot = sender->GetInv().HasItem(item->ID, 0, invWhereBank);
-				if (loreslot != INVALID_INDEX) { // if the duplicate is in the bank, delete it.
+				if (loreslot != INVALID_INDEX) // if the duplicate is in the bank, delete it.
 					sender->DeleteItemInInventory(loreslot);
-				}
-				else {
-					cursordelete = true;
-				}    // otherwise, we delete the new one
+				else
+					cursordelete = true;	// otherwise, we delete the new one
 			}
 
-			if (item->RecastDelay) {
-				if (item->RecastType != RECAST_TYPE_UNLINKED_ITEM) {
-					m_inst->SetRecastTimestamp(
-						database.GetItemRecastTimestamp(sender->CharacterID(), item->RecastType));
-				} else {
-					m_inst->SetRecastTimestamp(
-						database.GetItemRecastTimestamp(sender->CharacterID(), item->ID));
-				}
+			if (item->RecastDelay)
+				m_inst->SetRecastTimestamp(
+				    database.GetItemRecastTimestamp(sender->CharacterID(), item->RecastType));
+
+			char buf[10];
+			snprintf(buf, 9, "%u", item->ID);
+			buf[9] = '\0';
+			std::vector<EQ::Any> args;
+			args.push_back(m_inst);
+			if(parse->EventPlayer(EVENT_PLAYER_PICKUP, sender, buf, this->GetID(), &args))
+			{
+				auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
+				memcpy(outapp->pBuffer, click_object, sizeof(ClickObject_Struct));
+				ClickObject_Struct* co = (ClickObject_Struct*)outapp->pBuffer;
+				co->drop_id = 0;
+				entity_list.QueueClients(nullptr, outapp, false);
+				safe_delete(outapp);
+
+				// No longer using a tradeskill object
+				sender->SetTradeskillObject(nullptr);
+				user = nullptr;
+
+				return true;
 			}
 
-			if (player_event_logs.IsEventEnabled(PlayerEvent::GROUNDSPAWN_PICKUP)) {
-				auto e = PlayerEvent::GroundSpawnPickupEvent{
-					.item_id = item->ID,
-					.item_name = item->Name,
-				};
-				RecordPlayerEventLogWithClient(sender, PlayerEvent::GROUNDSPAWN_PICKUP, e);
-			}
-
-			if (parse->PlayerHasQuestSub(EVENT_PLAYER_PICKUP)) {
-				std::vector<std::any> args = { m_inst };
-
-				if (parse->EventPlayer(EVENT_PLAYER_PICKUP, sender, std::to_string(item->ID), GetID(), &args)) {
-					auto outapp = new EQApplicationPacket(OP_ClickObject, sizeof(ClickObject_Struct));
-					memcpy(outapp->pBuffer, click_object, sizeof(ClickObject_Struct));
-					auto* co = (ClickObject_Struct*) outapp->pBuffer;
-					co->drop_id = 0;
-					entity_list.QueueClients(nullptr, outapp, false);
-					safe_delete(outapp);
-
-					sender->SetTradeskillObject(nullptr);
-					user = nullptr;
-
-					return true;
-				}
-			}
 
 			// Transfer item to client
 			sender->PutItemInInventory(EQ::invslot::slotCursor, *m_inst, false);
 			sender->SendItemPacket(EQ::invslot::slotCursor, m_inst, ItemPacketTrade);
 
-			// Could be an undiscovered ground_spawn
-			if (
-				m_ground_spawn &&
-				RuleB(Character, EnableDiscoveredItems) &&
-				!sender->GetGM() &&
-				!sender->IsDiscovered(item->ID)
-			) {
-				sender->DiscoverItem(item->ID);
-			}
-
-			if (cursordelete) {    // delete the item if it's a duplicate lore. We have to do this because the client expects the item packet
-				sender->DeleteItemInInventory(EQ::invslot::slotCursor, 1, true);
-			}
+			if(cursordelete)	// delete the item if it's a duplicate lore. We have to do this because the client expects the item packet
+				sender->DeleteItemInInventory(EQ::invslot::slotCursor);
 
 			sender->DropItemQS(m_inst, true);
 
@@ -586,18 +556,8 @@ bool Object::HandleClick(Client* sender, const ClickObject_Struct* click_object)
 
 		// Remove object
 		content_db.DeleteObject(m_id);
-		if (!m_ground_spawn) {
-			entity_list.RemoveEntity(GetID());
-		}
-
-		// we have to delete the entity on click or the client desyncs
-		// this is a way to immediately respawn the groundspawn after killing it and
-		// deleting the item from the player
-		// I believe older clients somehow sent this automatically but we are no longer with ROF2+
-		if (duplicate_lore) {
-			sender->Message(Chat::Yellow, "Duplicate lore item detected");
-			respawn_timer.Trigger();
-		}
+		if(!m_ground_spawn)
+			entity_list.RemoveEntity(this->GetID());
 	} else {
 		// Tradeskill item
 		auto outapp = new EQApplicationPacket(OP_ClickObjectAction, sizeof(ClickObjectAction_Struct));
@@ -793,64 +753,64 @@ void ZoneDatabase::DeleteObject(uint32 id)
 
 uint32 Object::GetDBID()
 {
-	return m_id;
+	return this->m_id;
 }
 
 uint32 Object::GetType()
 {
-	return m_type;
+	return this->m_type;
 }
 
 void Object::SetType(uint32 type)
 {
-	m_type = type;
-	m_data.object_type = type;
+	this->m_type = type;
+	this->m_data.object_type = type;
 }
 
 uint32 Object::GetIcon()
 {
-	return m_icon;
+	return this->m_icon;
 }
 
 float Object::GetX()
 {
-	return m_data.x;
+	return this->m_data.x;
 }
 
 float Object::GetY()
 {
-	return m_data.y;
+	return this->m_data.y;
 }
 
 
 float Object::GetZ()
 {
-	return m_data.z;
+	return this->m_data.z;
 }
 
 float Object::GetHeadingData()
 {
-	return m_data.heading;
+	return this->m_data.heading;
 }
 
 float Object::GetTiltX()
 {
-	return m_data.tilt_x;
+	return this->m_data.tilt_x;
 }
 
 float Object::GetTiltY()
 {
-	return m_data.tilt_y;
+	return this->m_data.tilt_y;
 }
 
 void Object::SetX(float pos)
 {
-	m_data.x = pos;
+	this->m_data.x = pos;
 
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -859,12 +819,12 @@ void Object::SetX(float pos)
 
 void Object::SetY(float pos)
 {
-	m_data.y = pos;
+	this->m_data.y = pos;
 
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -873,12 +833,12 @@ void Object::SetY(float pos)
 
 void Object::SetTiltX(float pos)
 {
-	m_data.tilt_x = pos;
+	this->m_data.tilt_x = pos;
 
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -887,12 +847,12 @@ void Object::SetTiltX(float pos)
 
 void Object::SetTiltY(float pos)
 {
-	m_data.tilt_y = pos;
+	this->m_data.tilt_y = pos;
 
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -907,18 +867,18 @@ void Object::SetDisplayName(const char *in_name)
 void Object::Depop()
 {
 	auto app = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
+	this->CreateDeSpawnPacket(app);
 	entity_list.QueueClients(0, app);
 	safe_delete(app);
-	entity_list.RemoveObject(GetID());
+	entity_list.RemoveObject(this->GetID());
 }
 
 void Object::Repop()
 {
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -929,12 +889,12 @@ void Object::Repop()
 
 void Object::SetZ(float pos)
 {
-	m_data.z = pos;
+	this->m_data.z = pos;
 
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -946,8 +906,8 @@ void Object::SetModelName(const char* modelname)
 	strn0cpy(m_data.object_name, modelname, sizeof(m_data.object_name)); // 32 is the max for chars in object_name, this should be safe
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -959,8 +919,8 @@ void Object::SetSize(float size)
 	m_data.size = size;
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -972,8 +932,8 @@ void Object::SetSolidType(uint16 solidtype)
 	m_data.solidtype = solidtype;
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -992,22 +952,22 @@ uint16 Object::GetSolidType()
 
 const char* Object::GetModelName()
 {
-	return m_data.object_name;
+	return this->m_data.object_name;
 }
 
 void Object::SetIcon(uint32 icon)
 {
-	m_icon = icon;
+	this->m_icon = icon;
 }
 
 uint32 Object::GetItemID()
 {
-	if (m_inst == 0)
+	if (this->m_inst == 0)
 	{
 		return 0;
 	}
 
-	const EQ::ItemData* item = m_inst->GetItem();
+	const EQ::ItemData* item = this->m_inst->GetItem();
 
 	if (item == 0)
 	{
@@ -1019,11 +979,11 @@ uint32 Object::GetItemID()
 
 void Object::SetItemID(uint32 itemid)
 {
-	safe_delete(m_inst);
+	safe_delete(this->m_inst);
 
 	if (itemid)
 	{
-		m_inst = database.CreateItem(itemid);
+		this->m_inst = database.CreateItem(itemid);
 	}
 }
 
@@ -1031,7 +991,7 @@ void Object::GetObjectData(Object_Struct* Data)
 {
 	if (Data)
 	{
-		memcpy(Data, &m_data, sizeof(m_data));
+		memcpy(Data, &this->m_data, sizeof(this->m_data));
 	}
 }
 
@@ -1039,7 +999,7 @@ void Object::SetObjectData(Object_Struct* Data)
 {
 	if (Data)
 	{
-		memcpy(&m_data, Data, sizeof(m_data));
+		memcpy(&this->m_data, Data, sizeof(this->m_data));
 	}
 }
 
@@ -1047,29 +1007,29 @@ void Object::GetLocation(float* x, float* y, float* z)
 {
 	if (x)
 	{
-		*x = m_data.x;
+		*x = this->m_data.x;
 	}
 
 	if (y)
 	{
-		*y = m_data.y;
+		*y = this->m_data.y;
 	}
 
 	if (z)
 	{
-		*z = m_data.z;
+		*z = this->m_data.z;
 	}
 }
 
 void Object::SetLocation(float x, float y, float z)
 {
-	m_data.x = x;
-	m_data.y = y;
-	m_data.z = z;
+	this->m_data.x = x;
+	this->m_data.y = y;
+	this->m_data.z = z;
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
@@ -1080,95 +1040,51 @@ void Object::GetHeading(float* heading)
 {
 	if (heading)
 	{
-		*heading = m_data.heading;
+		*heading = this->m_data.heading;
 	}
 }
 
 void Object::SetHeading(float heading)
 {
-	m_data.heading = heading;
+	this->m_data.heading = heading;
 	auto app = new EQApplicationPacket();
 	auto app2 = new EQApplicationPacket();
-	CreateDeSpawnPacket(app);
-	CreateSpawnPacket(app2);
+	this->CreateDeSpawnPacket(app);
+	this->CreateSpawnPacket(app2);
 	entity_list.QueueClients(0, app);
 	entity_list.QueueClients(0, app2);
 	safe_delete(app);
 	safe_delete(app2);
 }
 
-bool Object::ClearEntityVariables()
+void Object::SetEntityVariable(const char *id, const char *m_var)
 {
-	if (o_EntityVariables.empty()) {
-		return false;
-	}
-
-	o_EntityVariables.clear();
-	return true;
+	std::string n_m_var = m_var;
+	o_EntityVariables[id] = n_m_var;
 }
 
-bool Object::DeleteEntityVariable(std::string variable_name)
+const char* Object::GetEntityVariable(const char *id)
 {
-	if (o_EntityVariables.empty() || variable_name.empty()) {
-		return false;
-	}
+	if(!id)
+		return nullptr;
 
-	auto v = o_EntityVariables.find(variable_name);
-	if (v == o_EntityVariables.end()) {
-		return false;
+	auto iter = o_EntityVariables.find(id);
+	if(iter != o_EntityVariables.end())
+	{
+		return iter->second.c_str();
 	}
-
-	o_EntityVariables.erase(v);
-	return true;
+	return nullptr;
 }
 
-std::string Object::GetEntityVariable(std::string variable_name)
+bool Object::EntityVariableExists(const char * id)
 {
-	if (o_EntityVariables.empty() || variable_name.empty()) {
-		return std::string();
-	}
-
-	const auto& v = o_EntityVariables.find(variable_name);
-	if (v != o_EntityVariables.end()) {
-		return v->second;
-	}
-
-	return std::string();
-}
-
-std::vector<std::string> Object::GetEntityVariables()
-{
-	std::vector<std::string> l;
-	if (o_EntityVariables.empty()) {
-		return l;
-	}
-
-	for (const auto& v : o_EntityVariables) {
-		l.push_back(v.first);
-	}
-
-	return l;
-}
-
-bool Object::EntityVariableExists(std::string variable_name)
-{
-	if (o_EntityVariables.empty() || variable_name.empty()) {
+	if(!id)
 		return false;
-	}
 
-	const auto& v = o_EntityVariables.find(variable_name);
-	if (v != o_EntityVariables.end()) {
+	auto iter = o_EntityVariables.find(id);
+	if(iter != o_EntityVariables.end())
+	{
 		return true;
 	}
-
 	return false;
-}
-
-void Object::SetEntityVariable(std::string variable_name, std::string variable_value)
-{
-	if (variable_name.empty()) {
-		return;
-	}
-
-	o_EntityVariables[variable_name] = variable_value;
 }

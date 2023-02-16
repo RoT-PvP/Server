@@ -46,13 +46,13 @@ public:
 	}
 
 	// Load the config
-	static bool LoadConfig(const std::string& path = "") {
+	static bool LoadConfig() {
 		if (_world_config != nullptr)
 			delete _world_config;
 		_world_config=new WorldConfig;
 		_config=_world_config;
 
-		return _config->parseFile(path);
+		return _config->parseFile();
 	}
 
 	// Accessors for the static private object

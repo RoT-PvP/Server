@@ -20,9 +20,7 @@
 
 #include "json/json.h"
 #include "linked_list.h"
-#include "path_manager.h"
 #include <fstream>
-#include <fmt/format.h>
 
 struct LoginConfig {
 	std::string LoginHost;
@@ -60,7 +58,6 @@ class EQEmuConfig
 		uint16 WorldHTTPPort;
 		std::string WorldHTTPMimeFile;
 		std::string SharedKey;
-		bool DisableConfigChecks;
 
 		// From <chatserver/>
 		std::string ChatHost;
@@ -133,7 +130,7 @@ class EQEmuConfig
 		void parse_config();
 
 		EQEmuConfig()
-		{
+		{			
 
 		}
 		virtual ~EQEmuConfig() {}
@@ -154,38 +151,30 @@ class EQEmuConfig
 		}
 
 		// Load the config
-		static bool LoadConfig(const std::string& path = "")
+		static bool LoadConfig()
 		{
 			if (_config != nullptr) {
 				return true;
 			}
 			_config = new EQEmuConfig;
 
-			return parseFile(path);
+			return parseFile();
 		}
 
 		// Load config file and parse data
-		static bool parseFile(const std::string& file_path = ".")
-		{
+		static bool parseFile() {
 			if (_config == nullptr) {
-				return LoadConfig(file_path);
+				return LoadConfig();
 			}
 
-			std::string file = fmt::format(
-				"{}/{}",
-				(file_path.empty() ? path.GetServerPath() : file_path),
-				EQEmuConfig::ConfigFile
-			);
-
-			std::ifstream fconfig(file, std::ifstream::binary);
-
+			std::ifstream fconfig(EQEmuConfig::ConfigFile, std::ifstream::binary);
 			try {
 				fconfig >> _config->_root;
 				_config->parse_config();
 			}
 			catch (std::exception &) {
 				return false;
-			}
+			}			
 			return true;
 		}
 

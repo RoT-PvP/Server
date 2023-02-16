@@ -13,14 +13,13 @@
 #define EQEMU_BASE_DB_STR_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseDbStrRepository {
 public:
 	struct DbStr {
-		int32_t     id;
-		int32_t     type;
+		int         id;
+		int         type;
 		std::string value;
 	};
 
@@ -38,23 +37,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"type",
-			"value",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -66,7 +51,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -82,16 +67,16 @@ public:
 
 	static DbStr NewEntity()
 	{
-		DbStr e{};
+		DbStr entry{};
 
-		e.id    = 0;
-		e.type  = 0;
-		e.value = "";
+		entry.id    = 0;
+		entry.type  = 0;
+		entry.value = "";
 
-		return e;
+		return entry;
 	}
 
-	static DbStr GetDbStr(
+	static DbStr GetDbStrEntry(
 		const std::vector<DbStr> &db_strs,
 		int db_str_id
 	)
@@ -120,13 +105,13 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			DbStr e{};
+			DbStr entry{};
 
-			e.id    = static_cast<int32_t>(atoi(row[0]));
-			e.type  = static_cast<int32_t>(atoi(row[1]));
-			e.value = row[2] ? row[2] : "";
+			entry.id    = atoi(row[0]);
+			entry.type  = atoi(row[1]);
+			entry.value = row[2] ? row[2] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -151,24 +136,24 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const DbStr &e
+		DbStr db_str_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.id));
-		v.push_back(columns[1] + " = " + std::to_string(e.type));
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.value) + "'");
+		update_values.push_back(columns[0] + " = " + std::to_string(db_str_entry.id));
+		update_values.push_back(columns[1] + " = " + std::to_string(db_str_entry.type));
+		update_values.push_back(columns[2] + " = '" + EscapeString(db_str_entry.value) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				db_str_entry.id
 			)
 		);
 
@@ -177,57 +162,57 @@ public:
 
 	static DbStr InsertOne(
 		Database& db,
-		DbStr e
+		DbStr db_str_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.type));
-		v.push_back("'" + Strings::Escape(e.value) + "'");
+		insert_values.push_back(std::to_string(db_str_entry.id));
+		insert_values.push_back(std::to_string(db_str_entry.type));
+		insert_values.push_back("'" + EscapeString(db_str_entry.value) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			db_str_entry.id = results.LastInsertedID();
+			return db_str_entry;
 		}
 
-		e = NewEntity();
+		db_str_entry = NewEntity();
 
-		return e;
+		return db_str_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<DbStr> &entries
+		std::vector<DbStr> db_str_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &db_str_entry: db_str_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.type));
-			v.push_back("'" + Strings::Escape(e.value) + "'");
+			insert_values.push_back(std::to_string(db_str_entry.id));
+			insert_values.push_back(std::to_string(db_str_entry.type));
+			insert_values.push_back("'" + EscapeString(db_str_entry.value) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -248,19 +233,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			DbStr e{};
+			DbStr entry{};
 
-			e.id    = static_cast<int32_t>(atoi(row[0]));
-			e.type  = static_cast<int32_t>(atoi(row[1]));
-			e.value = row[2] ? row[2] : "";
+			entry.id    = atoi(row[0]);
+			entry.type  = atoi(row[1]);
+			entry.value = row[2] ? row[2] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<DbStr> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<DbStr> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<DbStr> all_entries;
 
@@ -275,19 +260,19 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			DbStr e{};
+			DbStr entry{};
 
-			e.id    = static_cast<int32_t>(atoi(row[0]));
-			e.type  = static_cast<int32_t>(atoi(row[1]));
-			e.value = row[2] ? row[2] : "";
+			entry.id    = atoi(row[0]);
+			entry.type  = atoi(row[1]);
+			entry.value = row[2] ? row[2] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -310,32 +295,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

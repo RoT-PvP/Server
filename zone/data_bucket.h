@@ -18,6 +18,7 @@ public:
 	static std::string GetDataRemaining(std::string bucket_key);
 private:
 	static uint64 DoesBucketExist(std::string bucket_key);
+	static uint32 ParseStringTimeToInt(std::string time_string);
 };
 
 

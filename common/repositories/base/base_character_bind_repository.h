@@ -13,20 +13,19 @@
 #define EQEMU_BASE_CHARACTER_BIND_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharacterBindRepository {
 public:
 	struct CharacterBind {
-		uint32_t id;
-		int32_t  slot;
-		uint16_t zone_id;
-		uint32_t instance_id;
-		float    x;
-		float    y;
-		float    z;
-		float    heading;
+		int   id;
+		int   slot;
+		int   zone_id;
+		int   instance_id;
+		float x;
+		float y;
+		float z;
+		float heading;
 	};
 
 	static std::string PrimaryKey()
@@ -48,28 +47,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"id",
-			"slot",
-			"zone_id",
-			"instance_id",
-			"x",
-			"y",
-			"z",
-			"heading",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -81,7 +61,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -97,21 +77,21 @@ public:
 
 	static CharacterBind NewEntity()
 	{
-		CharacterBind e{};
+		CharacterBind entry{};
 
-		e.id          = 0;
-		e.slot        = 0;
-		e.zone_id     = 0;
-		e.instance_id = 0;
-		e.x           = 0;
-		e.y           = 0;
-		e.z           = 0;
-		e.heading     = 0;
+		entry.id          = 0;
+		entry.slot        = 0;
+		entry.zone_id     = 0;
+		entry.instance_id = 0;
+		entry.x           = 0;
+		entry.y           = 0;
+		entry.z           = 0;
+		entry.heading     = 0;
 
-		return e;
+		return entry;
 	}
 
-	static CharacterBind GetCharacterBind(
+	static CharacterBind GetCharacterBindEntry(
 		const std::vector<CharacterBind> &character_binds,
 		int character_bind_id
 	)
@@ -140,18 +120,18 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharacterBind e{};
+			CharacterBind entry{};
 
-			e.id          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.slot        = static_cast<int32_t>(atoi(row[1]));
-			e.zone_id     = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.instance_id = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.x           = strtof(row[4], nullptr);
-			e.y           = strtof(row[5], nullptr);
-			e.z           = strtof(row[6], nullptr);
-			e.heading     = strtof(row[7], nullptr);
+			entry.id          = atoi(row[0]);
+			entry.slot        = atoi(row[1]);
+			entry.zone_id     = atoi(row[2]);
+			entry.instance_id = atoi(row[3]);
+			entry.x           = static_cast<float>(atof(row[4]));
+			entry.y           = static_cast<float>(atof(row[5]));
+			entry.z           = static_cast<float>(atof(row[6]));
+			entry.heading     = static_cast<float>(atof(row[7]));
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -176,28 +156,28 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharacterBind &e
+		CharacterBind character_bind_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[1] + " = " + std::to_string(e.slot));
-		v.push_back(columns[2] + " = " + std::to_string(e.zone_id));
-		v.push_back(columns[3] + " = " + std::to_string(e.instance_id));
-		v.push_back(columns[4] + " = " + std::to_string(e.x));
-		v.push_back(columns[5] + " = " + std::to_string(e.y));
-		v.push_back(columns[6] + " = " + std::to_string(e.z));
-		v.push_back(columns[7] + " = " + std::to_string(e.heading));
+		update_values.push_back(columns[1] + " = " + std::to_string(character_bind_entry.slot));
+		update_values.push_back(columns[2] + " = " + std::to_string(character_bind_entry.zone_id));
+		update_values.push_back(columns[3] + " = " + std::to_string(character_bind_entry.instance_id));
+		update_values.push_back(columns[4] + " = " + std::to_string(character_bind_entry.x));
+		update_values.push_back(columns[5] + " = " + std::to_string(character_bind_entry.y));
+		update_values.push_back(columns[6] + " = " + std::to_string(character_bind_entry.z));
+		update_values.push_back(columns[7] + " = " + std::to_string(character_bind_entry.heading));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.id
+				character_bind_entry.id
 			)
 		);
 
@@ -206,67 +186,67 @@ public:
 
 	static CharacterBind InsertOne(
 		Database& db,
-		CharacterBind e
+		CharacterBind character_bind_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.id));
-		v.push_back(std::to_string(e.slot));
-		v.push_back(std::to_string(e.zone_id));
-		v.push_back(std::to_string(e.instance_id));
-		v.push_back(std::to_string(e.x));
-		v.push_back(std::to_string(e.y));
-		v.push_back(std::to_string(e.z));
-		v.push_back(std::to_string(e.heading));
+		insert_values.push_back(std::to_string(character_bind_entry.id));
+		insert_values.push_back(std::to_string(character_bind_entry.slot));
+		insert_values.push_back(std::to_string(character_bind_entry.zone_id));
+		insert_values.push_back(std::to_string(character_bind_entry.instance_id));
+		insert_values.push_back(std::to_string(character_bind_entry.x));
+		insert_values.push_back(std::to_string(character_bind_entry.y));
+		insert_values.push_back(std::to_string(character_bind_entry.z));
+		insert_values.push_back(std::to_string(character_bind_entry.heading));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.id = results.LastInsertedID();
-			return e;
+			character_bind_entry.id = results.LastInsertedID();
+			return character_bind_entry;
 		}
 
-		e = NewEntity();
+		character_bind_entry = NewEntity();
 
-		return e;
+		return character_bind_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharacterBind> &entries
+		std::vector<CharacterBind> character_bind_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &character_bind_entry: character_bind_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.id));
-			v.push_back(std::to_string(e.slot));
-			v.push_back(std::to_string(e.zone_id));
-			v.push_back(std::to_string(e.instance_id));
-			v.push_back(std::to_string(e.x));
-			v.push_back(std::to_string(e.y));
-			v.push_back(std::to_string(e.z));
-			v.push_back(std::to_string(e.heading));
+			insert_values.push_back(std::to_string(character_bind_entry.id));
+			insert_values.push_back(std::to_string(character_bind_entry.slot));
+			insert_values.push_back(std::to_string(character_bind_entry.zone_id));
+			insert_values.push_back(std::to_string(character_bind_entry.instance_id));
+			insert_values.push_back(std::to_string(character_bind_entry.x));
+			insert_values.push_back(std::to_string(character_bind_entry.y));
+			insert_values.push_back(std::to_string(character_bind_entry.z));
+			insert_values.push_back(std::to_string(character_bind_entry.heading));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -287,24 +267,24 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterBind e{};
+			CharacterBind entry{};
 
-			e.id          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.slot        = static_cast<int32_t>(atoi(row[1]));
-			e.zone_id     = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.instance_id = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.x           = strtof(row[4], nullptr);
-			e.y           = strtof(row[5], nullptr);
-			e.z           = strtof(row[6], nullptr);
-			e.heading     = strtof(row[7], nullptr);
+			entry.id          = atoi(row[0]);
+			entry.slot        = atoi(row[1]);
+			entry.zone_id     = atoi(row[2]);
+			entry.instance_id = atoi(row[3]);
+			entry.x           = static_cast<float>(atof(row[4]));
+			entry.y           = static_cast<float>(atof(row[5]));
+			entry.z           = static_cast<float>(atof(row[6]));
+			entry.heading     = static_cast<float>(atof(row[7]));
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharacterBind> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharacterBind> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharacterBind> all_entries;
 
@@ -319,24 +299,24 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterBind e{};
+			CharacterBind entry{};
 
-			e.id          = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.slot        = static_cast<int32_t>(atoi(row[1]));
-			e.zone_id     = static_cast<uint16_t>(strtoul(row[2], nullptr, 10));
-			e.instance_id = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.x           = strtof(row[4], nullptr);
-			e.y           = strtof(row[5], nullptr);
-			e.z           = strtof(row[6], nullptr);
-			e.heading     = strtof(row[7], nullptr);
+			entry.id          = atoi(row[0]);
+			entry.slot        = atoi(row[1]);
+			entry.zone_id     = atoi(row[2]);
+			entry.instance_id = atoi(row[3]);
+			entry.x           = static_cast<float>(atof(row[4]));
+			entry.y           = static_cast<float>(atof(row[5]));
+			entry.z           = static_cast<float>(atof(row[6]));
+			entry.heading     = static_cast<float>(atof(row[7]));
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -359,32 +339,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

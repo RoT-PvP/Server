@@ -21,13 +21,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "../common/misc_functions.h"
 #include "../common/packet_functions.h"
 #include "../common/md5.h"
-#include "../common/strings.h"
+#include "../common/string_util.h"
 #include "worldserver.h"
 #include "clientlist.h"
 #include "ucsconfig.h"
 #include "database.h"
-#include "../common/discord/discord_manager.h"
-#include "../common/events/player_event_logs.h"
 
 #include <iostream>
 #include <string.h>
@@ -37,11 +35,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdlib.h>
 #include <stdarg.h>
 
-extern WorldServer     worldserver;
-extern Clientlist      *g_Clientlist;
+extern WorldServer worldserver;
+extern Clientlist *g_Clientlist;
 extern const ucsconfig *Config;
-extern UCSDatabase       database;
-extern DiscordManager  discord_manager;
+extern Database database;
 
 void ProcessMailTo(Client *c, std::string from, std::string subject, std::string message);
 
@@ -73,32 +70,6 @@ void WorldServer::ProcessMessage(uint16 opcode, EQ::Net::Packet &p)
 	}
 	case ServerOP_KeepAlive:
 	{
-		break;
-	}
-	case ServerOP_ReloadLogs: {
-		LogSys.LoadLogDatabaseSettings();
-		player_event_logs.ReloadSettings();
-		break;
-	}
-	case ServerOP_PlayerEvent: {
-		auto n = PlayerEvent::PlayerEventContainer{};
-		auto s = (ServerSendPlayerEvent_Struct*) pack->pBuffer;
-		EQ::Util::MemoryStreamReader ss(s->cereal_data, s->cereal_size);
-		cereal::BinaryInputArchive archive(ss);
-		archive(n);
-
-		discord_manager.QueuePlayerEventMessage(n);
-
-		break;
-	}
-	case ServerOP_DiscordWebhookMessage: {
-		auto *q = (DiscordWebhookMessage_Struct *) p.Data();
-
-		discord_manager.QueueWebhookMessage(
-			q->webhook_id,
-			q->message
-		);
-
 		break;
 	}
 	case ServerOP_UCSMessage:
@@ -151,7 +122,7 @@ void WorldServer::ProcessMessage(uint16 opcode, EQ::Net::Packet &p)
 		}
 		else if (Message[0] == '[')
 		{
-			g_Clientlist->ProcessOPMailCommand(c, Message.substr(1, std::string::npos), true); // Flag as command_directed
+			g_Clientlist->ProcessOPMailCommand(c, Message.substr(1, std::string::npos));
 		}
 
 		break;
@@ -176,7 +147,7 @@ void Client45ToServerSayLink(std::string& serverSayLink, const std::string& clie
 		return;
 	}
 
-	auto segments = Strings::Split(clientSayLink, '\x12');
+	auto segments = SplitString(clientSayLink, '\x12');
 
 	for (size_t segment_iter = 0; segment_iter < segments.size(); ++segment_iter) {
 		if (segment_iter & 1) {
@@ -213,7 +184,7 @@ void Client50ToServerSayLink(std::string& serverSayLink, const std::string& clie
 		return;
 	}
 
-	auto segments = Strings::Split(clientSayLink, '\x12');
+	auto segments = SplitString(clientSayLink, '\x12');
 
 	for (size_t segment_iter = 0; segment_iter < segments.size(); ++segment_iter) {
 		if (segment_iter & 1) {
@@ -248,7 +219,7 @@ void Client55ToServerSayLink(std::string& serverSayLink, const std::string& clie
 		return;
 	}
 
-	auto segments = Strings::Split(clientSayLink, '\x12');
+	auto segments = SplitString(clientSayLink, '\x12');
 
 	for (size_t segment_iter = 0; segment_iter < segments.size(); ++segment_iter) {
 		if (segment_iter & 1) {

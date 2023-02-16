@@ -13,13 +13,12 @@
 #define EQEMU_BASE_SPELL_GLOBALS_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseSpellGlobalsRepository {
 public:
 	struct SpellGlobals {
-		int32_t     spellid;
+		int         spellid;
 		std::string spell_name;
 		std::string qglobal;
 		std::string value;
@@ -40,24 +39,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"spellid",
-			"spell_name",
-			"qglobal",
-			"value",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -69,7 +53,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -85,17 +69,17 @@ public:
 
 	static SpellGlobals NewEntity()
 	{
-		SpellGlobals e{};
+		SpellGlobals entry{};
 
-		e.spellid    = 0;
-		e.spell_name = "";
-		e.qglobal    = "";
-		e.value      = "";
+		entry.spellid    = 0;
+		entry.spell_name = "";
+		entry.qglobal    = "";
+		entry.value      = "";
 
-		return e;
+		return entry;
 	}
 
-	static SpellGlobals GetSpellGlobals(
+	static SpellGlobals GetSpellGlobalsEntry(
 		const std::vector<SpellGlobals> &spell_globalss,
 		int spell_globals_id
 	)
@@ -124,14 +108,14 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			SpellGlobals e{};
+			SpellGlobals entry{};
 
-			e.spellid    = static_cast<int32_t>(atoi(row[0]));
-			e.spell_name = row[1] ? row[1] : "";
-			e.qglobal    = row[2] ? row[2] : "";
-			e.value      = row[3] ? row[3] : "";
+			entry.spellid    = atoi(row[0]);
+			entry.spell_name = row[1] ? row[1] : "";
+			entry.qglobal    = row[2] ? row[2] : "";
+			entry.value      = row[3] ? row[3] : "";
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -156,25 +140,25 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const SpellGlobals &e
+		SpellGlobals spell_globals_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.spellid));
-		v.push_back(columns[1] + " = '" + Strings::Escape(e.spell_name) + "'");
-		v.push_back(columns[2] + " = '" + Strings::Escape(e.qglobal) + "'");
-		v.push_back(columns[3] + " = '" + Strings::Escape(e.value) + "'");
+		update_values.push_back(columns[0] + " = " + std::to_string(spell_globals_entry.spellid));
+		update_values.push_back(columns[1] + " = '" + EscapeString(spell_globals_entry.spell_name) + "'");
+		update_values.push_back(columns[2] + " = '" + EscapeString(spell_globals_entry.qglobal) + "'");
+		update_values.push_back(columns[3] + " = '" + EscapeString(spell_globals_entry.value) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.spellid
+				spell_globals_entry.spellid
 			)
 		);
 
@@ -183,59 +167,59 @@ public:
 
 	static SpellGlobals InsertOne(
 		Database& db,
-		SpellGlobals e
+		SpellGlobals spell_globals_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.spellid));
-		v.push_back("'" + Strings::Escape(e.spell_name) + "'");
-		v.push_back("'" + Strings::Escape(e.qglobal) + "'");
-		v.push_back("'" + Strings::Escape(e.value) + "'");
+		insert_values.push_back(std::to_string(spell_globals_entry.spellid));
+		insert_values.push_back("'" + EscapeString(spell_globals_entry.spell_name) + "'");
+		insert_values.push_back("'" + EscapeString(spell_globals_entry.qglobal) + "'");
+		insert_values.push_back("'" + EscapeString(spell_globals_entry.value) + "'");
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.spellid = results.LastInsertedID();
-			return e;
+			spell_globals_entry.spellid = results.LastInsertedID();
+			return spell_globals_entry;
 		}
 
-		e = NewEntity();
+		spell_globals_entry = NewEntity();
 
-		return e;
+		return spell_globals_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<SpellGlobals> &entries
+		std::vector<SpellGlobals> spell_globals_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &spell_globals_entry: spell_globals_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.spellid));
-			v.push_back("'" + Strings::Escape(e.spell_name) + "'");
-			v.push_back("'" + Strings::Escape(e.qglobal) + "'");
-			v.push_back("'" + Strings::Escape(e.value) + "'");
+			insert_values.push_back(std::to_string(spell_globals_entry.spellid));
+			insert_values.push_back("'" + EscapeString(spell_globals_entry.spell_name) + "'");
+			insert_values.push_back("'" + EscapeString(spell_globals_entry.qglobal) + "'");
+			insert_values.push_back("'" + EscapeString(spell_globals_entry.value) + "'");
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -256,20 +240,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			SpellGlobals e{};
+			SpellGlobals entry{};
 
-			e.spellid    = static_cast<int32_t>(atoi(row[0]));
-			e.spell_name = row[1] ? row[1] : "";
-			e.qglobal    = row[2] ? row[2] : "";
-			e.value      = row[3] ? row[3] : "";
+			entry.spellid    = atoi(row[0]);
+			entry.spell_name = row[1] ? row[1] : "";
+			entry.qglobal    = row[2] ? row[2] : "";
+			entry.value      = row[3] ? row[3] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<SpellGlobals> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<SpellGlobals> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<SpellGlobals> all_entries;
 
@@ -284,20 +268,20 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			SpellGlobals e{};
+			SpellGlobals entry{};
 
-			e.spellid    = static_cast<int32_t>(atoi(row[0]));
-			e.spell_name = row[1] ? row[1] : "";
-			e.qglobal    = row[2] ? row[2] : "";
-			e.value      = row[3] ? row[3] : "";
+			entry.spellid    = atoi(row[0]);
+			entry.spell_name = row[1] ? row[1] : "";
+			entry.qglobal    = row[2] ? row[2] : "";
+			entry.value      = row[3] ? row[3] : "";
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -320,32 +304,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

@@ -138,20 +138,20 @@ void Client::DoTributeUpdate() {
 			uint32 tid = m_pp.tributes[r].tribute;
 			if(tid == TRIBUTE_NONE) {
 				if (m_inv[EQ::invslot::TRIBUTE_BEGIN + r])
-					DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r);
+					DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r, 0, false);
 				continue;
 			}
 
 			if(tribute_list.count(tid) != 1) {
 				if (m_inv[EQ::invslot::TRIBUTE_BEGIN + r])
-					DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r);
+					DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r, 0, false);
 				continue;
 			}
 
 			//sanity check
 			if(m_pp.tributes[r].tier >= MAX_TRIBUTE_TIERS) {
 				if (m_inv[EQ::invslot::TRIBUTE_BEGIN + r])
-					DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r);
+					DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r, 0, false);
 				m_pp.tributes[r].tier = 0;
 				continue;
 			}
@@ -165,7 +165,7 @@ void Client::DoTributeUpdate() {
 			if(inst == nullptr)
 				continue;
 
-			PutItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r, *inst);
+			PutItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r, *inst, false);
 			SendItemPacket(EQ::invslot::TRIBUTE_BEGIN + r, inst, ItemPacketTributeItem);
 			safe_delete(inst);
 		}
@@ -173,7 +173,7 @@ void Client::DoTributeUpdate() {
 		//unequip tribute items...
 		for (r = 0; r < EQ::invtype::TRIBUTE_SIZE; r++) {
 			if (m_inv[EQ::invslot::TRIBUTE_BEGIN + r])
-				DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r);
+				DeleteItemInInventory(EQ::invslot::TRIBUTE_BEGIN + r, 0, false);
 		}
 	}
 	CalcBonuses();
@@ -247,6 +247,8 @@ int32 Client::TributeItem(uint32 slot, uint32 quantity) {
 	//figure out what its worth
 	int32 pts = inst->GetItem()->Favor;
 
+	pts = mod_tribute_item_value(pts, m_inv[slot]);
+
 	if(pts < 1) {
 		Message(Chat::Red, "This item is worthless for favor.");
 		return(0);
@@ -259,10 +261,10 @@ int32 Client::TributeItem(uint32 slot, uint32 quantity) {
 	if(inst->IsStackable()) {
 		if(inst->GetCharges() < (int32)quantity)	//dont have enough....
 			return(0);
-		DeleteItemInInventory(slot, quantity);
+		DeleteItemInInventory(slot, quantity, false);
 	} else {
 		quantity = 1;
-		DeleteItemInInventory(slot);
+		DeleteItemInInventory(slot, 0, false);
 	}
 
 	pts *= quantity;
@@ -401,8 +403,6 @@ bool ZoneDatabase::LoadTributes() {
 		tribute_list[id] = tributeData;
     }
 
-	LogInfo("Loaded [{}] tributes", Strings::Commify(results.RowCount()));
-
 	const std::string query2 = "SELECT tribute_id, level, cost, item_id FROM tribute_levels ORDER BY tribute_id, level";
 	results = QueryDatabase(query2);
 	if (!results.Success()) {
@@ -431,8 +431,6 @@ bool ZoneDatabase::LoadTributes() {
 		s.tribute_item_id = atoul(row[3]);
 		cur.tier_count++;
 	}
-
-	LogInfo("Loaded [{}] tribute levels", Strings::Commify(results.RowCount()));
 
 	return true;
 }

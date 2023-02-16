@@ -13,17 +13,16 @@
 #define EQEMU_BASE_CHARACTER_ACTIVITIES_REPOSITORY_H
 
 #include "../../database.h"
-#include "../../strings.h"
-#include <ctime>
+#include "../../string_util.h"
 
 class BaseCharacterActivitiesRepository {
 public:
 	struct CharacterActivities {
-		uint32_t charid;
-		uint32_t taskid;
-		uint32_t activityid;
-		uint32_t donecount;
-		int8_t   completed;
+		int charid;
+		int taskid;
+		int activityid;
+		int donecount;
+		int completed;
 	};
 
 	static std::string PrimaryKey()
@@ -42,25 +41,9 @@ public:
 		};
 	}
 
-	static std::vector<std::string> SelectColumns()
-	{
-		return {
-			"charid",
-			"taskid",
-			"activityid",
-			"donecount",
-			"completed",
-		};
-	}
-
 	static std::string ColumnsRaw()
 	{
-		return std::string(Strings::Implode(", ", Columns()));
-	}
-
-	static std::string SelectColumnsRaw()
-	{
-		return std::string(Strings::Implode(", ", SelectColumns()));
+		return std::string(implode(", ", Columns()));
 	}
 
 	static std::string TableName()
@@ -72,7 +55,7 @@ public:
 	{
 		return fmt::format(
 			"SELECT {} FROM {}",
-			SelectColumnsRaw(),
+			ColumnsRaw(),
 			TableName()
 		);
 	}
@@ -88,18 +71,18 @@ public:
 
 	static CharacterActivities NewEntity()
 	{
-		CharacterActivities e{};
+		CharacterActivities entry{};
 
-		e.charid     = 0;
-		e.taskid     = 0;
-		e.activityid = 0;
-		e.donecount  = 0;
-		e.completed  = 0;
+		entry.charid     = 0;
+		entry.taskid     = 0;
+		entry.activityid = 0;
+		entry.donecount  = 0;
+		entry.completed  = 0;
 
-		return e;
+		return entry;
 	}
 
-	static CharacterActivities GetCharacterActivities(
+	static CharacterActivities GetCharacterActivitiesEntry(
 		const std::vector<CharacterActivities> &character_activitiess,
 		int character_activities_id
 	)
@@ -128,15 +111,15 @@ public:
 
 		auto row = results.begin();
 		if (results.RowCount() == 1) {
-			CharacterActivities e{};
+			CharacterActivities entry{};
 
-			e.charid     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.taskid     = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.activityid = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.donecount  = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.completed  = static_cast<int8_t>(atoi(row[4]));
+			entry.charid     = atoi(row[0]);
+			entry.taskid     = atoi(row[1]);
+			entry.activityid = atoi(row[2]);
+			entry.donecount  = atoi(row[3]);
+			entry.completed  = atoi(row[4]);
 
-			return e;
+			return entry;
 		}
 
 		return NewEntity();
@@ -161,26 +144,26 @@ public:
 
 	static int UpdateOne(
 		Database& db,
-		const CharacterActivities &e
+		CharacterActivities character_activities_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> update_values;
 
 		auto columns = Columns();
 
-		v.push_back(columns[0] + " = " + std::to_string(e.charid));
-		v.push_back(columns[1] + " = " + std::to_string(e.taskid));
-		v.push_back(columns[2] + " = " + std::to_string(e.activityid));
-		v.push_back(columns[3] + " = " + std::to_string(e.donecount));
-		v.push_back(columns[4] + " = " + std::to_string(e.completed));
+		update_values.push_back(columns[0] + " = " + std::to_string(character_activities_entry.charid));
+		update_values.push_back(columns[1] + " = " + std::to_string(character_activities_entry.taskid));
+		update_values.push_back(columns[2] + " = " + std::to_string(character_activities_entry.activityid));
+		update_values.push_back(columns[3] + " = " + std::to_string(character_activities_entry.donecount));
+		update_values.push_back(columns[4] + " = " + std::to_string(character_activities_entry.completed));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"UPDATE {} SET {} WHERE {} = {}",
 				TableName(),
-				Strings::Implode(", ", v),
+				implode(", ", update_values),
 				PrimaryKey(),
-				e.charid
+				character_activities_entry.charid
 			)
 		);
 
@@ -189,61 +172,61 @@ public:
 
 	static CharacterActivities InsertOne(
 		Database& db,
-		CharacterActivities e
+		CharacterActivities character_activities_entry
 	)
 	{
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
-		v.push_back(std::to_string(e.charid));
-		v.push_back(std::to_string(e.taskid));
-		v.push_back(std::to_string(e.activityid));
-		v.push_back(std::to_string(e.donecount));
-		v.push_back(std::to_string(e.completed));
+		insert_values.push_back(std::to_string(character_activities_entry.charid));
+		insert_values.push_back(std::to_string(character_activities_entry.taskid));
+		insert_values.push_back(std::to_string(character_activities_entry.activityid));
+		insert_values.push_back(std::to_string(character_activities_entry.donecount));
+		insert_values.push_back(std::to_string(character_activities_entry.completed));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES ({})",
 				BaseInsert(),
-				Strings::Implode(",", v)
+				implode(",", insert_values)
 			)
 		);
 
 		if (results.Success()) {
-			e.charid = results.LastInsertedID();
-			return e;
+			character_activities_entry.charid = results.LastInsertedID();
+			return character_activities_entry;
 		}
 
-		e = NewEntity();
+		character_activities_entry = NewEntity();
 
-		return e;
+		return character_activities_entry;
 	}
 
 	static int InsertMany(
 		Database& db,
-		const std::vector<CharacterActivities> &entries
+		std::vector<CharacterActivities> character_activities_entries
 	)
 	{
 		std::vector<std::string> insert_chunks;
 
-		for (auto &e: entries) {
-			std::vector<std::string> v;
+		for (auto &character_activities_entry: character_activities_entries) {
+			std::vector<std::string> insert_values;
 
-			v.push_back(std::to_string(e.charid));
-			v.push_back(std::to_string(e.taskid));
-			v.push_back(std::to_string(e.activityid));
-			v.push_back(std::to_string(e.donecount));
-			v.push_back(std::to_string(e.completed));
+			insert_values.push_back(std::to_string(character_activities_entry.charid));
+			insert_values.push_back(std::to_string(character_activities_entry.taskid));
+			insert_values.push_back(std::to_string(character_activities_entry.activityid));
+			insert_values.push_back(std::to_string(character_activities_entry.donecount));
+			insert_values.push_back(std::to_string(character_activities_entry.completed));
 
-			insert_chunks.push_back("(" + Strings::Implode(",", v) + ")");
+			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
 
-		std::vector<std::string> v;
+		std::vector<std::string> insert_values;
 
 		auto results = db.QueryDatabase(
 			fmt::format(
 				"{} VALUES {}",
 				BaseInsert(),
-				Strings::Implode(",", insert_chunks)
+				implode(",", insert_chunks)
 			)
 		);
 
@@ -264,21 +247,21 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterActivities e{};
+			CharacterActivities entry{};
 
-			e.charid     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.taskid     = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.activityid = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.donecount  = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.completed  = static_cast<int8_t>(atoi(row[4]));
+			entry.charid     = atoi(row[0]);
+			entry.taskid     = atoi(row[1]);
+			entry.activityid = atoi(row[2]);
+			entry.donecount  = atoi(row[3]);
+			entry.completed  = atoi(row[4]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static std::vector<CharacterActivities> GetWhere(Database& db, const std::string &where_filter)
+	static std::vector<CharacterActivities> GetWhere(Database& db, std::string where_filter)
 	{
 		std::vector<CharacterActivities> all_entries;
 
@@ -293,21 +276,21 @@ public:
 		all_entries.reserve(results.RowCount());
 
 		for (auto row = results.begin(); row != results.end(); ++row) {
-			CharacterActivities e{};
+			CharacterActivities entry{};
 
-			e.charid     = static_cast<uint32_t>(strtoul(row[0], nullptr, 10));
-			e.taskid     = static_cast<uint32_t>(strtoul(row[1], nullptr, 10));
-			e.activityid = static_cast<uint32_t>(strtoul(row[2], nullptr, 10));
-			e.donecount  = static_cast<uint32_t>(strtoul(row[3], nullptr, 10));
-			e.completed  = static_cast<int8_t>(atoi(row[4]));
+			entry.charid     = atoi(row[0]);
+			entry.taskid     = atoi(row[1]);
+			entry.activityid = atoi(row[2]);
+			entry.donecount  = atoi(row[3]);
+			entry.completed  = atoi(row[4]);
 
-			all_entries.push_back(e);
+			all_entries.push_back(entry);
 		}
 
 		return all_entries;
 	}
 
-	static int DeleteWhere(Database& db, const std::string &where_filter)
+	static int DeleteWhere(Database& db, std::string where_filter)
 	{
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -330,32 +313,6 @@ public:
 		);
 
 		return (results.Success() ? results.RowsAffected() : 0);
-	}
-
-	static int64 GetMaxId(Database& db)
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COALESCE(MAX({}), 0) FROM {}",
-				PrimaryKey(),
-				TableName()
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
-	}
-
-	static int64 Count(Database& db, const std::string &where_filter = "")
-	{
-		auto results = db.QueryDatabase(
-			fmt::format(
-				"SELECT COUNT(*) FROM {} {}",
-				TableName(),
-				(where_filter.empty() ? "" : "WHERE " + where_filter)
-			)
-		);
-
-		return (results.Success() && results.begin()[0] ? strtoll(results.begin()[0], nullptr, 10) : 0);
 	}
 
 };

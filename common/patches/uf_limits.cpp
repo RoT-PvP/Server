@@ -1,5 +1,5 @@
 /*	EQEMu: Everquest Server Emulator
-
+	
 	Copyright (C) 2001-2016 EQEMu Development Team (http://eqemulator.net)
 
 	This program is free software; you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 
 #include "uf_limits.h"
 
-#include "../strings.h"
+#include "../string_util.h"
 
 
 int16 UF::invtype::GetInvTypeSize(int16 inv_type)

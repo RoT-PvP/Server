@@ -22,7 +22,6 @@
 
 #include <string>
 #include <list>
-#include <fmt/format.h>
 
 
 class DBcore;
@@ -35,12 +34,13 @@ namespace EQ
 		static bool UpdateProfanityList(DBcore *db);
 		static bool DeleteProfanityList(DBcore *db);
 
-		static bool AddProfanity(DBcore *db, std::string profanity);
-		static bool RemoveProfanity(DBcore *db, std::string profanity);
+		static bool AddProfanity(DBcore *db, const char *profanity);
+		static bool RemoveProfanity(DBcore *db, const char *profanity);
 		
 		static void RedactMessage(char *message);
 		static void RedactMessage(std::string &message);
 
+		static bool ContainsCensoredLanguage(const char *message);
 		static bool ContainsCensoredLanguage(const std::string &message);
 
 		static const std::list<std::string> &GetProfanityList();
@@ -53,7 +53,7 @@ namespace EQ
 	private:
 		static bool load_database_entries(DBcore *db);
 		static bool clear_database_entries(DBcore *db);
-		static bool check_for_existing_entry(std::string profanity);
+		static bool check_for_existing_entry(const char *profanity);
 		
 	};
 
